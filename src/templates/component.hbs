@@ -1,0 +1,17 @@
+'use client'
+import React from 'react'
+import { use{{pascalCase name}}Store } from '../stores/{{camelCase name}}Store'
+
+export const {{pascalCase name}}: React.FC = () => {
+  const { loading, error, execute } = use{{pascalCase name}}Store()
+
+  return (
+    <div className="p-4 border rounded-xl">
+      <button onClick={() => execute()} disabled={loading}>
+        Run {{pascalCase name}}
+      </button>
+      {loading && <p>Loading...</p>}
+      {error && <p className="text-red-500">{error}</p>}
+    </div>
+  )
+}

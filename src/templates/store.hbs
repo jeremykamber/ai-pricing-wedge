@@ -1,0 +1,25 @@
+import { create } from 'zustand'
+import { {{pascalCase name}}UseCase } from '../../application/usecases/{{pascalCase name}}UseCase'
+
+const {{camelCase name}}UseCase = new {{pascalCase name}}UseCase()
+
+interface {{pascalCase name}}State {
+  loading: boolean
+  error: string | null
+  execute: () => Promise<void>
+}
+
+export const use{{pascalCase name}}Store = create<{{pascalCase name}}State>((set) => ({
+  loading: false,
+  error: null,
+  execute: async () => {
+    set({ loading: true, error: null })
+    try {
+      await {{camelCase name}}UseCase.execute()
+    } catch (err) {
+      set({ error: (err as Error).message })
+    } finally {
+      set({ loading: false })
+    }
+  },
+}))

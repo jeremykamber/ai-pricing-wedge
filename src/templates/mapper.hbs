@@ -1,0 +1,36 @@
+// Mapper for {{pascalCase name}}
+import { {{pascalCase name}} } from '../../domain/entities/{{pascalCase name}}'
+// Uncomment if using DTO:
+// import { {{pascalCase name}}DTO } from '../../domain/dtos/{{pascalCase name}}DTO'
+
+// Example: DB record to entity
+export function dbTo{{pascalCase name}}(db: any): {{pascalCase name}} {
+  return {
+    id: db.id,
+    // ...map other fields
+  }
+}
+
+// Example: entity to DB record
+export function {{camelCase name}}ToDb(entity: {{pascalCase name}}): any {
+  return {
+    id: entity.id,
+    // ...map other fields
+  }
+}
+
+// Example: entity to DTO (uncomment if using DTO)
+// export function {{camelCase name}}ToDTO(entity: {{pascalCase name}}): {{pascalCase name}}DTO {
+//   return {
+//     id: entity.id,
+//     // ...map other fields
+//   }
+// }
+
+// Example: DTO to entity (uncomment if using DTO)
+// export function dtoTo{{pascalCase name}}(dto: {{pascalCase name}}DTO): {{pascalCase name}} {
+//   return {
+//     id: dto.id,
+//     // ...map other fields
+//   }
+// }
