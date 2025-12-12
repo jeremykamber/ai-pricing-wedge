@@ -7,7 +7,14 @@ import { Persona } from '../../domain/entities/Persona'
 export function dbToPersona(db: any): Persona {
   return {
     id: db.id,
-    // ...map other fields
+    name: db.name,
+    age: db.age,
+    occupation: db.occupation,
+    educationLevel: db.educationLevel,
+    interests: db.interests || [],
+    goals: db.goals || [],
+    personalityTraits: db.personalityTraits || [],
+    backstory: db.backstory,
   }
 }
 
@@ -15,7 +22,14 @@ export function dbToPersona(db: any): Persona {
 export function personaToDb(entity: Persona): any {
   return {
     id: entity.id,
-    // ...map other fields
+    name: entity.name,
+    age: entity.age,
+    occupation: entity.occupation,
+    educationLevel: entity.educationLevel,
+    interests: entity.interests,
+    goals: entity.goals,
+    personalityTraits: entity.personalityTraits,
+    backstory: entity.backstory,
   }
 }
 
