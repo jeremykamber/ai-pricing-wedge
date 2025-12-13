@@ -10,3 +10,4 @@ out
 .env
 bun.lockb
 coverage
+deep_binding_of_llm_virtual_personas.*
