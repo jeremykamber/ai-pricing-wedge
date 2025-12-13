@@ -177,7 +177,7 @@ This should feel like a real person's actual life story—messy, detailed, with 
 Return plain text only. No labels, no markdown, no metadata. NO SUMMARIES OR HEADERS.`;
 
         // PART 1: Early background and financial formation
-        const part1 = await this.createChatCompletion([
+        const part1Promise = this.createChatCompletion([
             { role: "system", content: system },
             {
                 role: "user",
@@ -189,50 +189,46 @@ Start the life story from the beginning. Write in first person, as if they're te
             },
         ]);
 
-        // PART 2: Career and financial journey
-        const part2 = await this.createChatCompletion([
-            { role: "system", content: system },
-            {
-                role: "user",
-                content: `Continue building this persona's backstory. The first part was:
+        const part1 = await part1Promise;
+
+        // PART 2, 3, 4: Parallelize generation after part1 is available
+        const [part2, part3, part4] = await Promise.all([
+            // PART 2: Career and financial journey
+            this.createChatCompletion([
+                { role: "system", content: system },
+                {
+                    role: "user",
+                    content: `Continue building this persona's backstory. The first part was:
 
 ${part1}
 
 Now write 2-3 paragraphs about their career progression, job changes, financial wins and failures. Include specific companies, roles, and amounts of money. Show how each experience shaped their current approach to spending and evaluating tools.`,
-            },
-        ]);
-
-        // PART 3: Recent history and current situation
-        const part3 = await this.createChatCompletion([
-            { role: "system", content: system },
-            {
-                role: "user",
-                content: `Continue this persona's backstory. So far we have:
+                },
+            ]),
+            // PART 3: Recent history and current situation
+            this.createChatCompletion([
+                { role: "system", content: system },
+                {
+                    role: "user",
+                    content: `Continue this persona's backstory. The first part was:
 
 ${part1}
-
-${part2}
 
 Now write 2-3 paragraphs about recent years, major life events, and their current situation. Include:
 - Specific purchasing decisions they made (both good and bad)
 - How much they spend on tools/services monthly
 - What changed their mind about spending money
 - Current financial pressures and opportunities`,
-            },
-        ]);
-
-        // PART 4: Values, decision-making, and close
-        const part4 = await this.createChatCompletion([
-            { role: "system", content: system },
-            {
-                role: "user",
-                content: `Finish this persona's backstory. So far we have:
+                },
+            ]),
+            // PART 4: Values, decision-making, and close
+            this.createChatCompletion([
+                { role: "system", content: system },
+                {
+                    role: "user",
+                    content: `Finish this persona's backstory. The first part was:
 
 ${part1}
-
-${part2}
-
-${part3}
 
 Now write 2-3 final paragraphs that:
 - Articulate their core values around money, efficiency, and risk
@@ -240,7 +236,8 @@ Now write 2-3 final paragraphs that:
 - Describe their communication style and decision-making pace
 - Tie back to earlier parts of their story (e.g., "After spending $50K on a failed tool in 2019, I now...")
 - End with their current mindset and priorities`,
-            },
+                },
+            ]),
         ]);
 
         // Combine all parts into one cohesive narrative
