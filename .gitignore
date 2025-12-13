@@ -4,11 +4,10 @@
 # typescript
 *.tsbuildinfo
 next-env.d.ts
-=======
 node_modules
 .next
 out
 .env
 bun.lockb
 coverage
->>>>>>> 591c717 (chore: init project)
+deep_binding_of_llm_virtual_personas.*
