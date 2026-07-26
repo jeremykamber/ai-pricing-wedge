@@ -54,7 +54,7 @@ export function PersonaDetailModal({
         <span className="text-sm font-bold font-mono">{value}</span>
       </div>
       <Progress value={value} className="h-1.5" />
-      <div className="flex justify-between text-[10px] text-muted-foreground/60 font-medium">
+      <div className="flex justify-between text-xs text-muted-foreground/60 font-medium">
         <span>{leftLabel}</span>
         <span>{rightLabel}</span>
       </div>
@@ -136,14 +136,14 @@ export function PersonaDetailModal({
                   className="flex flex-col h-[400px] p-5 md:p-6 rounded-lg bg-card border border-border overflow-hidden transition-colors duration-150 hover:border-border"
                 >
                   <div className="flex items-center justify-between mb-6">
-                    <h4 className="text-[10px] md:text-xs font-bold text-muted-foreground uppercase tracking-widest">THE BACKSTORY VAULT</h4>
+                    <h4 className="text-xs md:text-sm font-bold text-muted-foreground uppercase tracking-widest">THE BACKSTORY VAULT</h4>
                     <div className="relative">
                       <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3 h-3 text-muted-foreground/50" />
                       <Input
                         placeholder="Search backstory..."
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
-                        className="h-8 w-32 md:w-36 text-[10px] md:text-xs pl-8 rounded-md bg-muted/30 border-none transition-all focus:ring-1 focus:ring-primary/20"
+                        className="h-8 w-32 md:w-36 text-xs md:text-sm pl-8 rounded-md bg-muted/30 border-none transition-all focus:ring-1 focus:ring-primary/20"
                       />
                     </div>
                   </div>
@@ -156,7 +156,7 @@ export function PersonaDetailModal({
                           <p
                             key={`${persona.id}-para-${i}`}
                             className={cn(
-                              "text-xs md:text-[13px] leading-relaxed text-foreground/80 transition-colors duration-300",
+                              "text-sm md:text-base leading-relaxed text-foreground/80 transition-colors duration-300",
                               isMatch ? "bg-primary/10 rounded-lg p-2 text-foreground font-medium ring-1 ring-primary/20" : ""
                             )}
                           >
@@ -173,7 +173,7 @@ export function PersonaDetailModal({
                   variants={itemVariants}
                   className="p-5 md:p-6 rounded-lg bg-card border border-border flex flex-col gap-6 transition-colors duration-150 hover:border-border"
                 >
-                  <h4 className="text-[10px] md:text-xs font-bold text-muted-foreground uppercase tracking-widest mb-2">GOALS</h4>
+                  <h4 className="text-xs md:text-sm font-bold text-muted-foreground uppercase tracking-widest mb-2">GOALS</h4>
                   <ul className="space-y-3">
                     {persona.goals.map((goal, i) => (
                       <li key={`${persona.id}-goal-${i}`} className="text-xs md:text-sm flex gap-2 leading-relaxed">
@@ -192,10 +192,10 @@ export function PersonaDetailModal({
                   variants={itemVariants}
                   className="p-5 md:p-6 rounded-lg bg-card border border-border flex flex-col gap-8 h-full transition-colors duration-150 hover:border-border"
                 >
-                  <h4 className="text-[10px] md:text-xs font-bold text-muted-foreground uppercase tracking-widest">THE ENGINE</h4>
+                  <h4 className="text-xs md:text-sm font-bold text-muted-foreground uppercase tracking-widest">THE ENGINE</h4>
 
                   <div className="space-y-5">
-                    <h4 className="text-[9px] md:text-[10px] font-bold text-muted-foreground uppercase tracking-[0.2em] mb-2">Big Five (OCEAN) — Joshi et al. (2025)</h4>
+                    <h4 className="text-[11px] md:text-xs font-bold text-muted-foreground uppercase tracking-[0.2em] mb-2">Big Five (OCEAN) — Joshi et al. (2025)</h4>
                     <div className="space-y-5">
                       {renderScalar("Conscientiousness", persona.conscientiousness, "Chaotic", "Meticulous")}
                       {renderScalar("Neuroticism", persona.neuroticism, "Stable", "Anxious")}
@@ -211,11 +211,11 @@ export function PersonaDetailModal({
                   variants={itemVariants}
                   className="p-5 md:p-6 rounded-lg bg-card border border-border transition-colors duration-150 hover:border-border"
                 >
-                  <h4 className="text-[10px] md:text-xs font-bold text-muted-foreground uppercase tracking-widest mb-4">PSYCHOGRAPHIC SPECIFICATION</h4>
+                  <h4 className="text-xs md:text-sm font-bold text-muted-foreground uppercase tracking-widest mb-4">PSYCHOGRAPHIC SPECIFICATION</h4>
                   <div className="flex flex-col gap-5">
                     {persona.values && persona.values.length > 0 && (
                       <div className="flex flex-col gap-2">
-                        <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Values</span>
+                        <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Values</span>
                         <div className="flex flex-wrap gap-1.5">
                           {persona.values.map((v, i) => (
                             <span key={i} className="text-xs font-medium bg-primary/10 text-primary px-2.5 py-1 rounded-sm">{v}</span>
@@ -225,7 +225,7 @@ export function PersonaDetailModal({
                     )}
                     {persona.fears && persona.fears.length > 0 && (
                       <div className="flex flex-col gap-2">
-                        <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Fears</span>
+                        <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Fears</span>
                         <ul className="space-y-1.5">
                           {persona.fears.map((f, i) => (
                             <li key={i} className="text-xs md:text-sm flex gap-2 leading-relaxed text-foreground/80">
@@ -238,13 +238,13 @@ export function PersonaDetailModal({
                     )}
                     {persona.communicationStyle && (
                       <div className="flex items-center justify-between py-2 border-t border-border/20">
-                        <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Communication</span>
+                        <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Communication</span>
                         <span className="text-xs md:text-sm font-medium capitalize">{persona.communicationStyle}</span>
                       </div>
                     )}
                     {persona.decisionStyle && (
                       <div className="flex items-center justify-between py-2 border-t border-border/20">
-                        <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Decision Style</span>
+                        <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Decision Style</span>
                         <span className="text-xs md:text-sm font-medium capitalize">{persona.decisionStyle}</span>
                       </div>
                     )}

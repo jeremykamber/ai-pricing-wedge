@@ -451,11 +451,11 @@ export class LlmServiceImpl implements LlmServicePort {
     return this.personaAdapter.inferTraitsFromBackstory(backstory);
   }
 
-  async rationalizePersonas(personas: Persona[]): Promise<Persona[]> {
+  async rationalizePersonas(personas: Persona[], contextNotes?: string): Promise<Persona[]> {
     const enhancer = new PsychographicRationalizer(this);
     const enhanced = await Promise.allSettled(
       personas.map(async (persona) => {
-        const pbjText = await enhancer.rationalizeBackstory(persona);
+        const pbjText = await enhancer.rationalizeBackstory(persona, contextNotes);
         if (pbjText) {
           persona.backstory = (persona.backstory ?? "") + pbjText;
         }

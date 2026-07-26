@@ -157,6 +157,7 @@ export class GeneratePersonasFromInterviewsUseCase {
                 });
             } : undefined,
             targetCount,
+            combinedDescription,
         );
 
         // Phase 6: Ingest — store backstory and interview chunks in ID-RAG store

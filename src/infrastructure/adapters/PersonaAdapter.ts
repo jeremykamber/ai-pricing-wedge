@@ -273,18 +273,22 @@ Return ONLY valid JSON.`;
     const personaText = typeof personaOrDescription === "string" ? personaOrDescription : JSON.stringify(personaOrDescription);
 
     const system = `You are a narrative psychologist conducting a deep interview to build a comprehensive life story of a buyer persona.
-Your task: Build a RICH, LENGTHY, INTERNALLY CONSISTENT interview-style backstory (8000+ tokens) that reveals:
-1. Childhood and family influences on their relationship with money
-2. Educational background and early career lessons
-3. Detailed financial journey: wins, failures, lessons learned
-4. Past purchasing decisions and how they shaped them
-5. Major life events that changed their worldview
-6. Current economic pressures and opportunities
-7. How they evaluate ROI on tools and services
-8. Specific examples of successful and failed purchases
-9. Values around efficiency, risk, and spending
-10. Communication style and decision-making pace
-11. Design Taste: Their preferred aesthetic (Minimalist, Brutalist, etc.) and a description of their living/working environment (Is it messy? Hyper-organized? Sterile? Cozy?). Describe how this environment reflects their personality scalars.
+Your task: Build a RICH, LENGTHY, INTERNALLY CONSISTENT interview-style backstory (8000+ tokens).
+
+VARY THE NARRATIVE ARC: Do NOT follow a fixed chronological outline. Each persona's story should feel like a different kind of interview — some start with a childhood memory, others with a recent failure, others with a heated opinion about a tool. The structure should feel organic and surprising.
+
+Elements to weave in (pick what fits, vary the emphasis across personas):
+- Childhood and family influences on their relationship with money
+- Educational background and early career lessons
+- Detailed financial journey: wins, failures, lessons learned
+- Past purchasing decisions and how they shaped them
+- Major life events that changed their worldview
+- Current economic pressures and opportunities
+- How they evaluate ROI on tools and services
+- Specific examples of successful and failed purchases
+- Values around efficiency, risk, and spending
+- Communication style and decision-making pace
+- Design aesthetic and living/working environment (optional — only where it illuminates character)
 
 CRITICAL REQUIREMENTS (Deep Binding research):
 - Write 8-12 substantial paragraphs, each 150-250 words
@@ -488,8 +492,11 @@ Start the life story from the beginning. Write in first person. Be specific with
   async generateAbbreviatedBackstoriesBatch(personas: Persona[]): Promise<string[]> {
     const system = `You are a narrative psychologist building concise but RICH life stories for buyer personas.
 For each persona, write a 3-5 paragraph backstory in first person, blunt language.
+
+VARY THE NARRATIVE STRUCTURE across personas — do NOT repeat the same outline. Each persona's story should feel like a different type of narrative. Some might start with childhood, others with a career failure, others with their current frustrations. Make every backstory structurally distinct.
+
 Include specific roles, names, dollar amounts, and anchor to their personality scalars.
-Describe their living/office environment and design aesthetic.
+Living/office environment details are optional — only include when they reveal personality.
 
 Return a JSON array of strings, one backstory per persona.`;
     
@@ -659,16 +666,21 @@ Return ONLY valid JSON array without explanatory text or markdown code blocks.`;
 
   private getAbbreviatedBackstorySystemPrompt(): string {
     return `You are a narrative psychologist building a concise but RICH life story of a buyer persona.
-Build a 3-5 paragraph "Mini-Biography" (approx 800-1200 tokens) that covers:
-1. Childhood and family influences on money and risk.
-2. Career journey and a specific "Purchasing Trauma" (a bad deal or lost money).
-3. Current worldview, ROI evaluation style, and design taste.
+Build a 3-5 paragraph "Mini-Biography" (approx 800-1200 tokens).
+
+VARY THE NARRATIVE STRUCTURE: Do NOT follow a fixed outline. Choose a different narrative approach for each persona — sometimes start with childhood, sometimes with the purchasing trauma, sometimes with a career pivot, sometimes with their current worldview. The structure should feel organic, not templated.
+
+ELEMENTS TO WEAVE IN (in any order, skip some if they don't fit):
+- Key life experiences that shaped their relationship with money and risk
+- Career journey with specific roles and decisions
+- A specific "Purchasing Trauma" (a bad deal or lost money)
+- Current worldview, ROI evaluation style
+- Living/office environment and design aesthetic (optional — only include when it reveals something about their personality)
 
 CONCISE REQUIREMENTS:
 - Speak in FIRST PERSON. Natural, blunt language.
 - SPECIFICITY: Mention real roles, names, and dollar amounts.
 - PSYCHOLOGICAL BINDING: Anchor their story to their scalars (Neuroticism, Conscientiousness, Cognitive Reflex).
-- DESIGN DNA: Briefly describe their living/office environment and design aesthetic.
 
 Return plain text only. No headers, labels, or markdown.`;
   }

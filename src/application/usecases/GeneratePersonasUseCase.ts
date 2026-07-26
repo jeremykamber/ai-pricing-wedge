@@ -28,7 +28,8 @@ export class GeneratePersonasUseCase {
     async execute(
         personaDescription: string,
         onProgress?: (progress: PersonaGenerationProgress) => void,
-        count?: number
+        count?: number,
+        contextNotes?: string
     ): Promise<Persona[]> {
         console.log("Executing GeneratePersonas use case");
 
@@ -122,7 +123,7 @@ export class GeneratePersonasUseCase {
             streamingText: `Phase 3 of 4: Connecting traits to behavior...`,
         });
 
-        personas = await this.llmService.rationalizePersonas(personas);
+        personas = await this.llmService.rationalizePersonas(personas, contextNotes);
         console.log("[GeneratePersonasUseCase] PB&J enhancement complete for all personas");
 
         return personas;

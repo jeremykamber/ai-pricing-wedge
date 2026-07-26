@@ -249,8 +249,9 @@ export interface LlmServicePort {
      * Replaces enhancePersonasWithPbj — generates causal rationales
      * connecting Big Five profiles to values, fears, and decision styles.
      * @param personas - The personas to rationalize.
+     * @param contextNotes - Optional interview/source context to ground rationales in actual evidence.
      */
-    rationalizePersonas(personas: Persona[]): Promise<Persona[]>;
+    rationalizePersonas(personas: Persona[], contextNotes?: string): Promise<Persona[]>;
 
     /**
      * Generates persona variations based on a reference persona and adjusted traits.

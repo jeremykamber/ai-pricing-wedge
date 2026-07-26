@@ -66,7 +66,7 @@ export function PersonaProfilePanel({ persona, onChatClick, onCreateVariant, onD
             {persona.variantOf && (
               <div className="flex items-center gap-1.5 mt-1">
                 <GitForkIcon className="w-3 h-3 text-muted-foreground/60 shrink-0" />
-                <span className="text-[10px] font-medium text-muted-foreground/70 truncate">
+                <span className="text-xs font-medium text-muted-foreground/70 truncate">
                   Variant of {persona.variantOf.name}
                 </span>
               </div>
@@ -81,13 +81,13 @@ export function PersonaProfilePanel({ persona, onChatClick, onCreateVariant, onD
             {/* Big Five: show the two most distinctive traits */}
             <div className="flex flex-col gap-1.5">
               <div className="flex justify-between items-end">
-                <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Conscientiousness</span>
+                <span className="text-xs font-bold text-muted-foreground uppercase tracking-widest">Conscientiousness</span>
                 <span className="text-xs font-bold font-variant-numeric tabular-nums">{persona.conscientiousness}%</span>
               </div>
               <div className="h-1.5 w-full bg-muted rounded-sm overflow-hidden">
                 <div className="h-full bg-primary rounded-sm" style={{ width: `${persona.conscientiousness}%` }} />
               </div>
-              <div className="flex justify-between text-[9px] text-muted-foreground/60 font-medium uppercase">
+              <div className="flex justify-between text-[11px] text-muted-foreground/60 font-medium uppercase">
                 <span>Chaotic</span>
                 <span>Meticulous</span>
               </div>
@@ -95,13 +95,13 @@ export function PersonaProfilePanel({ persona, onChatClick, onCreateVariant, onD
 
             <div className="flex flex-col gap-1.5">
               <div className="flex justify-between items-end">
-                <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Neuroticism</span>
+                <span className="text-xs font-bold text-muted-foreground uppercase tracking-widest">Neuroticism</span>
                 <span className="text-xs font-bold font-variant-numeric tabular-nums">{persona.neuroticism}%</span>
               </div>
               <div className="h-1.5 w-full bg-muted rounded-sm overflow-hidden">
                 <div className="h-full bg-primary rounded-sm" style={{ width: `${persona.neuroticism}%` }} />
               </div>
-              <div className="flex justify-between text-[9px] text-muted-foreground/60 font-medium uppercase">
+              <div className="flex justify-between text-[11px] text-muted-foreground/60 font-medium uppercase">
                 <span>Stable</span>
                 <span>Anxious</span>
               </div>
@@ -110,15 +110,15 @@ export function PersonaProfilePanel({ persona, onChatClick, onCreateVariant, onD
             {/* Psychographic snapshot */}
             <div className="flex flex-wrap gap-1.5 mt-2">
               {persona.values?.slice(0, 2).map((v, i) => (
-                <span key={i} className="text-[9px] font-medium text-primary/80 bg-primary/10 px-2 py-0.5 rounded-sm truncate max-w-[100px]">
+                <span key={i} className="text-[11px] font-medium text-primary/80 bg-primary/10 px-2 py-0.5 rounded-sm truncate max-w-[100px]">
                   {v}
                 </span>
               ))}
             </div>
             {persona.decisionStyle && (
               <div className="flex items-center gap-1.5">
-                <span className="text-[9px] font-medium text-muted-foreground uppercase tracking-wider">Decides:</span>
-                <span className="text-[10px] font-semibold text-foreground/80 truncate">{persona.decisionStyle}</span>
+                <span className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">Decides:</span>
+                <span className="text-xs font-semibold text-foreground/80 truncate">{persona.decisionStyle}</span>
               </div>
             )}
           </div>

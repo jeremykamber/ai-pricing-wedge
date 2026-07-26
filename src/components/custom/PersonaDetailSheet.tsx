@@ -175,7 +175,7 @@ export function PersonaDetailSheet({
                 <span className="text-sm font-bold font-mono">{value}</span>
             </div>
             <Progress value={value} className="h-1.5" />
-            <div className="flex justify-between text-[10px] text-muted-foreground/60 font-medium">
+            <div className="flex justify-between text-xs text-muted-foreground/60 font-medium">
                 <span>{leftLabel}</span>
                 <span>{rightLabel}</span>
             </div>
@@ -332,7 +332,7 @@ export function PersonaDetailSheet({
 
                                 {/* Backstory */}
                                 <div className="flex flex-col gap-3">
-                                    <h4 className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">THE BACKSTORY VAULT</h4>
+                                    <h4 className="text-xs font-bold text-muted-foreground uppercase tracking-widest">THE BACKSTORY VAULT</h4>
                                     <div className="relative">
                                         <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3 h-3 text-muted-foreground/50" />
                                         <Input
@@ -347,7 +347,7 @@ export function PersonaDetailSheet({
                                             <p
                                                 key={`${persona.id}-para-${i}`}
                                                 className={cn(
-                                                    "text-xs md:text-[13px] leading-relaxed text-foreground/80",
+                                                    "text-sm md:text-base leading-relaxed text-foreground/80",
                                                     searchTerm && paragraph.toLowerCase().includes(searchTerm.toLowerCase())
                                                         ? "bg-primary/10 rounded-lg p-2 text-foreground font-medium ring-1 ring-primary/20" : ""
                                                 )}
@@ -361,7 +361,7 @@ export function PersonaDetailSheet({
                                 {/* Goals */}
                                 {persona.goals.length > 0 && (
                                     <div className="flex flex-col gap-3">
-                                        <h4 className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">GOALS</h4>
+                                        <h4 className="text-xs font-bold text-muted-foreground uppercase tracking-widest">GOALS</h4>
                                         <ul className="space-y-2">
                                             {persona.goals.map((goal, i) => (
                                                 <li key={`${persona.id}-goal-${i}`} className="text-xs md:text-sm flex gap-2 leading-relaxed">
@@ -375,7 +375,7 @@ export function PersonaDetailSheet({
 
                                 {/* Big Five */}
                                 <div className="flex flex-col gap-4">
-                                    <h4 className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">BIG FIVE TRAITS</h4>
+                                    <h4 className="text-xs font-bold text-muted-foreground uppercase tracking-widest">BIG FIVE TRAITS</h4>
                                     <div className="space-y-4">
                                         {renderScalar("Conscientiousness", persona.conscientiousness, "Chaotic", "Meticulous")}
                                         {renderScalar("Neuroticism", persona.neuroticism, "Stable", "Anxious")}
@@ -387,10 +387,10 @@ export function PersonaDetailSheet({
 
                                 {/* Psychographic */}
                                 <div className="flex flex-col gap-4">
-                                    <h4 className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">PSYCHOGRAPHIC SPECIFICATION</h4>
+                                    <h4 className="text-xs font-bold text-muted-foreground uppercase tracking-widest">PSYCHOGRAPHIC SPECIFICATION</h4>
                                     {persona.values && persona.values.length > 0 && (
                                         <div className="flex flex-col gap-2">
-                                            <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Values</span>
+                                            <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Values</span>
                                             <div className="flex flex-wrap gap-1.5">
                                                 {persona.values.map((v, i) => (
                                                     <span key={i} className="text-xs font-medium bg-primary/10 text-primary px-2.5 py-1 rounded-sm">{v}</span>
@@ -400,7 +400,7 @@ export function PersonaDetailSheet({
                                     )}
                                     {persona.fears && persona.fears.length > 0 && (
                                         <div className="flex flex-col gap-2">
-                                            <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Fears</span>
+                                            <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Fears</span>
                                             <ul className="space-y-1.5">
                                                 {persona.fears.map((f, i) => (
                                                     <li key={i} className="text-xs md:text-sm flex gap-2 leading-relaxed text-foreground/80">
@@ -413,7 +413,7 @@ export function PersonaDetailSheet({
                                     )}
                                     {persona.communicationStyle && (
                                         <div className="flex items-center justify-between py-2 border-t border-border/20">
-                                            <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Communication</span>
+                                            <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Communication</span>
                                             <span className="text-xs md:text-sm font-medium capitalize">{persona.communicationStyle}</span>
                                         </div>
                                     )}
@@ -428,10 +428,10 @@ export function PersonaDetailSheet({
                             <div className="p-5 flex flex-col gap-5">
                                 {/* Identity */}
                                 <div className="flex flex-col gap-3">
-                                    <h4 className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">IDENTITY</h4>
+                                    <h4 className="text-xs font-bold text-muted-foreground uppercase tracking-widest">IDENTITY</h4>
                                     <div className="grid grid-cols-2 gap-3">
                                         <div className="flex flex-col gap-1.5">
-                                            <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Name</span>
+                                            <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Name</span>
                                             <Input
                                                 value={draftPersona.name}
                                                 onChange={(e) => updateDraft({ name: e.target.value })}
@@ -439,7 +439,7 @@ export function PersonaDetailSheet({
                                             />
                                         </div>
                                         <div className="flex flex-col gap-1.5">
-                                            <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Age</span>
+                                            <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Age</span>
                                             <Input
                                                 type="number"
                                                 value={draftPersona.age}
@@ -448,7 +448,7 @@ export function PersonaDetailSheet({
                                             />
                                         </div>
                                         <div className="flex flex-col gap-1.5">
-                                            <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Occupation</span>
+                                            <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Occupation</span>
                                             <Input
                                                 value={draftPersona.occupation}
                                                 onChange={(e) => updateDraft({ occupation: e.target.value })}
@@ -456,7 +456,7 @@ export function PersonaDetailSheet({
                                             />
                                         </div>
                                         <div className="flex flex-col gap-1.5">
-                                            <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Education</span>
+                                            <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Education</span>
                                             <Input
                                                 value={draftPersona.educationLevel}
                                                 onChange={(e) => updateDraft({ educationLevel: e.target.value })}
@@ -468,7 +468,7 @@ export function PersonaDetailSheet({
 
                                 {/* Backstory */}
                                 <div className="flex flex-col gap-3">
-                                    <h4 className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">BACKSTORY</h4>
+                                    <h4 className="text-xs font-bold text-muted-foreground uppercase tracking-widest">BACKSTORY</h4>
                                     <Textarea
                                         value={draftPersona.backstory ?? ""}
                                         onChange={(e) => updateDraft({ backstory: e.target.value })}
@@ -478,7 +478,7 @@ export function PersonaDetailSheet({
 
                                 {/* Goals */}
                                 <div className="flex flex-col gap-3">
-                                    <h4 className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">GOALS</h4>
+                                    <h4 className="text-xs font-bold text-muted-foreground uppercase tracking-widest">GOALS</h4>
                                     <Textarea
                                         value={draftPersona.goals.join("\n")}
                                         onChange={(e) => updateDraft({ goals: e.target.value.split("\n").filter(Boolean) })}
@@ -489,7 +489,7 @@ export function PersonaDetailSheet({
 
                                 {/* Interests */}
                                 <div className="flex flex-col gap-3">
-                                    <h4 className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">INTERESTS</h4>
+                                    <h4 className="text-xs font-bold text-muted-foreground uppercase tracking-widest">INTERESTS</h4>
                                     <Textarea
                                         value={draftPersona.interests.join("\n")}
                                         onChange={(e) => updateDraft({ interests: e.target.value.split("\n").filter(Boolean) })}
@@ -500,10 +500,10 @@ export function PersonaDetailSheet({
 
                                 {/* Psychographic */}
                                 <div className="flex flex-col gap-4">
-                                    <h4 className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">PSYCHOGRAPHIC SPECIFICATION</h4>
+                                    <h4 className="text-xs font-bold text-muted-foreground uppercase tracking-widest">PSYCHOGRAPHIC SPECIFICATION</h4>
                                     <div className="flex flex-col gap-3">
                                         <div className="flex flex-col gap-1.5">
-                                            <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Values</span>
+                                            <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Values</span>
                                             <Textarea
                                                 value={draftPersona.values.join("\n")}
                                                 onChange={(e) => updateDraft({ values: e.target.value.split("\n").filter(Boolean) })}
@@ -512,7 +512,7 @@ export function PersonaDetailSheet({
                                             />
                                         </div>
                                         <div className="flex flex-col gap-1.5">
-                                            <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Fears</span>
+                                            <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Fears</span>
                                             <Textarea
                                                 value={draftPersona.fears.join("\n")}
                                                 onChange={(e) => updateDraft({ fears: e.target.value.split("\n").filter(Boolean) })}
@@ -522,7 +522,7 @@ export function PersonaDetailSheet({
                                         </div>
                                         <div className="grid grid-cols-2 gap-3">
                                             <div className="flex flex-col gap-1.5">
-                                                <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Communication</span>
+                                                <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Communication</span>
                                                 <Input
                                                     value={draftPersona.communicationStyle}
                                                     onChange={(e) => updateDraft({ communicationStyle: e.target.value })}
@@ -530,7 +530,7 @@ export function PersonaDetailSheet({
                                                 />
                                             </div>
                                             <div className="flex flex-col gap-1.5">
-                                                <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Decision Style</span>
+                                                <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Decision Style</span>
                                                 <Input
                                                     value={draftPersona.decisionStyle}
                                                     onChange={(e) => updateDraft({ decisionStyle: e.target.value })}
@@ -543,10 +543,10 @@ export function PersonaDetailSheet({
 
                                 {/* Pricing */}
                                 <div className="flex flex-col gap-3">
-                                    <h4 className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">PRICING</h4>
+                                    <h4 className="text-xs font-bold text-muted-foreground uppercase tracking-widest">PRICING</h4>
                                     <div className="grid grid-cols-2 gap-3">
                                         <div className="flex flex-col gap-1.5">
-                                            <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Sensitivity (1-100)</span>
+                                            <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Sensitivity (1-100)</span>
                                             <Input
                                                 type="number"
                                                 min={0}
@@ -555,10 +555,10 @@ export function PersonaDetailSheet({
                                                 onChange={(e) => updateDraft({ pricingSensitivity: Math.max(0, Math.min(100, Number(e.target.value) || 0)) })}
                                                 className="h-9 text-sm bg-muted/30 border border-transparent focus:border-primary/50 focus:ring-2 focus:ring-primary/15"
                                             />
-                                            <span className="text-[9px] text-muted-foreground/60">1 = low sensitivity, 100 = high sensitivity</span>
+                                            <span className="text-[11px] text-muted-foreground/60">1 = low sensitivity, 100 = high sensitivity</span>
                                         </div>
                                         <div className="flex flex-col gap-1.5">
-                                            <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Typical Budget</span>
+                                            <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Typical Budget</span>
                                             <Input
                                                 value={draftPersona.typicalBudget}
                                                 onChange={(e) => updateDraft({ typicalBudget: e.target.value })}
@@ -571,8 +571,8 @@ export function PersonaDetailSheet({
                                 {/* Big Five — read only */}
                                 <div className="flex flex-col gap-4">
                                     <div className="flex items-center gap-2">
-                                        <h4 className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">BIG FIVE TRAITS</h4>
-                                        <span className="text-[9px] font-medium text-primary/60 bg-primary/10 px-1.5 py-0.5 rounded-sm">Inferred from backstory</span>
+                                        <h4 className="text-xs font-bold text-muted-foreground uppercase tracking-widest">BIG FIVE TRAITS</h4>
+                                        <span className="text-[11px] font-medium text-primary/60 bg-primary/10 px-1.5 py-0.5 rounded-sm">Inferred from backstory</span>
                                     </div>
                                     <div className="space-y-4">
                                         {renderScalar("Conscientiousness", draftPersona.conscientiousness, "Chaotic", "Meticulous")}
@@ -632,7 +632,7 @@ export function PersonaDetailSheet({
                                                 <ShuffleIcon className="w-3.5 h-3.5" />
                                             </button>
                                         </div>
-                                        <span className="text-[10px] text-muted-foreground/60">
+                                        <span className="text-xs text-muted-foreground/60">
                                             Adjust the personality profile
                                         </span>
                                     </div>
@@ -675,7 +675,7 @@ export function PersonaDetailSheet({
                                         <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-widest">
                                             How Many?
                                         </h3>
-                                        <span className="text-[10px] text-muted-foreground/60">
+                                        <span className="text-xs text-muted-foreground/60">
                                             Number of variations to generate
                                         </span>
                                     </div>

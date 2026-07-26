@@ -45,7 +45,7 @@ function DiffToggle({ selected, onSelect, label }: { selected: boolean; onSelect
       type="button"
       onClick={onSelect}
       className={cn(
-        "text-[10px] font-medium px-2 py-0.5 rounded-sm transition-all duration-150",
+        "text-xs font-medium px-2 py-0.5 rounded-sm transition-all duration-150",
         selected
           ? "bg-primary/10 text-primary"
           : "bg-transparent text-muted-foreground/60 hover:text-foreground hover:bg-muted/30",
@@ -214,14 +214,14 @@ export function PersonaTraitsSuggestionDialog({
             <button
               type="button"
               onClick={() => setAll(false)}
-              className="text-[10px] font-medium text-muted-foreground/60 hover:text-foreground transition-colors px-2 py-1"
+              className="text-xs font-medium text-muted-foreground/60 hover:text-foreground transition-colors px-2 py-1"
             >
               Reject all
             </button>
             <button
               type="button"
               onClick={() => setAll(true)}
-              className="text-[10px] font-medium text-muted-foreground/60 hover:text-foreground transition-colors px-2 py-1"
+              className="text-xs font-medium text-muted-foreground/60 hover:text-foreground transition-colors px-2 py-1"
             >
               Accept all
             </button>
@@ -229,7 +229,7 @@ export function PersonaTraitsSuggestionDialog({
 
           {/* OCEAN */}
           <div className="flex flex-col gap-1 p-3 rounded-lg bg-card border border-border">
-            <h3 className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-2 px-2">Personality Traits (OCEAN)</h3>
+            <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-widest mb-2 px-2">Personality Traits (OCEAN)</h3>
             {oceanRows.map((row) => (
               <DiffRow
                 key={row.key}
@@ -244,7 +244,7 @@ export function PersonaTraitsSuggestionDialog({
 
           {/* Psychographics */}
           <div className="flex flex-col gap-1 p-3 rounded-lg bg-card border border-border">
-            <h3 className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-2 px-2">Psychographics</h3>
+            <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-widest mb-2 px-2">Psychographics</h3>
             {psychoRows.map((row) => (
               <DiffRow
                 key={row.key}
