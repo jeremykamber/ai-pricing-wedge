@@ -224,21 +224,16 @@ Communication style: ${signals.communicationStyle}`;
             .map(formatPersonaDescription)
             .join('\n\n---\n\n');
 
-        // Phase 5: Generate — delegate to GeneratePersonasUseCase for full persona creation
-        onProgress?.({ step: 'GENERATING', message: 'Generating personas from interview signals' });
-        const personas = await this.generatePersonasUseCase.execute(
-            combinedDescription,
-            onProgress ? (inner) => {
-                onProgress({
-                    step: 'GENERATING',
-                    message: inner.streamingText ?? inner.step,
-                    current: inner.completedCount,
-                    total: inner.totalCount,
-                });
-            } : undefined,
-            targetCount,
-            combinedDescription,
-        );
+        // Phase 5: Generate — use research mode for evidence-grounded personas
+        // Research mode keeps backstories minimal (2-3 evidence-based sentences)
+        // and avoids Tier 4 fabricated memories (trauma, fake events, fake purchases)
+        onProgress?.({ step: 'GENERATING', message: 'Generating evidence-grounded personas' });
+        const personas = await this.llmService.generateResearchPersonas({
+            count: targetCount,
+            personaDescription: combinedDescription,
+            interviewIds: extractedSignals.map((_, i) => `interview-${i}`),
+            evidenceThreshold: 0.7,
+        });
 
         // Phase 6: Ingest — store backstory and interview chunks in ID-RAG store
         onProgress?.({ step: 'INGESTING' });

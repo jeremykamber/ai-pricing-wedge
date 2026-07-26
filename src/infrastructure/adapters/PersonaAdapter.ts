@@ -276,6 +276,21 @@ Return ONLY valid JSON without explanatory text or markdown code blocks.`;
             backstory: (p.backstory as string) ?? (p.story as string) ?? undefined,
             generationMode: 'strategy' as const,
             behavioralDimensions: Array.isArray(p.behavioralDimensions) ? (p.behavioralDimensions as any) : [],
+            evidenceLinks: [{
+              transcriptId: 'user-input',
+              excerpt: personaDescription.length > 200 ? personaDescription.slice(0, 200) + "..." : personaDescription,
+              attribute: 'persona-description',
+            }],
+            provenance: {
+              attributes: [
+                { attribute: 'values', tier: 'interpreted' as const, confidence: 0.7 },
+                { attribute: 'fears', tier: 'interpreted' as const, confidence: 0.7 },
+                { attribute: 'goals', tier: 'interpreted' as const, confidence: 0.7 },
+                { attribute: 'backstory', tier: 'synthetic' as const, confidence: 0.5 },
+              ],
+              generationMode: 'strategy' as const,
+              overallConfidence: 0.7,
+            },
           }) as Persona,
       );
     } catch (err) {
@@ -968,11 +983,29 @@ ${config.contextNotes ? `Additional context: ${config.contextNotes}` : ""}`;
       );
 
       const records = PersonaAdapter.parsePersonaList(content, config.count, "strategy");
+      const evidenceExcerpt = config.personaDescription.length > 200
+        ? config.personaDescription.slice(0, 200) + "..."
+        : config.personaDescription;
       return records.map((p, idx) => ({
         ...PersonaAdapter.extractBaseFields(p),
         id: `strategy-persona-${idx}`,
         generationMode: "strategy" as const,
         behavioralDimensions: PersonaAdapter.extractBehavioralDimensions(p),
+        evidenceLinks: [{
+          transcriptId: 'user-input',
+          excerpt: evidenceExcerpt,
+          attribute: 'persona-description',
+        }],
+        provenance: {
+          attributes: [
+            { attribute: 'values', tier: 'interpreted' as const, confidence: 0.7 },
+            { attribute: 'fears', tier: 'interpreted' as const, confidence: 0.7 },
+            { attribute: 'goals', tier: 'interpreted' as const, confidence: 0.7 },
+            { attribute: 'backstory', tier: 'synthetic' as const, confidence: 0.5 },
+          ],
+          generationMode: 'strategy' as const,
+          overallConfidence: 0.7,
+        },
       })) as Persona[];
     } catch (err) {
       throw new Error(
