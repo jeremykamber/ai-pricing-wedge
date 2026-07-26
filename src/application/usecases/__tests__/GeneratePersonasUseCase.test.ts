@@ -33,12 +33,15 @@ describe('GeneratePersonasUseCase', () => {
       generateInitialPersonas: vi.fn(),
       generateAbbreviatedBackstoriesBatch: vi.fn(),
       rationalizePersonas: vi.fn(),
+      generateResearchPersonas: vi.fn(),
+      generateStrategyPersonas: vi.fn(),
+      generateClusterPersonas: vi.fn(),
     } as any;
 
     useCase = new GeneratePersonasUseCase(mockLlmService);
   });
 
-  it('should generate personas with backstories and rationalization', async () => {
+  it('should generate personas with backstories and rationalization (default mode)', async () => {
     const description = 'Busy founders';
 
     mockLlmService.generateInitialPersonas.mockResolvedValue([{ ...fullPersona }]);
@@ -47,27 +50,45 @@ describe('GeneratePersonasUseCase', () => {
 
     const results = await useCase.execute(description);
 
-    expect(mockLlmService.generateInitialPersonas).toHaveBeenCalledWith(description, undefined);
+    expect(mockLlmService.generateInitialPersonas).toHaveBeenCalledWith(description, 3);
     expect(mockLlmService.generateAbbreviatedBackstoriesBatch).toHaveBeenCalled();
     expect(mockLlmService.rationalizePersonas).toHaveBeenCalled();
     expect(results.length).toBe(1);
     expect(results[0].backstory).toBe('backstory content');
   });
 
-  it('should handle multiple personas', async () => {
-    const personas = [
-      { ...fullPersona, id: '1', name: 'Persona 1' },
-      { ...fullPersona, id: '2', name: 'Persona 2' },
-      { ...fullPersona, id: '3', name: 'Persona 3' }
-    ];
+  it('should dispatch to research mode when specified', async () => {
+    mockLlmService.generateResearchPersonas.mockResolvedValue([{ ...fullPersona, generationMode: 'research' } as Persona]);
 
-    mockLlmService.generateInitialPersonas.mockResolvedValue(personas);
-    mockLlmService.generateAbbreviatedBackstoriesBatch.mockResolvedValue(['a', 'b', 'c']);
-    mockLlmService.rationalizePersonas.mockImplementation(async (ps: Persona[]) => ps);
+    const results = await useCase.execute('Test description', undefined, 1, undefined, 'research');
 
-    await useCase.execute('description');
+    expect(mockLlmService.generateResearchPersonas).toHaveBeenCalled();
+    expect(results[0].generationMode).toBe('research');
+    expect(mockLlmService.generateInitialPersonas).not.toHaveBeenCalled();
+  });
 
-    expect(mockLlmService.generateInitialPersonas).toHaveBeenCalled();
-    expect(mockLlmService.generateAbbreviatedBackstoriesBatch).toHaveBeenCalled();
+  it('should throw when cluster mode is used without interview IDs', async () => {
+    await expect(useCase.execute('Test', undefined, 1, undefined, 'cluster'))
+      .rejects.toThrow("Cluster mode requires interview IDs");
+  });
+
+  it('should skip PB&J rationalization for research mode', async () => {
+    mockLlmService.generateResearchPersonas.mockResolvedValue([{ ...fullPersona, generationMode: 'research' } as Persona]);
+
+    await useCase.execute('Test', undefined, 1, undefined, 'research');
+
+    expect(mockLlmService.rationalizePersonas).not.toHaveBeenCalled();
+    expect(mockLlmService.generateAbbreviatedBackstoriesBatch).not.toHaveBeenCalled();
+  });
+
+  it('should dispatch to strategy mode when specified', async () => {
+    mockLlmService.generateStrategyPersonas.mockResolvedValue([{ ...fullPersona, generationMode: 'strategy' } as Persona]);
+
+    const results = await useCase.execute('Test description', undefined, 1, undefined, 'strategy');
+
+    expect(mockLlmService.generateStrategyPersonas).toHaveBeenCalled();
+    expect(results[0].generationMode).toBe('strategy');
+    expect(mockLlmService.generateInitialPersonas).not.toHaveBeenCalled();
+    expect(mockLlmService.rationalizePersonas).not.toHaveBeenCalled();
   });
 });

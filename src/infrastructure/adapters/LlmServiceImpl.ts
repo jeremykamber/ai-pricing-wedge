@@ -13,6 +13,7 @@ import { PricingAnalysis } from "@/domain/entities/PricingAnalysis";
 import { StreamOfConsciousness } from "@/domain/entities/StreamOfConsciousness";
 import { ExtractedInterviewSignals } from "@/application/interviewPipeline/types";
 import { AnalysisLogger } from "@/infrastructure/AnalysisLogger";
+import type { ResearchPersonaConfig, StrategyPersonaConfig, ClusterPersonaConfig } from "@/domain/dtos/PersonaGenerationConfig";
 
 export class LlmServiceImpl implements LlmServicePort {
   public client: OpenAI;
@@ -449,6 +450,32 @@ export class LlmServiceImpl implements LlmServicePort {
 
   async inferTraitsFromBackstory(backstory: string) {
     return this.personaAdapter.inferTraitsFromBackstory(backstory);
+  }
+
+  // --- Dual-Mode Persona Generation (2025 Philosophy) ---
+
+  async generateResearchPersonas(config: ResearchPersonaConfig): Promise<Persona[]> {
+    return this.personaAdapter.generateResearchPersonas(config);
+  }
+
+  async *generateResearchPersonasStream(config: ResearchPersonaConfig): AsyncIterable<Partial<Persona>[]> {
+    yield* this.personaAdapter.generateResearchPersonasStream(config);
+  }
+
+  async generateStrategyPersonas(config: StrategyPersonaConfig): Promise<Persona[]> {
+    return this.personaAdapter.generateStrategyPersonas(config);
+  }
+
+  async *generateStrategyPersonasStream(config: StrategyPersonaConfig): AsyncIterable<Partial<Persona>[]> {
+    yield* this.personaAdapter.generateStrategyPersonasStream(config);
+  }
+
+  async generateClusterPersonas(config: ClusterPersonaConfig): Promise<Persona[]> {
+    return this.personaAdapter.generateClusterPersonas(config);
+  }
+
+  async applyCounterfactualTest(persona: Persona): Promise<{ detail: string; reason: string; attribute?: string }[]> {
+    return this.personaAdapter.applyCounterfactualTest(persona);
   }
 
   async rationalizePersonas(personas: Persona[], contextNotes?: string): Promise<Persona[]> {

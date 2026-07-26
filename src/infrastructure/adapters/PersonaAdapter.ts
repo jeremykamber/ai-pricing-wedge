@@ -4,9 +4,83 @@ import { streamText, Output } from "ai";
 import { z } from "zod";
 import { stripCodeFence } from "./llmUtils";
 import { GENDERLESS_NAMES } from "@/data/genderless_names";
+import type {
+  ResearchPersonaConfig,
+  StrategyPersonaConfig,
+  ClusterPersonaConfig,
+} from "@/domain/dtos/PersonaGenerationConfig";
 
 export class PersonaAdapter {
   constructor(private llmService: LlmServiceImpl) { }
+
+  /**
+   * Shared helper: parse LLM JSON response into persona records.
+   * Validates count, array shape, and extracts base fields.
+   * Throws on count mismatch or malformed response.
+   */
+  private static parsePersonaList(
+    rawContent: string,
+    expectedCount: number,
+    context: string,
+  ): Record<string, unknown>[] {
+    const cleaned = stripCodeFence(rawContent);
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(cleaned);
+    } catch {
+      throw new Error(`[PersonaAdapter] Failed to parse ${context} personas: invalid JSON`);
+    }
+    if (!Array.isArray(parsed)) {
+      throw new Error(`[PersonaAdapter] Expected JSON array for ${context} personas, got ${typeof parsed}`);
+    }
+    if (parsed.length < expectedCount) {
+      throw new Error(
+        `[PersonaAdapter] ${context} persona count mismatch: expected ${expectedCount}, got ${parsed.length}. The generation will be retried automatically.`
+      );
+    }
+    return parsed.slice(0, expectedCount) as Record<string, unknown>[];
+  }
+
+  /**
+   * Shared helper: extract common persona fields from a raw record.
+   */
+  private static extractBaseFields(p: Record<string, unknown>): Record<string, unknown> {
+    return {
+      name: (p.name as string) ?? "Unknown",
+      age: Number(p.age) || 30,
+      occupation: (p.occupation as string) ?? "Unknown",
+      educationLevel: (p.educationLevel as string) ?? "Unknown",
+      interests: Array.isArray(p.interests) ? p.interests : [],
+      goals: Array.isArray(p.goals) ? p.goals : [],
+      conscientiousness: Number(p.conscientiousness) || 50,
+      neuroticism: Number(p.neuroticism) || 50,
+      openness: Number(p.openness) || 50,
+      extraversion: Number(p.extraversion) || 50,
+      agreeableness: Number(p.agreeableness) || 50,
+      values: Array.isArray(p.values) ? p.values : [],
+      fears: Array.isArray(p.fears) ? p.fears : [],
+      communicationStyle: (p.communicationStyle as string) ?? "",
+      decisionStyle: (p.decisionStyle as string) ?? "",
+      pricingSensitivity: Number(p.pricingSensitivity) || 50,
+      typicalBudget: (p.typicalBudget as string) ?? "",
+      domainExpertise: Array.isArray(p.domainExpertise) ? p.domainExpertise : [],
+      backstory: (p.backstory as string) ?? undefined,
+    };
+  }
+
+  /**
+   * Shared helper: extract behavioral dimensions from a raw record.
+   */
+  private static extractBehavioralDimensions(p: Record<string, unknown>): { name: string; score: number; context: string; description: string; evidence?: string }[] {
+    if (!Array.isArray(p.behavioralDimensions)) return [];
+    return p.behavioralDimensions.map((d: Record<string, unknown>) => ({
+      name: String(d.name ?? ""),
+      score: Number(d.score) || 50,
+      context: String(d.context ?? ""),
+      description: String(d.description ?? ""),
+      evidence: d.evidence ? String(d.evidence) : undefined,
+    }));
+  }
 
   /**
    * Generates a set of initial buyer personas based on a customer profile description.
@@ -724,6 +798,327 @@ Base your analysis on explicit life experiences, attitudes toward money/risk, an
       console.warn("[PersonaAdapter] Failed to parse inferred traits from LLM response:", e);
       console.warn("[PersonaAdapter] Raw result:", result.slice(0, 300));
       throw new Error(`Failed to infer traits from backstory: ${e}`);
+    }
+  }
+
+  // --- Dual-Mode Persona Generation (2025 Philosophy) ---
+
+  /**
+   * Research Mode: evidence-first persona generation.
+   * Minimal invention, no fabricated memories, provenance tracking on all attributes.
+   */
+  async generateResearchPersonas(config: ResearchPersonaConfig): Promise<Persona[]> {
+    const system = `You are a research-grade persona generator. Your task is to create personas grounded in evidence.
+
+CRITICAL RULES:
+- Base all claims on the provided interview/description evidence.
+- Do NOT fabricate specific life events, purchases, or trauma unless explicitly stated.
+- Keep backstories minimal and evidence-based — no invented childhood stories or fake purchasing trauma.
+- If the evidence is thin, say so rather than inventing details.
+
+Generate a JSON array of EXACTLY ${config.count} personas with this structure:
+{
+  name: string;
+  age: number;
+  occupation: string;
+  educationLevel: string;
+  interests: string[];
+  goals: string[];
+  conscientiousness: number (0-100);
+  neuroticism: number (0-100);
+  openness: number (0-100);
+  extraversion: number (0-100);
+  agreeableness: number (0-100);
+  values: string[];
+  fears: string[];
+  communicationStyle: string;
+  decisionStyle: string;
+  pricingSensitivity: number (0-100);
+  typicalBudget: string;
+  domainExpertise: string[];
+  behavioralDimensions: { name: string; score: number (0-100); context: string; description: string; evidence?: string }[];
+  backstory: string; // 2-3 sentences max, evidence-based only
+  identityContext: string; // Stable traits that apply across domains
+  situationContext: string; // Contextual behavior specific to this domain
+}`;
+
+    const user = `Generate ${config.count} research-mode personas for: "${config.personaDescription}"
+${config.interviewIds ? `Base on interview IDs: ${config.interviewIds.join(", ")}` : ""}
+${config.evidenceThreshold ? `Minimum evidence confidence threshold: ${config.evidenceThreshold}` : ""}
+Do NOT fabricate life events or personal history not supported by evidence.`;
+
+    try {
+      const content = await this.llmService.createChatCompletion(
+        [
+          { role: "system", content: system },
+          { role: "user", content: user },
+        ],
+        {
+          model: this.llmService.smallTextModel,
+          temperature: 0.5,
+          purpose: "Generate Research Personas",
+        },
+      );
+
+      const records = PersonaAdapter.parsePersonaList(content, config.count, "research");
+      const threshold = config.evidenceThreshold ?? 0.7;
+
+      return records.map((p, idx) => {
+        const dims = PersonaAdapter.extractBehavioralDimensions(p);
+        const base = PersonaAdapter.extractBaseFields(p);
+        return {
+          ...base,
+          id: `research-persona-${idx}`,
+          generationMode: "research" as const,
+          behavioralDimensions: dims,
+          provenance: {
+            attributes: [
+              { attribute: "values", tier: "interpreted" as const, confidence: 0.7 },
+              { attribute: "fears", tier: "interpreted" as const, confidence: 0.7 },
+              { attribute: "backstory", tier: "synthetic" as const, confidence: 0.4 },
+              ...dims.map((d) => ({
+                attribute: d.name,
+                tier: (d.evidence ? "observed" : "interpreted") as "observed" | "interpreted",
+                confidence: d.evidence ? 0.9 : 0.6,
+                evidence: d.evidence,
+              })),
+            ],
+            generationMode: "research" as const,
+            overallConfidence: threshold,
+          },
+          evidenceLinks: config.interviewIds
+            ? config.interviewIds.map((id) => ({
+                transcriptId: id,
+                excerpt: `Evidence grounded in interview ${id}`,
+                attribute: "overall-persona",
+              }))
+            : [],
+          identityContext: (p.identityContext as string) ?? undefined,
+          situationContext: (p.situationContext as string) ?? undefined,
+        } as Persona;
+      });
+    } catch (err) {
+      throw new Error(
+        `Failed to generate research personas: ${err}\nInput: ${config.personaDescription}`,
+      );
+    }
+  }
+
+  /**
+   * Research Mode streaming variant.
+   */
+  async * generateResearchPersonasStream(config: ResearchPersonaConfig): AsyncIterable<Partial<Persona>[]> {
+    const personaCount = config.count;
+    const system = `You are a research-grade persona generator. Base all claims on evidence. Do NOT fabricate specific life events or trauma.
+Generate a JSON array of ${personaCount} personas. Keep backstories minimal (2-3 sentences) and evidence-based.`;
+
+    const { partialOutputStream } = streamText({
+      model: this.llmService.provider(this.llmService.smallTextModel),
+      output: Output.array({ element: PersonaSchema }),
+      system,
+      prompt: `Generate ${personaCount} research-mode personas for: "${config.personaDescription}". Evidence-first, no fabricated memories.`,
+    });
+
+    if (!partialOutputStream) {
+      throw new Error("partialOutputStream not available for research personas stream");
+    }
+    for await (const partialArray of partialOutputStream) {
+      yield partialArray as Partial<Persona>[];
+    }
+  }
+
+  /**
+   * Strategy Mode: richer storytelling persona generation.
+   * Allows representative assumptions and controlled synthetic details.
+   */
+  async generateStrategyPersonas(config: StrategyPersonaConfig): Promise<Persona[]> {
+    const system = `You are a strategic persona generator creating buyer personas for product decision-making.
+
+GUIDELINES:
+- Create vivid, believable personas that help teams empathize with target users.
+- Synthetic details are ALLOWED when they help explain behavior.
+- Richer backstories are encouraged — they help teams design better products.
+- Do NOT add details that would CHANGE product decisions if they were false (counterfactual test).
+- Mark the persona's generation mode as strategy.
+
+Storytelling level: ${config.storytellingLevel ?? "moderate"}
+${config.allowSyntheticBackstory ? "Synthetic backstory details are permitted." : "Keep backstory grounded in realistic scenarios without specific invented events."}
+
+Generate a JSON array of EXACTLY ${config.count} personas with the standard structure including backstory.`;
+
+    const user = `Generate ${config.count} strategy-mode personas for: "${config.personaDescription}"
+${config.icpDescription ? `ICP context: ${config.icpDescription}` : ""}
+${config.contextNotes ? `Additional context: ${config.contextNotes}` : ""}`;
+
+    try {
+      const content = await this.llmService.createChatCompletion(
+        [
+          { role: "system", content: system },
+          { role: "user", content: user },
+        ],
+        {
+          model: this.llmService.smallTextModel,
+          temperature: 0.7,
+          purpose: "Generate Strategy Personas",
+        },
+      );
+
+      const records = PersonaAdapter.parsePersonaList(content, config.count, "strategy");
+      return records.map((p, idx) => ({
+        ...PersonaAdapter.extractBaseFields(p),
+        id: `strategy-persona-${idx}`,
+        generationMode: "strategy" as const,
+        behavioralDimensions: PersonaAdapter.extractBehavioralDimensions(p),
+      })) as Persona[];
+    } catch (err) {
+      throw new Error(
+        `Failed to generate strategy personas: ${err}\nInput: ${config.personaDescription}`,
+      );
+    }
+  }
+
+  /**
+   * Strategy Mode streaming variant.
+   */
+  async * generateStrategyPersonasStream(config: StrategyPersonaConfig): AsyncIterable<Partial<Persona>[]> {
+    const personaCount = config.count;
+    const system = `You are a strategic persona generator. Create vivid, believable personas. Synthetic details are allowed when they help explain behavior.
+Generate a JSON array of ${personaCount} personas. Storytelling level: ${config.storytellingLevel ?? "moderate"}.`;
+
+    const { partialOutputStream } = streamText({
+      model: this.llmService.provider(this.llmService.smallTextModel),
+      output: Output.array({ element: PersonaSchema }),
+      system,
+      prompt: `Generate ${personaCount} strategy-mode personas for: "${config.personaDescription}". Rich backstories, representative assumptions.`,
+    });
+
+    if (!partialOutputStream) {
+      throw new Error("partialOutputStream not available for strategy personas stream");
+    }
+    for await (const partialArray of partialOutputStream) {
+      yield partialArray as Partial<Persona>[];
+    }
+  }
+
+  /**
+   * Cluster Mode: synthetic representative personas from multiple interview signals.
+   */
+  async generateClusterPersonas(config: ClusterPersonaConfig): Promise<Persona[]> {
+    const system = `You are a cluster-based persona generator. You synthesize representative personas from multiple interview subjects.
+
+CRITICAL RULES:
+- Each persona represents a CLUSTER of interview subjects, not an individual.
+- Every attribute should reflect the CLUSTER's central tendency, not an individual's.
+- Label the persona with cluster information including source count.
+
+Generate a JSON array of EXACTLY ${config.count} personas with the standard structure.
+Include a 'clusterInfo' field on each persona with the actual source IDs and count.`;
+
+    const user = `Generate ${config.count} cluster-mode personas for cluster: "${config.clusterLabel}"
+Source interview IDs: ${config.interviewIds.join(", ")}
+Minimum cluster size: ${config.minClusterSize}
+${config.personaDescription ? `Description hint: ${config.personaDescription}` : ""}`;
+
+    try {
+      const content = await this.llmService.createChatCompletion(
+        [
+          { role: "system", content: system },
+          { role: "user", content: user },
+        ],
+        {
+          model: this.llmService.smallTextModel,
+          temperature: 0.6,
+          purpose: "Generate Cluster Personas",
+        },
+      );
+
+      const records = PersonaAdapter.parsePersonaList(content, config.count, "cluster");
+      return records.map((p, idx) => {
+        const rawCi = p.clusterInfo as Record<string, unknown> | undefined;
+        return {
+          ...PersonaAdapter.extractBaseFields(p),
+          id: `cluster-persona-${idx}`,
+          generationMode: "cluster" as const,
+          behavioralDimensions: PersonaAdapter.extractBehavioralDimensions(p),
+          clusterInfo: {
+            representedCount: Number(rawCi?.representedCount) || config.minClusterSize,
+            sourceIds: Array.isArray(rawCi?.sourceIds) && rawCi!.sourceIds.length > 0
+              ? rawCi!.sourceIds as string[]
+              : [],
+          },
+          provenance: {
+            attributes: [
+              { attribute: "clusterInfo", tier: "observed" as const, confidence: 0.8 },
+              { attribute: "backstory", tier: "synthetic" as const, confidence: 0.5 },
+            ],
+            generationMode: "cluster" as const,
+            overallConfidence: 0.6,
+          },
+        } as Persona;
+      });
+    } catch (err) {
+      throw new Error(
+        `Failed to generate cluster personas: ${err}\nCluster: ${config.clusterLabel}`,
+      );
+    }
+  }
+
+  /**
+   * Counterfactual test: checks whether synthetic persona details would change
+   * product decisions. Returns failing details.
+   * Mode-aware: research personas have stricter criteria than strategy.
+   */
+  async applyCounterfactualTest(persona: Persona): Promise<{ detail: string; reason: string; attribute?: string }[]> {
+    const mode = persona.generationMode ?? "strategy";
+    const criteria = mode === "research"
+      ? "STRICT: Any synthetic detail not directly supported by evidence is automatically failing."
+      : "STANDARD: Flag details that would CHANGE a product decision if they were false. Safe enrichment is allowed.";
+
+    const system = `You are a counterfactual test evaluator. Given a persona and its details, identify which synthetic details
+would CHANGE a product decision if they were false.
+
+Mode: ${mode}
+Criteria: ${criteria}
+
+Apply the counterfactual removal test: "If this detail were false, would the team make a different product decision?"
+- If YES → flag it as FAILING (the detail is too influential to be unverified)
+- If NO → it PASSES (the detail is safe synthetic enrichment)
+
+Return a JSON object:
+{
+  "failingDetails": [
+    { "detail": "string - the specific detail that failed", "reason": "string - why it would change decisions", "attribute": "string - which persona attribute it belongs to" }
+  ]
+}`;
+
+    const user = `Evaluate this ${mode}-mode persona for counterfactual test failure:
+
+${JSON.stringify(persona, null, 2)}
+
+Return ONLY the failing details. If none fail, return { "failingDetails": [] }.`;
+
+    try {
+      const content = await this.llmService.createChatCompletion(
+        [
+          { role: "system", content: system },
+          { role: "user", content: user },
+        ],
+        {
+          model: this.llmService.smallTextModel,
+          temperature: 0.3,
+          purpose: "Counterfactual Test",
+        },
+      );
+
+      const cleaned = stripCodeFence(content);
+      const parsed = JSON.parse(cleaned);
+      if (parsed && typeof parsed === "object" && Array.isArray(parsed.failingDetails)) {
+        return parsed.failingDetails;
+      }
+      return [];
+    } catch (err) {
+      console.warn("[PersonaAdapter] Counterfactual test failed for persona", persona.name, ":", err);
+      return [];
     }
   }
 }
