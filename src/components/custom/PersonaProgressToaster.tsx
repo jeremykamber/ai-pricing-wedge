@@ -3,9 +3,10 @@
 import { useEffect, useRef } from 'react'
 import { toast } from 'sonner'
 import { ClockIcon, CheckCircleIcon, XCircleIcon } from 'lucide-react'
-import { usePersonaStore } from '@/ui/stores/personaStore'
+import { usePersonaStore, type PersonaBatch } from '@/ui/stores/personaStore'
 import { getProgressAction } from '@/actions/getProgress'
 import { getPersonaGenerationResultAction } from '@/actions/getPersonaGenerationResult'
+import { batchConsumedRunIds } from '@/lib/generationRunState'
 
 const POLL_INTERVAL_MS = 1000
 
@@ -81,12 +82,25 @@ export function PersonaProgressToaster() {
 
           completedSet.add(runId)
           removedSet.add(runId)
-          // Remove from active generation tracking so the dashboard
-          // skeleton card is replaced by the batch that usePersonaFlow added.
           usePersonaStore.getState().removeActiveGeneration(runId)
 
           const personaCount = result.personas?.length ?? 0
           const isError = !!result.error
+
+          if (!isError && personaCount > 0 && !batchConsumedRunIds.has(runId)) {
+            batchConsumedRunIds.add(runId)
+            const source = runId.startsWith('pt-') ? 'description' : 'interviews'
+            const label = source === 'interviews' ? `${personaCount} Personas from Interviews` : `${personaCount} Generated Personas`
+            const batch: PersonaBatch = {
+              id: `batch-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`,
+              label,
+              source,
+              transcriptCount: undefined,
+              createdAt: new Date().toISOString(),
+              personas: result.personas!,
+            }
+            usePersonaStore.getState().addBatch(batch)
+          }
 
           const content = (
             <PersonaToastContent

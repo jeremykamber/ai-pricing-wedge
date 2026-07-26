@@ -5,6 +5,7 @@ import { getPersonaGenerationResultAction } from '@/actions/getPersonaGeneration
 import { getProgressAction } from '@/actions/getProgress'
 import { usePersonaStore, type PersonaBatch } from '@/ui/stores/personaStore'
 import { readStreamableValue } from '@ai-sdk/rsc'
+import { batchConsumedRunIds } from '@/lib/generationRunState'
 
 export type PersonaProgressStep = 'BRAINSTORMING_PERSONAS' | 'GENERATING_BACKSTORIES' | 'ADDING_BEHAVIORAL_DEPTH' | 'GENERATING_INSIGHTS' | 'DONE' | 'ERROR'
 
@@ -117,7 +118,10 @@ export function usePersonaFlow(onSuccess?: (personas: Persona[]) => void) {
               createdAt: new Date().toISOString(),
               personas: pollResult.personas,
             }
-            usePersonaStore.getState().addBatch(batch)
+            if (!batchConsumedRunIds.has(runId)) {
+              batchConsumedRunIds.add(runId)
+              usePersonaStore.getState().addBatch(batch)
+            }
             if (mountedRef.current) {
               setLastCompletedBatchId(batch.id)
               setPersonas(pollResult.personas)
@@ -195,7 +199,10 @@ export function usePersonaFlow(onSuccess?: (personas: Persona[]) => void) {
                 createdAt: new Date().toISOString(),
                 personas: update.personas!,
               }
-              usePersonaStore.getState().addBatch(batch)
+              if (id && !batchConsumedRunIds.has(id)) {
+                batchConsumedRunIds.add(id)
+                usePersonaStore.getState().addBatch(batch)
+              }
               if (mountedRef.current) {
                 setLastCompletedBatchId(batch.id)
                 setPersonas(update.personas)

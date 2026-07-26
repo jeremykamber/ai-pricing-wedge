@@ -5,6 +5,7 @@ import { getPersonaGenerationResultAction } from '@/actions/getPersonaGeneration
 import { getProgressAction } from '@/actions/getProgress'
 import { usePersonaStore, type PersonaBatch } from '@/ui/stores/personaStore'
 import { readStreamableValue } from '@ai-sdk/rsc'
+import { batchConsumedRunIds } from '@/lib/generationRunState'
 
 export type InterviewProgressStep = 'UPLOADING' | 'EXTRACTING' | 'POOLING' | 'SAMPLING' | 'GENERATING' | 'INGESTING' | 'DONE' | 'ERROR'
 
@@ -121,7 +122,10 @@ export function useInterviewPipeline(onSuccess?: (personas: Persona[]) => void) 
               createdAt: new Date().toISOString(),
               personas: pollResult.personas!,
             }
-            usePersonaStore.getState().addBatch(batch)
+            if (!batchConsumedRunIds.has(runId)) {
+              batchConsumedRunIds.add(runId)
+              usePersonaStore.getState().addBatch(batch)
+            }
             if (mountedRef.current) {
               setPersonas(pollResult.personas)
               setProgress(null)
@@ -208,7 +212,10 @@ export function useInterviewPipeline(onSuccess?: (personas: Persona[]) => void) 
                   createdAt: new Date().toISOString(),
                   personas: update.personas!,
                 }
-                usePersonaStore.getState().addBatch(batch)
+                if (id && !batchConsumedRunIds.has(id)) {
+                  batchConsumedRunIds.add(id)
+                  usePersonaStore.getState().addBatch(batch)
+                }
                 if (mountedRef.current) {
                   setPersonas(update.personas)
                   setProgress(null)
