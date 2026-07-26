@@ -14,8 +14,9 @@ import { Textarea } from "@/components/ui/textarea"
 import { PersonaAvatar } from "./PersonaAvatar"
 import { PersonaChatInline } from "@/ui/dashboard/components/chat/PersonaChatInline"
 import { PersonaTraitsSuggestionDialog, type SuggestedTraits } from "./PersonaTraitsSuggestionDialog"
-import { MessageSquare, User, Search, XIcon, CopyIcon, ShuffleIcon, SparklesIcon, PenIcon, LoaderIcon } from "lucide-react"
+import { MessageSquare, User, Search, XIcon, CopyIcon, ShuffleIcon, SparklesIcon, PenIcon, LoaderIcon, ShieldAlertIcon } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { applyCounterfactualTestAction } from "@/actions/applyCounterfactualTest"
 import { Slider } from "@/components/ui/slider"
 import { VariationFormData } from "./SimilarPersonaDialog"
 import { mapToDiscrete } from "./variationMapping"
@@ -58,6 +59,28 @@ export function PersonaDetailSheet({
     })
     const [variationLevel, setVariationLevel] = React.useState(2)
     const [selectedCount, setSelectedCount] = React.useState<1 | 3 | 5>(3)
+    const [counterfactualResults, setCounterfactualResults] = React.useState<{ detail: string; reason: string; attribute?: string }[] | null>(null)
+    const [isRunningCounterfactual, setIsRunningCounterfactual] = React.useState(false)
+
+    const handleCounterfactual = React.useCallback(async () => {
+        if (!persona) return
+        setIsRunningCounterfactual(true)
+        try {
+            const result = await applyCounterfactualTestAction(persona)
+            setCounterfactualResults(result)
+        } catch {
+            setCounterfactualResults([{ detail: "Test failed", reason: "Unable to run counterfactual test", attribute: "error" }])
+        } finally {
+            setIsRunningCounterfactual(false)
+        }
+    }, [persona])
+
+    const attrOpacity = (tier?: string, confidence?: number): number => {
+        if (!tier || tier === 'observed') return 1
+        if (tier === 'interpreted') return confidence && confidence < 0.7 ? 0.6 : 0.8
+        if (tier === 'synthetic') return 0.5
+        return 1
+    }
 
     React.useEffect(() => {
         if (persona) {
@@ -244,6 +267,11 @@ export function PersonaDetailSheet({
                             <div className="flex flex-col min-w-0">
                                 <h2 className="text-base font-semibold tracking-tight truncate">{persona.name}</h2>
                                 <p className="text-xs text-muted-foreground truncate">{persona.occupation}</p>
+                                {persona.generationMode && (
+                                    <span className="text-[10px] font-medium text-primary/70 mt-0.5">
+                                        {persona.generationMode === 'research' ? 'Transcript-based' : persona.generationMode === 'cluster' ? 'Synthesized from interviews' : 'Description-based'}
+                                    </span>
+                                )}
                             </div>
                         </div>
                         <div className="flex items-center gap-1 ml-4 shrink-0">
@@ -300,6 +328,17 @@ export function PersonaDetailSheet({
                                     {isEditing ? "Editing" : "Edit"}
                                 </button>
                             )}
+                            {persona.generationMode === 'strategy' && (
+                                <button
+                                    onClick={handleCounterfactual}
+                                    disabled={isRunningCounterfactual}
+                                    className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md text-muted-foreground hover:text-foreground hover:bg-muted/30 transition-colors"
+                                    title="Check for risky synthetic details"
+                                >
+                                    <ShieldAlertIcon className="w-3.5 h-3.5" />
+                                    {isRunningCounterfactual ? "Checking..." : "Check"}
+                                </button>
+                            )}
                             <div className="w-px h-5 bg-border/40 mx-1" />
                             <button
                                 onClick={onClose}
@@ -329,6 +368,27 @@ export function PersonaDetailSheet({
                                         </>
                                     )}
                                 </div>
+
+                                {/* Counterfactual Results */}
+                                {counterfactualResults && counterfactualResults.length > 0 && (
+                                    <div className="flex flex-col gap-2 rounded-lg border border-amber-200 bg-amber-50/50 p-3">
+                                        <h4 className="text-xs font-bold text-amber-700 uppercase tracking-widest">⚠ Assumptions to Review</h4>
+                                        <p className="text-xs text-amber-600/80">These details could change product decisions if incorrect:</p>
+                                        <ul className="space-y-1.5">
+                                            {counterfactualResults.map((r, i) => (
+                                                <li key={i} className="text-xs text-amber-700 flex gap-2">
+                                                    <span className="font-medium shrink-0">{r.attribute}:</span>
+                                                    <span>{r.detail} — {r.reason}</span>
+                                                </li>
+                                            ))}
+                                        </ul>
+                                    </div>
+                                )}
+                                {counterfactualResults && counterfactualResults.length === 0 && (
+                                    <div className="flex flex-col gap-1 rounded-lg border border-green-200 bg-green-50/50 p-3">
+                                        <p className="text-xs font-medium text-green-700">✓ All synthetic details pass counterfactual test</p>
+                                    </div>
+                                )}
 
                                 {/* Backstory */}
                                 <div className="flex flex-col gap-3">
@@ -373,17 +433,47 @@ export function PersonaDetailSheet({
                                     </div>
                                 )}
 
-                                {/* Big Five */}
-                                <div className="flex flex-col gap-4">
-                                    <h4 className="text-xs font-bold text-muted-foreground uppercase tracking-widest">BIG FIVE TRAITS</h4>
-                                    <div className="space-y-4">
+                                {/* Behavioral Dimensions */}
+                                {persona.behavioralDimensions && persona.behavioralDimensions.length > 0 && (
+                                    <div className="flex flex-col gap-3">
+                                        <h4 className="text-xs font-bold text-muted-foreground uppercase tracking-widest">BEHAVIOR MODEL</h4>
+                                        <div className="space-y-3">
+                                            {persona.behavioralDimensions.map((dim, i) => (
+                                                <div key={i} className="flex flex-col gap-1.5" style={{ opacity: attrOpacity(dim.evidence ? 'observed' : undefined) }}>
+                                                    <div className="flex justify-between items-end">
+                                                        <span className="text-xs font-medium text-foreground">{dim.name}</span>
+                                                        <span className="text-xs font-mono text-muted-foreground">{dim.score}/100</span>
+                                                    </div>
+                                                    <Progress value={dim.score} className="h-1.5" />
+                                                    <div className="flex justify-between text-[11px] text-muted-foreground/60">
+                                                        <span>{dim.context}</span>
+                                                        {dim.evidence && (
+                                                            <span className="text-primary/60 flex items-center gap-1" title={dim.evidence}>
+                                                                ● observed
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                    <p className="text-xs text-muted-foreground/80">{dim.description}</p>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* Big Five (demoted) */}
+                                <details className="flex flex-col gap-4 group">
+                                    <summary className="text-xs font-bold text-muted-foreground uppercase tracking-widest cursor-pointer hover:text-foreground transition-colors list-none flex items-center gap-2">
+                                        <span className="text-[10px] text-muted-foreground/40 group-open:rotate-90 transition-transform">▶</span>
+                                        PERSONALITY TRAITS (BIG FIVE)
+                                    </summary>
+                                    <div className="space-y-4 pt-2">
                                         {renderScalar("Conscientiousness", persona.conscientiousness, "Chaotic", "Meticulous")}
                                         {renderScalar("Neuroticism", persona.neuroticism, "Stable", "Anxious")}
                                         {renderScalar("Openness", persona.openness, "Traditional", "Curious")}
                                         {renderScalar("Extraversion", persona.extraversion, "Introvert", "Extrovert")}
                                         {renderScalar("Agreeableness", persona.agreeableness, "Competitive", "Compassionate")}
                                     </div>
-                                </div>
+                                </details>
 
                                 {/* Psychographic */}
                                 <div className="flex flex-col gap-4">
@@ -418,6 +508,59 @@ export function PersonaDetailSheet({
                                         </div>
                                     )}
                                 </div>
+
+                                {/* Identity vs Situation Context */}
+                                {(persona.identityContext || persona.situationContext) && (
+                                    <div className="flex flex-col gap-3">
+                                        <h4 className="text-xs font-bold text-muted-foreground uppercase tracking-widest">CONTEXT</h4>
+                                        {persona.identityContext && (
+                                            <div className="flex flex-col gap-1">
+                                                <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Stable traits</span>
+                                                <p className="text-sm text-foreground/80">{persona.identityContext}</p>
+                                            </div>
+                                        )}
+                                        {persona.situationContext && (
+                                            <div className="flex flex-col gap-1">
+                                                <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Situational behavior</span>
+                                                <p className="text-sm text-foreground/80">{persona.situationContext}</p>
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
+
+                                {/* Evidence Links */}
+                                {persona.evidenceLinks && persona.evidenceLinks.length > 0 && (
+                                    <details className="flex flex-col gap-3 group">
+                                        <summary className="text-xs font-bold text-muted-foreground uppercase tracking-widest cursor-pointer hover:text-foreground transition-colors list-none flex items-center gap-2">
+                                            <span className="text-[10px] text-muted-foreground/40 group-open:rotate-90 transition-transform">▶</span>
+                                            SOURCE EVIDENCE ({persona.evidenceLinks.length})
+                                        </summary>
+                                        <div className="space-y-2 pt-2">
+                                            {persona.evidenceLinks.map((link, i) => (
+                                                <div key={i} className="flex flex-col gap-1 rounded-lg border border-border/40 bg-secondary/20 p-3">
+                                                    <span className="text-xs font-medium text-foreground">{link.attribute}</span>
+                                                    <p className="text-xs text-muted-foreground/80 italic">"{link.excerpt}"</p>
+                                                    <span className="text-[10px] text-muted-foreground/60">{link.transcriptId}</span>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </details>
+                                )}
+
+                                {/* Cluster Info */}
+                                {persona.clusterInfo && (
+                                    <div className="flex flex-col gap-2 rounded-lg border border-border/40 bg-secondary/20 p-3">
+                                        <h4 className="text-xs font-bold text-muted-foreground uppercase tracking-widest">CLUSTER</h4>
+                                        <p className="text-xs text-muted-foreground/80">
+                                            Represents {persona.clusterInfo.representedCount} interview subjects
+                                        </p>
+                                        {persona.clusterInfo.sourceIds.length > 0 && (
+                                            <p className="text-xs text-muted-foreground/60">
+                                                Sources: {persona.clusterInfo.sourceIds.join(", ")}
+                                            </p>
+                                        )}
+                                    </div>
+                                )}
                             </div>
                         </ScrollArea>
                     )}

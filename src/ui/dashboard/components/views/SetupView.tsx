@@ -9,6 +9,8 @@ import Link from 'next/link'
 import { ArrowRightIcon } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
+import { PersonaSurveyForm } from '@/components/custom/PersonaSurveyForm'
+import { surveyToPrompt, type PersonaSurvey } from '@/lib/surveyToPrompt'
 
 interface SetupViewProps {
   personaFlow: ReturnType<typeof usePersonaFlow>
@@ -20,9 +22,13 @@ export function SetupView({ personaFlow, onBack }: SetupViewProps) {
   const addBatch = usePersonaStore((s) => s.addBatch)
   const setActiveBatch = usePersonaStore((s) => s.setActiveBatch)
   const hasDemoBatch = batches.some((b) => b.id === DEMO_PERSONA_BATCH.id)
-  // Local string state for the persona count input so backspace/delete works.
-  // Synced to personaFlow.personaCount at mount only; onBlur clamps and writes back.
   const [personaCountInput, setPersonaCountInput] = useState(String(personaFlow.personaCount))
+  const [useTextarea, setUseTextarea] = useState(false)
+
+  const handleSurveySubmit = (survey: PersonaSurvey) => {
+    const prompt = surveyToPrompt(survey)
+    personaFlow.handleGeneratePersonas(prompt)
+  }
 
   return (
     <div className="flex flex-col gap-16 max-w-4xl mx-auto w-full">
@@ -53,7 +59,7 @@ export function SetupView({ personaFlow, onBack }: SetupViewProps) {
           Define your target market
         </h1>
         <p className="text-lg text-muted-foreground text-balance max-w-2xl">
-          Provide a brief description of who you are trying to reach. Kynd will synthesize a set of detailed personas that represent your audience.
+          Tell us about who you're trying to reach. Kynd will build personas that represent your audience.
         </p>
       </div>
 
@@ -65,17 +71,44 @@ export function SetupView({ personaFlow, onBack }: SetupViewProps) {
           <MinimalCard>
             <div className="flex flex-col gap-6">
               <div className="flex flex-col gap-2">
-                <h2 className="text-xl font-semibold tracking-tight">Audience Description</h2>
-                <p className="text-sm text-muted-foreground">Describe your ideal customer, their pain points, and demographics.</p>
+                <h2 className="text-xl font-semibold tracking-tight">
+                  {useTextarea ? "Audience Description" : "Describe Your Audience"}
+                </h2>
+                <p className="text-sm text-muted-foreground">
+                  {useTextarea
+                    ? "Describe your ideal customer, their pain points, and demographics."
+                    : "Answer a few quick questions so Kynd can build better personas."}
+                </p>
               </div>
-              <Textarea
-                className="w-full min-h-[160px] resize-y"
-                placeholder="e.g. B2B SaaS Founders dealing with high churn rates, usually aged 30-45..."
-                value={personaFlow.customerProfile}
-                onChange={(e) => personaFlow.setCustomerProfile(e.target.value)}
-                disabled={personaFlow.isPending}
-              />
-              <div className="flex flex-col gap-2">
+
+              {useTextarea ? (
+                <>
+                  <Textarea
+                    className="w-full min-h-[160px] resize-y"
+                    placeholder="e.g. B2B SaaS Founders dealing with high churn rates, usually aged 30-45..."
+                    value={personaFlow.customerProfile}
+                    onChange={(e) => personaFlow.setCustomerProfile(e.target.value)}
+                    disabled={personaFlow.isPending}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setUseTextarea(false)}
+                    className="self-start text-xs text-muted-foreground hover:text-foreground underline underline-offset-4 transition-colors"
+                  >
+                    Use guided form instead
+                  </button>
+                </>
+              ) : (
+                <PersonaSurveyForm
+                  onSubmit={handleSurveySubmit}
+                  onUseTextarea={() => setUseTextarea(true)}
+                  isPending={personaFlow.isPending}
+                  error={personaFlow.error}
+                />
+              )}
+
+              {/* Persona count - always visible */}
+              <div className="flex flex-col gap-2 pt-2 border-t border-border/40">
                 <label htmlFor="persona-count" className="text-sm font-medium">Number of personas</label>
                 <input
                   id="persona-count"
@@ -83,12 +116,8 @@ export function SetupView({ personaFlow, onBack }: SetupViewProps) {
                   min={1}
                   max={20}
                   value={personaCountInput}
-                  onChange={(e) => {
-                    // Allow any input including empty string (for backspace/delete)
-                    setPersonaCountInput(e.target.value)
-                  }}
+                  onChange={(e) => setPersonaCountInput(e.target.value)}
                   onBlur={() => {
-                    // Clamp to valid range on blur
                     const v = parseInt(personaCountInput, 10)
                     if (isNaN(v) || v < 1) {
                       personaFlow.setPersonaCount(1)
@@ -105,23 +134,29 @@ export function SetupView({ personaFlow, onBack }: SetupViewProps) {
                   className="h-10 rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 w-24"
                 />
               </div>
-              <div className="flex items-center justify-between">
-                <Button variant="link" asChild className="h-auto p-0 text-muted-foreground">
-                  <Link href="/dashboard/interviews" className="inline-flex items-center gap-1">
-                    Have interview transcripts? Generate from interviews
-                    <ArrowRightIcon className="h-3.5 w-3.5" />
-                  </Link>
-                </Button>
-                <Button
-                  size="lg"
-                  disabled={!personaFlow.customerProfile.trim() || personaFlow.isPending}
-                  onClick={personaFlow.handleGeneratePersonas}
-                >
-                  {personaFlow.isPending ? "Generating..." : "Generate Personas"}
-                </Button>
-              </div>
-              {personaFlow.error && (
-                <p className="text-sm text-destructive font-medium bg-destructive/10 p-3 rounded-md">{personaFlow.error}</p>
+
+              {/* Textarea-only generate button + interview link */}
+              {useTextarea && (
+                <>
+                  <div className="flex items-center justify-between">
+                    <Button variant="link" asChild className="h-auto p-0 text-muted-foreground">
+                      <Link href="/dashboard/interviews" className="inline-flex items-center gap-1">
+                        Have interview transcripts? Generate from interviews
+                        <ArrowRightIcon className="h-3.5 w-3.5" />
+                      </Link>
+                    </Button>
+                    <Button
+                      size="lg"
+                      disabled={!personaFlow.customerProfile.trim() || personaFlow.isPending}
+                      onClick={() => personaFlow.handleGeneratePersonas()}
+                    >
+                      {personaFlow.isPending ? "Generating..." : "Generate Personas"}
+                    </Button>
+                  </div>
+                  {personaFlow.error && (
+                    <p className="text-sm text-destructive font-medium bg-destructive/10 p-3 rounded-md">{personaFlow.error}</p>
+                  )}
+                </>
               )}
             </div>
           </MinimalCard>

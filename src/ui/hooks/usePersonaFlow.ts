@@ -148,8 +148,9 @@ export function usePersonaFlow(onSuccess?: (personas: Persona[]) => void) {
   }, [runId, customerProfile, onSuccess])
 
   // ── Generate handler ───────────────────────────────────────────────────
-  const handleGeneratePersonas = useCallback(() => {
-    if (!customerProfile.trim()) return
+  const handleGeneratePersonas = useCallback((promptOverride?: string) => {
+    const prompt = promptOverride ?? customerProfile
+    if (!prompt.trim()) return
 
     setError(null)
     setRunId(null)
@@ -161,18 +162,16 @@ export function usePersonaFlow(onSuccess?: (personas: Persona[]) => void) {
 
     ;(async () => {
       try {
-        const result: any = await generatePersonasAction(customerProfile, personaCount)
+        const result: any = await generatePersonasAction(prompt, personaCount)
         const streamData = result.streamData
         const id = result.runId as string | undefined
         setIsPending(false) // core action returned — release loading state
 
         if (id) {
-          // Register for background toast tracking
           usePersonaStore.getState().addActiveGeneration(id)
         }
 
         if (streamData) {
-          // ── Local dev: read streaming updates ───────────────────────────
           for await (const update of readStreamableValue<any>(streamData)) {
             if (!update) continue
 
@@ -186,9 +185,12 @@ export function usePersonaFlow(onSuccess?: (personas: Persona[]) => void) {
             }
 
             if (update.step === 'DONE') {
+              const label = promptOverride
+                ? promptOverride.slice(0, 60)
+                : customerProfile.slice(0, 40)
               const batch: PersonaBatch = {
                 id: `batch-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`,
-                label: `"${customerProfile.slice(0, 40)}${customerProfile.length > 40 ? '...' : ''}"`,
+                label: `"${label}${label.length >= 60 ? '...' : ''}"`,
                 source: 'description',
                 createdAt: new Date().toISOString(),
                 personas: update.personas!,
@@ -204,13 +206,11 @@ export function usePersonaFlow(onSuccess?: (personas: Persona[]) => void) {
               return
             }
 
-            // Progress update: step, count, etc.
             if (mountedRef.current) {
               setPersonaProgress(update as PersonaProgress)
             }
           }
         } else if (id) {
-          // ── Remote/VPS: polling handled by useEffect above ─────────
           setRunId(id)
         }
       } catch (err) {
