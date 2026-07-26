@@ -83,8 +83,9 @@ async function runGeneration(runId: string, personaDescription: string, count: n
     const personas = await useCase.execute(personaDescription, (progress) => {
       storeProgress(runId, {
         step: progress.step,
-        completedAnalyses: progress.completedCount ?? progress.completedSubSteps ?? undefined,
-        totalAnalyses: progress.totalCount ?? progress.totalSubSteps ?? undefined,
+        streamingText: progress.streamingText,
+        completedAnalyses: progress.completedCount ?? progress.completedSubSteps,
+        totalAnalyses: progress.totalCount ?? progress.totalSubSteps,
       });
     }, count);
 
@@ -96,6 +97,6 @@ async function runGeneration(runId: string, personaDescription: string, count: n
     console.error("[generate-personas] Failed:", error);
     const errMsg = (error as Error).message;
     personaGenerationStore.saveError(runId, errMsg);
-    storeProgress(runId, { error: errMsg });
+    storeCompleted(runId, errMsg);
   }
 }

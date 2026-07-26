@@ -109,9 +109,7 @@ async function runPipeline(
         );
 
         const personas = await useCase.execute(files, (progress) => {
-            // Store under all field names so both interview pipeline and simulation
-            // consumers can read them (InterviewProgress uses current/total,
-            // ProgressState uses completedCount/totalCount and completedAnalyses/totalAnalyses).
+            if (progress.step === 'DONE') return;
             storeProgress(runId, {
                 step: progress.step,
                 streamingText: progress.message,
@@ -130,6 +128,6 @@ async function runPipeline(
         console.error("[generate-personas-from-interviews] Failed:", error);
         const errMsg = (error as Error).message;
         personaGenerationStore.saveError(runId, errMsg);
-        storeProgress(runId, { error: errMsg });
+        storeCompleted(runId, errMsg);
     }
 }

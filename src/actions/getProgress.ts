@@ -33,13 +33,16 @@ export interface ProgressState {
 
 export async function storeProgress(runId: string, state: ProgressState): Promise<void> {
   const existing = progressMap.get(runId) || {};
-  progressMap.set(runId, { ...existing, ...state });
+  const clean = Object.fromEntries(
+    Object.entries(state).filter(([_, v]) => v !== undefined)
+  );
+  progressMap.set(runId, { ...existing, ...clean });
   console.log(`[PROGRESS_STORE] Saved for ${runId}: step=${state.step ?? existing.step ?? '?'}, completed=${state.completedAnalyses ?? existing.completedAnalyses ?? '?'}/${state.totalAnalyses ?? existing.totalAnalyses ?? '?'}, hasCompleted=${!!state.hasCompleted}, error=${state.error ?? 'none'}`);
 }
 
-export async function storeCompleted(runId: string): Promise<void> {
+export async function storeCompleted(runId: string, errorMsg?: string): Promise<void> {
   console.log(`[PROGRESS_STORE] markCompleted for ${runId}`);
-  await storeProgress(runId, { hasCompleted: true });
+  await storeProgress(runId, { step: 'DONE', hasCompleted: true, error: errorMsg });
 }
 
 export async function getProgressAction(runId: string): Promise<{

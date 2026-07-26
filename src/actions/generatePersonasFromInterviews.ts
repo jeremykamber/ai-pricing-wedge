@@ -95,7 +95,7 @@ async function runLocally(formData: FormData) {
             const msg = (error as Error).message;
             stream.done({ step: "ERROR", error: msg });
             personaGenerationStore.saveError(runId, msg);
-            await storeProgress(runId, { error: msg, hasCompleted: true });
+            await storeCompleted(runId, msg);
         }
     })();
 

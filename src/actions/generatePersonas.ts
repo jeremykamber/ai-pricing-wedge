@@ -74,7 +74,7 @@ async function runLocally(personaDescription: string, count: number) {
             const msg = (error as Error).message;
             try { stream.done({ step: "ERROR", error: msg }); } catch {}
             personaGenerationStore.saveError(runId, msg);
-            await storeProgress(runId, { error: msg, hasCompleted: true });
+            await storeCompleted(runId, msg);
         }
     })();
 
