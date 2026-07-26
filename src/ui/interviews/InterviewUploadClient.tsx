@@ -20,6 +20,8 @@ export function InterviewUploadClient() {
     progress,
     personaCount,
     setPersonaCount,
+    generationMode,
+    setGenerationMode,
     handleSubmit,
     handleCancel,
   } = useInterviewPipeline()
@@ -244,9 +246,41 @@ export function InterviewUploadClient() {
                 </p>
               </div>
 
+              {/* Generation Mode Toggle */}
+              <div className="flex flex-col gap-3">
+                <label className="text-sm font-medium text-foreground">How should we combine the transcripts?</label>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setGenerationMode('individual')}
+                    className={`flex-1 rounded-lg border px-4 py-3 text-left transition-colors ${
+                      generationMode === 'individual'
+                        ? 'border-primary bg-primary/5'
+                        : 'border-border bg-secondary/20 hover:border-primary/30'
+                    }`}
+                  >
+                    <span className="text-sm font-medium">Individual personas</span>
+                    <p className="text-xs text-muted-foreground mt-0.5">One persona set per interview transcript</p>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setGenerationMode('synthesized')}
+                    className={`flex-1 rounded-lg border px-4 py-3 text-left transition-colors ${
+                      generationMode === 'synthesized'
+                        ? 'border-primary bg-primary/5'
+                        : 'border-border bg-secondary/20 hover:border-primary/30'
+                    }`}
+                  >
+                    <span className="text-sm font-medium">Combined archetypes</span>
+                    <p className="text-xs text-muted-foreground mt-0.5">Merge transcripts into shared personas</p>
+                  </button>
+                </div>
+              </div>
+
+              {/* Persona Count */}
               <div className="flex flex-col gap-2">
                 <label className="text-sm font-medium text-muted-foreground">
-                  Number of Personas to Generate
+                  {generationMode === 'individual' ? 'Personas per interview' : 'Total personas to generate'}
                 </label>
                 <input
                   type="number"
@@ -273,7 +307,9 @@ export function InterviewUploadClient() {
                   className="h-10 w-24 rounded-md border border-border bg-background px-3 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
                 />
                 <p className="text-xs text-muted-foreground">
-                  1–20 personas. More personas = richer behavioral coverage but longer generation time.
+                  {generationMode === 'individual'
+                    ? `${files.length} transcript${files.length !== 1 ? 's' : ''} × ${personaCountInput || '?'} = ${(files.length * (parseInt(personaCountInput) || 0)) || '?'} total personas`
+                    : '1–20 personas. More personas = richer behavioral coverage but longer generation time.'}
                 </p>
               </div>
 
