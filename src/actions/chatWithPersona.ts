@@ -72,7 +72,7 @@ async function runRemote(
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
-        fullText += decoder.decode(value, { stream: true });
+        fullText = decoder.decode(value, { stream: true });
         stream.update(fullText);
       }
 
