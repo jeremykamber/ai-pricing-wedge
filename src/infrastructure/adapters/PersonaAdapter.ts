@@ -168,11 +168,11 @@ Return ONLY valid JSON without explanatory text or markdown code blocks.`;
                 : [],
 
             // Big Five — Joshi et al. (2025)
-            conscientiousness: Number(p.$1) ?? 50,
-            neuroticism: Number(p.$1) ?? 50,
-            openness: Number(p.$1) ?? 50,
-            extraversion: Number(p.$1) ?? 50,
-            agreeableness: Number(p.$1) ?? 50,
+            conscientiousness: Number(p.conscientiousness) || 50,
+            neuroticism: Number(p.neuroticism) || 50,
+            openness: Number(p.openness) || 50,
+            extraversion: Number(p.extraversion) || 50,
+            agreeableness: Number(p.agreeableness) || 50,
 
             // Psychographic Specification — Wang et al. (2024b)
             values: Array.isArray(p.values)
@@ -189,7 +189,7 @@ Return ONLY valid JSON without explanatory text or markdown code blocks.`;
             decisionStyle: (p.decisionStyle as string) ?? (p.decision_style as string) ?? "",
 
             // Pricing calibration — LLM-generated, context-dependent
-            pricingSensitivity: Number(p.pricingSensitivity) ?? 50,
+            pricingSensitivity: Number(p.pricingSensitivity) || 50,
             typicalBudget: (p.typicalBudget as string) ?? (p.budget as string) ?? "",
 
             // Domain knowledge
@@ -631,18 +631,18 @@ Return ONLY valid JSON array without explanatory text or markdown code blocks.`;
             goals: Array.isArray(p.goals) ? (p.goals as string[]) : [],
 
             // Big Five - use the target values directly for precision
-            conscientiousness: Number(p.conscientiousness) ?? 50,
-            neuroticism: Number(p.neuroticism) ?? 50,
-            openness: Number(p.openness) ?? 50,
-            extraversion: Number(p.extraversion) ?? 50,
-            agreeableness: Number(p.agreeableness) ?? 50,
+            conscientiousness: Number(p.conscientiousness) || 50,
+            neuroticism: Number(p.neuroticism) || 50,
+            openness: Number(p.openness) || 50,
+            extraversion: Number(p.extraversion) || 50,
+            agreeableness: Number(p.agreeableness) || 50,
 
             values: Array.isArray(p.values) ? (p.values as string[]) : [],
             fears: Array.isArray(p.fears) ? (p.fears as string[]) : [],
             communicationStyle: (p.communicationStyle as string) ?? "",
             decisionStyle: (p.decisionStyle as string) ?? "",
 
-            pricingSensitivity: Number(p.pricingSensitivity) ?? 50,
+            pricingSensitivity: Number(p.pricingSensitivity) || 50,
             typicalBudget: (p.typicalBudget as string) ?? "",
 
             domainExpertise: Array.isArray(p.domainExpertise) ? (p.domainExpertise as string[]) : [],

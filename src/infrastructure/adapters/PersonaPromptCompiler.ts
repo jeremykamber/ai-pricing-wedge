@@ -119,8 +119,8 @@ export class PersonaPromptCompiler {
     ].join("\n");
   }
 
-  private getRoleBiasLine(occupation: string): string {
-    const occ = occupation.toLowerCase();
+  private getRoleBiasLine(occupation: string | undefined): string {
+    const occ = (occupation ?? "").toLowerCase();
 
     if (/ceo|cto|cfo|coo|founder|chief|executive/.test(occ)) {
       return "- C-level/Founder roles: Evaluate at business level — growth trajectory, enterprise readiness, SAML/SCIM, procurement, TCO.";
@@ -199,15 +199,16 @@ export class PersonaPromptCompiler {
 
   generateAnchor(persona: Persona): string {
     const archetype = this.detectArchetype(persona);
+    const occ = persona.occupation ?? "person";
     const anchors: Record<string, string> = {
-      "skeptical-veteran": `As a skeptical, veteran ${persona.occupation.toLowerCase()}:`,
+      "skeptical-veteran": `As a skeptical, veteran ${occ.toLowerCase()}:`,
       "passionate-founder": "As a passionate first-time founder:",
       "curious-student": `As a curious ${this.simplifyEducation(persona.educationLevel)} student:`,
       "jaded-journalist": "As a jaded, veteran journalist:",
       "cautious-manager": "As a cautious, risk-aware manager:",
       "analytical-expert": "As an analytical, numbers-driven expert:",
       "enthusiastic-hobbyist": `As an enthusiastic ${persona.interests?.[0]?.toLowerCase() ?? "hobbyist"}:`,
-      "default": `As ${persona.name}, a ${persona.occupation}:`,
+      "default": `As ${persona.name ?? "Persona"}, a ${occ}:`,
     };
     return anchors[archetype] ?? anchors["default"];
   }
@@ -222,8 +223,8 @@ export class PersonaPromptCompiler {
     return "default";
   }
 
-  private simplifyEducation(level: string): string {
-    const l = level.toLowerCase();
+  private simplifyEducation(level: string | undefined): string {
+    const l = (level ?? "").toLowerCase();
     if (l.includes("phd") || l.includes("doctorate") || l.includes("graduate") || l.includes("master")) return "graduate";
     if (l.includes("bachelor") || l.includes("undergraduate") || l.includes("college") || l.includes("university")) return "college";
     if (l.includes("high school") || l.includes("associate")) return "";

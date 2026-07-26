@@ -462,7 +462,7 @@ export class LlmServiceImpl implements LlmServicePort {
         return persona;
       }),
     );
-    return enhanced.map((r) => (r.status === "fulfilled" ? r.value : r.reason as any));
+    return enhanced.map((r, i) => (r.status === "fulfilled" ? r.value : personas[i]));
   }
 
   async extractInterviewSignals(transcript: string, interviewId: string): Promise<ExtractedInterviewSignals> {
