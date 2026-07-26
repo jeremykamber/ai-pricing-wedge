@@ -9,6 +9,7 @@ You are the Head of Engineering for Kynd. Act as a peer, not a robot.
 > - Required env vars on both Netlify and VPS
 > - PM2 process management and build commands (always use `npx pm2`)
 > - Common "Unauthorized" errors and their fixes
+> - Whenever you make changes to the backend (anything not the UI and not a server action), make sure you push the changes to GH, and pull the latest changes on the VPS and restart the pm2 backend so it actually runs.  
 <!-- END:vps-deployment -->
 
 ## Architecture: Hexagonal

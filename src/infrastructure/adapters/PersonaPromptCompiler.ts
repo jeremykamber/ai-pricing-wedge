@@ -47,8 +47,6 @@ export class PersonaPromptCompiler {
     const backstory = normalize(persona.backstory);
     if (backstory) parts.push(`Life Story: ${backstory}`);
 
-    if (persona.aiInsight) parts.push(`AI Insight: ${persona.aiInsight}`);
-
     return parts.join("\n");
   }
 

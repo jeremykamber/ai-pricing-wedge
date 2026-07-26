@@ -29,7 +29,6 @@ export const DEMO_PERSONA_BATCH: PersonaBatch = {
     domainExpertise: ["B2B SaaS growth", "Product management", "Fundraising"],
     epistemicBoundaries: ["Software engineering", "Data science", "Legal"],
     backstory: "I grew up in a household where my father lost his small manufacturing business during a credit crunch, leaving us to track every single nickel on the kitchen table. That experience wired my brain for extreme Conscientiousness. After an MBA and a decade in corporate product management, I launched my own SaaS. I'm currently in that brutal 'scaling' phase where every tool purchase feels like a high-stakes bet. I remember vividly in 2021 when I fell for a slick 'early bird' enterprise pitch for a marketing data suite — I spent $12,000 on a year-long contract only to find out the integration was a nightmare and their support was non-existent. It taught me to ignore the 'Hero' section vibes and go straight for the documentation and the cancellation policy. If I can't see the ROI calculated in cold, hard time-savings, I'm out. My team needs me to be the strategic sieve, and I take that personally.",
-    aiInsight: "Sarah will likely drop off at the 'Integrations' page. She hates setup friction and values invisible utility over feature-depth."
   },
   {
     id: "mock-2",
@@ -53,7 +52,6 @@ export const DEMO_PERSONA_BATCH: PersonaBatch = {
     domainExpertise: ["Web development", "API design", "Open source ecosystems"],
     epistemicBoundaries: ["Marketing", "Sales", "Enterprise procurement"],
     backstory: "My relationship with technology started with a high-end mechanical keyboard I built at 15; if the tactile feedback wasn't perfect, the whole experience was ruined. I'm a self-taught engineer who views software as a set of physical tools. If a tool isn't sharp or the handle is slippery (bad UI/UX), it doesn't just slow me down — it offends me. I maintain a strict list of 200+ open-source dependencies and have zero patience for corporate 'fluff'. I remember trying to use a 'low-code' platform for a client in 2022; the documentation was out of date by two versions and the 'live chat' was a series of automated loops. I cancelled within 40 minutes and wrote my own custom module in Go. For me, technical fluency is about respect. If you want my money, show me the API first, keep the marketing jargon for the VCs, and don't ever hide the price behind a 'Talk to Sales' button.",
-    aiInsight: "David's eyes will instantly skim for API docs and rate limits. If you hide the price behind 'Contact Sales', he will immediately bounce."
   },
   {
     id: "mock-3",
@@ -76,8 +74,7 @@ export const DEMO_PERSONA_BATCH: PersonaBatch = {
     interests: ["Wine Tasting", "Mentoring", "Travel"],
     domainExpertise: ["Marketing operations", "Enterprise software procurement", "Team management"],
     epistemicBoundaries: ["Engineering", "Data infrastructure", "DevOps"],
-    backstory: "I've survived three corporate acquisitions, and each one started with a management team that bought 'revolutionary' software that none of the teams actually used. That history has made me hyper-vigilant — some call it Neuroticism, I call it being a steward of my team's sanity. I don't care about 'innovation' if the onboarding takes six weeks and the interface confuses my junior managers. My primary trauma was in 2019 when I championed a $50k CRM migration that failed because the team hated the 'modern' dashboard that hid all the actual data. I spent six months apologizing to the board. Now, I look for stability, clear service level agreements, and 'white-glove' support. I buy with my gut first — if the site feels slick and corporate-safe, I'm interested. But if there's a single broken link or a typo in the pricing table, it's a red flag for the entire company's stability.",
-    aiInsight: "Elena needs safety signals above the fold. Her past migration trauma means she's scanning for 'Uptimes', 'SLAs', and enterprise-grade support guarantees."
+    backstory: "I've survived three corporate acquisitions, and each one started with a management team that bought 'revolutionary' software that none of the teams actually used. That history has made me hyper-vigilant — some call it Neuroticism, I call it being a steward of my team's sanity. I don't care about 'innovation' if the onboarding takes six weeks and the interface confuses my junior managers. My primary trauma was in 2019 when I championed a $50k CRM migration that failed because the team hated the 'modern' dashboard that hid all the actual data. I spent six months apologizing to the board. Now, I look for stability, clear service level agreements, and 'white-glove' support. I buy with my gut first — if the site feels slick and corporate-safe, I'm interested. But if there's a single broken link or a typo in the pricing table, it's a red flag for the entire company's stability."
   }
   ]
 };

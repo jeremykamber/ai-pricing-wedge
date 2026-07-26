@@ -62,7 +62,6 @@ export function createMockPersonas(): Persona[] {
       pricingSensitivity: 60,
       typicalBudget: "Up to $20/user/month",
       backstory: "10 years in tech, focused on B2B tools",
-      aiInsight: "Alice prioritizes ROI and data-driven decisions.",
     },
     {
       id: "mock-2",
@@ -84,7 +83,6 @@ export function createMockPersonas(): Persona[] {
       pricingSensitivity: 40,
       typicalBudget: "Up to $30/user/month for critical tools",
       backstory: "First-time founder, technical background",
-      aiInsight: "Bob wants cutting-edge features over stability.",
     },
   ];
 }

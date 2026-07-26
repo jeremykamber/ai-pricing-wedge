@@ -273,11 +273,9 @@ export function DashboardClient() {
                     : 20
                 : personaFlow.personaProgress.step === 'ADDING_BEHAVIORAL_DEPTH'
                     ? 50
-                    : personaFlow.personaProgress.step === 'GENERATING_INSIGHTS'
-                        ? 75
-                        : personaFlow.personaProgress.step === 'DONE'
-                            ? 100
-                            : 0
+                    : personaFlow.personaProgress.step === 'DONE'
+                        ? 100
+                        : 0
         : 0
 
     return (
@@ -461,9 +459,7 @@ export function DashboardClient() {
                                 ? 1
                                 : personaFlow.personaProgress?.step === 'ADDING_BEHAVIORAL_DEPTH'
                                     ? 2
-                                    : personaFlow.personaProgress?.step === 'GENERATING_INSIGHTS'
-                                        ? 2
-                                        : 3
+                                    : 3
                     }
                     steps={[
                         { title: 'Analyzing Market', description: 'Mapping demographics and psychographics', cyclingTexts: ['Analyzing your target profile...', 'Mapping demographics and psychographics...', 'Identifying key behavioral segments...'] },
@@ -544,7 +540,6 @@ export function DashboardClient() {
                                 <div className="flex flex-wrap gap-3 justify-center">
                                     {personaFlow.personaProgress.personas.map((p) => {
                                         const isCompletePhase =
-                                            personaFlow.personaProgress?.step === 'GENERATING_INSIGHTS' ||
                                             personaFlow.personaProgress?.step === 'DONE'
                                         const isCurrentPersona =
                                             personaFlow.personaProgress?.personaName === p.name
@@ -596,6 +591,7 @@ export function DashboardClient() {
                 defaultTab={sheetDefaultTab}
                 onCreateVariant={selectedPersona ? () => handleOpenVariant(selectedPersona) : undefined}
                 onGenerateVariation={handleGenerateVariation}
+                onEdit={activeBatchId ? (personaId, updates) => updatePersona(activeBatchId, personaId, updates) : undefined}
             />
         </>
     )

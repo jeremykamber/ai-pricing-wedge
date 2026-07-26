@@ -216,20 +216,9 @@ export interface LlmServicePort {
     ): Promise<{ isValid: boolean; reason?: string }>;
 
     /**
-     * Generates a sharp, 2-sentence 'AI Insight' into a persona's primary motivation 
-     * and their biggest psychological barrier to conversion.
-     */
-    generatePersonaInsight(persona: Persona): Promise<string>;
-
-    /**
      * Batch version - generates backstories for all personas in a single LLM call.
      */
     generateAbbreviatedBackstoriesBatch(personas: Persona[]): Promise<string[]>;
-
-    /**
-     * Batch version - generates insights for all personas in a single LLM call.
-     */
-    generatePersonaInsightsBatch(personas: Persona[]): Promise<string[]>;
 
     summarizeHtml(html: string): Promise<string>;
 
@@ -276,5 +265,24 @@ export interface LlmServicePort {
         adjustments: { bigFive: { conscientiousness: number; neuroticism: number; openness: number; extraversion: number; agreeableness: number }; variationLevel: number },
         count: number,
     ): Promise<Persona[]>;
+
+    /**
+     * Infers Big Five traits and psychographic values from a persona's backstory.
+     * Used when the user edits the backstory — suggests updated trait values that
+     * are causally consistent with the new narrative.
+     * @param backstory - The new or edited backstory text.
+     * @returns Suggested trait values derived from the backstory.
+     */
+    inferTraitsFromBackstory(backstory: string): Promise<{
+        conscientiousness: number;
+        neuroticism: number;
+        openness: number;
+        extraversion: number;
+        agreeableness: number;
+        values: string[];
+        fears: string[];
+        communicationStyle: string;
+        decisionStyle: string;
+    }>;
 }
 

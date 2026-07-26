@@ -265,7 +265,61 @@ This applies to all segmented toggle groups, option rows, and count selectors ac
 - **Parent:** The parent container must have `group relative` classes to enable the hover reveal.
 - **Usage:** Used on cards, list items, and tags where deletion is a secondary action. The button must never be visible at rest — it only appears when the user is actively engaging with the item.
 
-## 6. Do's and Don'ts
+### Edit Mode Fields
+
+Edit mode fields are inputs that appear when the user explicitly enters an editing state. They replace static text while maintaining spatial stability — the layout doesn't shift, only the display changes.
+
+- **Style:** Tinted background at `bg-muted/30`, no visible border at rest. The tint signals editability without the visual weight of a full bordered input.
+- **Focus:** `1px` Cerulean Blue border replaces the transparent border, paired with a very subtle blue ambient glow (`0 0 0 2px oklch(0.62 0.2 230 / 0.15)`). The border animates in at 150ms — the field appears to define itself only when the user interacts with it.
+- **Transition:** All edit fields transition colors 150ms `cubic-bezier(0.16, 1, 0.3, 1)`.
+- **Multi-line fields** (goals, interests, values, fears): Same tinted background, `border-0` at rest with `resize-y`. Focus reveals the same blue border + glow. Placeholders show real examples rather than generic instructions.
+- **Relation to static Inputs:** Edit mode fields differ from standard Inputs (which always have a Panel Edge border) — they only reveal their border on focus, making the rest state feel closer to the surrounding text.
+
+## 6. Patterns
+
+### Deliberate Diff
+
+When presenting AI-inferred changes alongside original values, the interface must communicate what changed, let the user evaluate each change independently, and provide bulk actions for confidence.
+
+This pattern has three layers:
+
+**Layer 1 — Visual Diff:** Every value pair (suggested vs original) is displayed as two stacked lines. The winning value (what will be applied if confirmed) is bold. The losing value is struck through at reduced opacity (`text-muted-foreground/40`). Color reinforces the distinction: the winning value renders in Cerulean Blue (`text-primary`) when it's the new suggestion, and standard Foreground when it's the original. If suggested and original are identical, no diff is shown — the value appears once with no styling.
+
+**Layer 2 — Per-Item Decision:** Each diffs row has its own Keep/Apply toggle. The toggles are `opacity-0` at rest and revealed on row hover (`group-hover:opacity-100`), keeping the UI clean until the user engages. The selected state uses `bg-primary/10 text-primary` for Apply and `bg-muted text-foreground` for Keep. Unselected uses `bg-transparent text-muted-foreground/60 hover:text-foreground hover:bg-muted/30`. The transition is 150ms.
+
+- **Implementation:** `DiffRow` component. Each row has `hover:bg-muted/20 transition-colors` for subtle row-level hover feedback. Toggle buttons use the `DiffToggle` sub-component to maintain consistent sizing and interaction.
+- **Visual structure on each row:**
+  ```
+  Label (left)          [ suggested ]    [ Keep ] [ Apply ]
+                        [ original ]          ← revealed on hover
+  ```
+
+**Layer 3 — Bulk Shortcuts:** Two links at the top of the diff section — "Accept all" and "Reject all" — set every item's decision at once. These are faint (`text-muted-foreground/60`) to stay out of the way, with hover bringing them to full foreground. They sit to the right of the section header.
+
+**Decision footer:** Two buttons at the bottom of any decision dialog:
+- **Primary** ("Apply selections"): Applies all items where Apply is selected. Disabled when nothing is selected.
+- **Secondary** ("Keep originals"): Discards all suggestions and keeps everything as-is.
+
+### Required-Decision Dialogs
+
+When an action has irreversible downstream effects (e.g., an LLM call inferred new values that must either be accepted or rejected), the dialog must force a decision. There is no escape hatch.
+
+- **No X button** in the header. `showCloseButton={false}` hides the Radix close button.
+- **No overlay dismiss.** `onOpenChange` is a no-op (`() => {}`). Clicking the backdrop or pressing Escape does nothing.
+- **Escape routes:** Only the two decision buttons at the bottom — "Apply selections" (primary) and "Keep originals" (secondary).
+- **Visual:** Standard dialog chrome (Panel Surface, Panel Edge border, backdrop dim). The header shows the action icon + title. No close affordance.
+- **Loading state:** When the dialog opens before the data is ready (e.g., waiting for an LLM call), it shows a centered spinner (`LoaderIcon` with `animate-spin`) and a descriptive text. The title changes to reflect the loading state. No decision UI is shown until the data arrives.
+
+### Hover-Reveal Actions
+
+Actions that are secondary to the primary interaction are hidden at rest and revealed on row/card hover. This keeps the interface clean while making actions available exactly where they're needed.
+
+- **Visibility:** `opacity-0` at rest, `group-hover:opacity-100` on hover, 150ms opacity transition.
+- **Container:** The parent element must have `group` class. The action element receives `opacity-0 group-hover:opacity-100 transition-opacity duration-150`.
+- **Usage:** Per-row toggles in diff dialogs, delete buttons on cards, inline actions in list items.
+- **Rationale:** Prevents visual noise while keeping actions one hover away. The user can scan the entire interface without being distracted by controls they don't need yet.
+
+## 7. Do's and Don'ts
 
 ### Do:
 

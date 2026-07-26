@@ -128,22 +128,6 @@ export function PersonaDetailModal({
           <ScrollArea className="flex-1">
             <div className="p-4 md:p-8 grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6 pb-12">
 
-              {/* AI Insight - Full Width Top */}
-              {persona.aiInsight && (
-                <motion.div
-                  variants={itemVariants}
-                  className="lg:col-span-2 p-5 md:p-8 rounded-lg bg-primary/10 border border-border relative overflow-hidden group transition-colors duration-150 hover:border-border"
-                >
-                  <h4 className="text-[10px] md:text-xs font-bold text-primary uppercase tracking-[0.2em] mb-3 flex items-center gap-2">
-                    <span className="w-1.5 h-1.5 rounded-full bg-primary" />
-                    AI INSIGHT
-                  </h4>
-                  <p className="text-base md:text-xl font-medium leading-relaxed italic text-foreground/90">
-                    "{persona.aiInsight}"
-                  </p>
-                </motion.div>
-              )}
-
               {/* Left Column */}
               <div className="flex flex-col gap-4 md:gap-6">
                 {/* Backstory Vault */}

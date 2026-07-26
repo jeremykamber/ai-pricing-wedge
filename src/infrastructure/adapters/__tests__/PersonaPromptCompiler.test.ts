@@ -22,7 +22,6 @@ const basePersona: Persona = {
   designStyle: "Minimalist",
   livingEnvironment: "Clean apartment with a dedicated home office",
   backstory: "I grew up in a family of engineers. My father was a software architect who taught me to question everything. After my MBA at Stanford, I joined a series of B2B SaaS companies where I learned the hard way that most pricing pages hide the real costs.",
-  aiInsight: "Jordan's analytical nature drives a need for complete transparency, but past experiences with hidden fees have created a deep skepticism that requires explicit trust signals.",
 };
 
 describe("PersonaPromptCompiler", () => {

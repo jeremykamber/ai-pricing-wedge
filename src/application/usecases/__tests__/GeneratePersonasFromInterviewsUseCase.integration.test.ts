@@ -156,12 +156,6 @@ function createMockLlmService() {
       async (personas: Persona[]): Promise<Persona[]> => personas,
     ),
 
-    generatePersonaInsightsBatch: vi.fn().mockImplementation(
-      async (personas: Persona[]): Promise<string[]> => {
-        return personas.map((p) => `Insight for ${p.name}: driven by efficiency and quality.`);
-      },
-    ),
-
     // ---- Streaming no-ops required by LlmServicePort ----
     generateInitialPersonasStream: vi.fn(),
     generatePersonaBackstory: vi.fn(),
@@ -178,7 +172,6 @@ function createMockLlmService() {
     chatWithPersonaStream: vi.fn(),
     analyzePricingPageStream: vi.fn(),
     validatePromptDomain: vi.fn(),
-    generatePersonaInsight: vi.fn(),
     summarizeHtml: vi.fn(),
   } as any; // eslint-disable-line @typescript-eslint/no-explicit-any
 }
@@ -212,11 +205,10 @@ describe('GeneratePersonasFromInterviewsUseCase Integration', () => {
     // targetCount = max(3 * 2, 10) = 10
     expect(personas).toHaveLength(10);
 
-    // Every persona must have an id, backstory, and insight
+    // Every persona must have an id and backstory
     for (const p of personas) {
       expect(p.id).toBeTruthy();
       expect(p.backstory).toBeTruthy();
-      expect(p.aiInsight).toBeTruthy();
     }
 
     // Verify each stage of the LLM pipeline was invoked
@@ -225,7 +217,6 @@ describe('GeneratePersonasFromInterviewsUseCase Integration', () => {
     expect(mockLlmService.generateInitialPersonas).toHaveBeenCalledTimes(1);
     expect(mockLlmService.generateAbbreviatedBackstoriesBatch).toHaveBeenCalledTimes(1);
     expect(mockLlmService.rationalizePersonas).toHaveBeenCalledTimes(1);
-    expect(mockLlmService.generatePersonaInsightsBatch).toHaveBeenCalledTimes(1);
   });
 
   // ------------------------------------------------------------------

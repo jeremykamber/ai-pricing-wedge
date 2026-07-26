@@ -5,7 +5,6 @@ export type PersonaGenerationProgressStep =
     | 'BRAINSTORMING_PERSONAS'
     | 'GENERATING_BACKSTORIES'
     | 'ADDING_BEHAVIORAL_DEPTH'
-    | 'GENERATING_INSIGHTS'
     | 'DONE'
     | 'ERROR';
 
@@ -125,29 +124,6 @@ export class GeneratePersonasUseCase {
 
         personas = await this.llmService.rationalizePersonas(personas);
         console.log("[GeneratePersonasUseCase] PB&J enhancement complete for all personas");
-
-        // Phase 4: Generate AI Insights (BATCH - single LLM call instead of 3)
-        console.log("[GeneratePersonasUseCase] Generating batch AI Insights...");
-        onProgress?.({
-            step: 'GENERATING_INSIGHTS',
-            personaName: personas[0]?.name,
-            personas: JSON.parse(JSON.stringify(personas)),
-            totalCount,
-            completedCount: 0,
-            streamingText: `Phase 4 of 4: Generating insights...`,
-        });
-
-        const insightTexts = await (this.llmService as any).generatePersonaInsightsBatch(personas);
-        personas.forEach((persona, i) => {
-            persona.aiInsight = insightTexts[i];
-        });
-
-        onProgress?.({
-            step: 'GENERATING_INSIGHTS',
-            completedCount: totalCount,
-            totalCount,
-            personas: JSON.parse(JSON.stringify(personas))
-        });
 
         return personas;
     }

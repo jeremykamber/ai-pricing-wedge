@@ -28,7 +28,6 @@ export const mockPersona: Persona = {
   pricingSensitivity: 50,
   typicalBudget: "$20/mo",
   backstory: "A test persona",
-  aiInsight: "Test insight",
 };
 
 export const mockAnalysis: PricingAnalysis = {

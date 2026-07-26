@@ -1,6 +1,7 @@
 import { Persona, PersonaSchema } from "@/domain/entities/Persona";
 import { LlmServiceImpl } from "./LlmServiceImpl";
 import { streamText, Output } from "ai";
+import { z } from "zod";
 import { stripCodeFence } from "./llmUtils";
 import { GENDERLESS_NAMES } from "@/data/genderless_names";
 
@@ -167,11 +168,11 @@ Return ONLY valid JSON without explanatory text or markdown code blocks.`;
                 : [],
 
             // Big Five — Joshi et al. (2025)
-            conscientiousness: Number(p.conscientiousness) || 50,
-            neuroticism: Number(p.neuroticism) || 50,
-            openness: Number(p.openness) || 50,
-            extraversion: Number(p.extraversion) || 50,
-            agreeableness: Number(p.agreeableness) || 50,
+            conscientiousness: Number(p.$1) ?? 50,
+            neuroticism: Number(p.$1) ?? 50,
+            openness: Number(p.$1) ?? 50,
+            extraversion: Number(p.$1) ?? 50,
+            agreeableness: Number(p.$1) ?? 50,
 
             // Psychographic Specification — Wang et al. (2024b)
             values: Array.isArray(p.values)
@@ -481,34 +482,6 @@ Start the life story from the beginning. Write in first person. Be specific with
   }
 
   /**
-   * Generates a sharp, 2-sentence 'AI Insight' into a persona's primary motivation 
-   * and their biggest psychological barrier to conversion.
-   */
-  async generatePersonaInsight(persona: Persona): Promise<string> {
-    const system = `You are a behavioral psychologist. Analyze this persona's profile and backstory 
-to provide a sharp, 2-sentence 'AI Insight' into their primary motivation 
-and their biggest psychological barrier to conversion. 
-Speak with professional authority and deep empathy.`;
-
-    const user = `Analyze this persona:
-${JSON.stringify(persona, null, 2)}
-
-Provide a 2-sentence insight.`;
-
-    return await this.llmService.createChatCompletion(
-      [
-        { role: "system", content: system },
-        { role: "user", content: user },
-      ],
-      {
-        model: this.llmService.smallTextModel,
-        temperature: 0.5,
-        purpose: "Generate Persona Insight",
-      },
-    );
-  }
-
-  /**
    * Batch version - generates backstories for ALL personas in a SINGLE LLM call.
    * Much faster than calling generateAbbreviatedBackstory for each persona.
    */
@@ -561,55 +534,6 @@ ${personasText}`;
   }
 
   /**
-   * Batch version - generates insights for ALL personas in a SINGLE LLM call.
-   * Much faster than calling generatePersonaInsight for each persona.
-   */
-  async generatePersonaInsightsBatch(personas: Persona[]): Promise<string[]> {
-    const system = `You are a behavioral psychologist. Analyze each persona's profile and provide a sharp, 2-sentence AI Insight.
-Focus on their primary motivation and biggest psychological barrier to conversion.
-Return a JSON array of strings, one insight per persona.`;
-
-    const personasText = personas.map((p, i) => 
-      `Persona ${i + 1} (${p.name}, ${p.occupation}):\n${JSON.stringify(p, null, 2)}`
-    ).join('\n\n---\n\n');
-
-    const user = `Generate insights for ALL ${personas.length} personas. Return a JSON array of strings.
-
-${personasText}`;
-
-    const result = await this.llmService.createChatCompletion(
-      [
-        { role: "system", content: system },
-        { role: "user", content: user },
-      ],
-      { 
-        model: this.llmService.smallTextModel,
-        temperature: 0.3,
-        purpose: "Batch Persona Insights",
-      },
-    );
-
-    try {
-      const cleaned = stripCodeFence(result);
-      const parsed = JSON.parse(cleaned);
-      if (Array.isArray(parsed) && parsed.length === personas.length) {
-        return parsed;
-      }
-      console.warn("[PersonaAdapter] Batch insight result length mismatch:", parsed.length, "vs", personas.length);
-      console.warn("[PersonaAdapter] Raw result:", result.slice(0, 500));
-      throw new Error("Length mismatch");
-    } catch (e) {
-      console.warn("[PersonaAdapter] Failed to parse batch insights:", e);
-      console.warn("[PersonaAdapter] Raw result:", result.slice(0, 500));
-      const fallback: string[] = [];
-      for (const persona of personas) {
-        fallback.push(await this.generatePersonaInsight(persona));
-      }
-      return fallback;
-    }
-  }
-
-  /**
    * Generates persona variations based on a reference persona and adjusted Big Five traits.
    * The LLM receives the reference persona as context, the adjusted Big Five to target,
    * and a variation level (0-100) that controls creative freedom.
@@ -648,7 +572,6 @@ interface Persona {
   typicalBudget: string;      // e.g. "Up to $20/user/month"
   domainExpertise: string[];  // 2-4 relevant domains
   backstory: string;          // 3-5 paragraph narrative in first person
-  aiInsight: string;          // 2-sentence behavioral insight
 }
 
 REFERENCE PERSONA (use as template for context, occupation, domain):
@@ -671,7 +594,6 @@ CRITICAL REQUIREMENTS:
 - All other fields (values, fears, goals, interests, backstory, etc.) must be INTERNALLY CONSISTENT with the adjusted Big Five profile.
 - DISTRIBUTION: Each variation should be a distinct persona, not a copy of the reference.
 - CREATIVE BACKSTORIES: Each persona needs a compelling 3-5 paragraph first-person backstory that causally explains how their life experiences shaped their Big Five profile.
-- AI INSIGHT: A sharp 2-sentence insight into their primary motivation and biggest psychological barrier.
 - REALISM: Occupations, budgets, and goals must feel authentic and market-appropriate.
 
 Return ONLY valid JSON array without explanatory text or markdown code blocks.`;
@@ -709,11 +631,11 @@ Return ONLY valid JSON array without explanatory text or markdown code blocks.`;
             goals: Array.isArray(p.goals) ? (p.goals as string[]) : [],
 
             // Big Five - use the target values directly for precision
-            conscientiousness: Number(p.conscientiousness) ?? adjustments.bigFive.conscientiousness,
-            neuroticism: Number(p.neuroticism) ?? adjustments.bigFive.neuroticism,
-            openness: Number(p.openness) ?? adjustments.bigFive.openness,
-            extraversion: Number(p.extraversion) ?? adjustments.bigFive.extraversion,
-            agreeableness: Number(p.agreeableness) ?? adjustments.bigFive.agreeableness,
+            conscientiousness: Number(p.conscientiousness) ?? 50,
+            neuroticism: Number(p.neuroticism) ?? 50,
+            openness: Number(p.openness) ?? 50,
+            extraversion: Number(p.extraversion) ?? 50,
+            agreeableness: Number(p.agreeableness) ?? 50,
 
             values: Array.isArray(p.values) ? (p.values as string[]) : [],
             fears: Array.isArray(p.fears) ? (p.fears as string[]) : [],
@@ -725,7 +647,6 @@ Return ONLY valid JSON array without explanatory text or markdown code blocks.`;
 
             domainExpertise: Array.isArray(p.domainExpertise) ? (p.domainExpertise as string[]) : [],
             backstory: (p.backstory as string) ?? "",
-            aiInsight: (p.aiInsight as string) ?? "",
           }      ) as Persona,
       );
     } catch (err) {
@@ -751,5 +672,72 @@ CONCISE REQUIREMENTS:
 
 Return plain text only. No headers, labels, or markdown.`;
   }
+
+  async inferTraitsFromBackstory(backstory: string): Promise<InferredTraitsResponse> {
+    const system = `You are a personality psychologist. Given a persona's backstory, infer their Big Five (OCEAN) personality traits and psychographic profile.
+
+Return a JSON object with:
+- conscientiousness: number 0-100 (High=Meticulous, Low=Chaotic)
+- neuroticism: number 0-100 (High=Anxious, Low=Stable)
+- openness: number 0-100 (High=Curious, Low=Traditional)
+- extraversion: number 0-100 (High=Outgoing, Low=Solitary)
+- agreeableness: number 0-100 (High=Compassionate, Low=Competitive)
+- values: string[] (2-4 core values that drive their decisions)
+- fears: string[] (2-3 anxieties or risk concerns)
+- communicationStyle: string (e.g. "direct", "analytical", "warm", "cautious")
+- decisionStyle: string (e.g. "data-driven", "gut-driven", "consensus-seeking")
+
+Base your analysis on explicit life experiences, attitudes toward money/risk, and personality signals in the backstory. Return ONLY valid JSON.`;
+
+    const user = `Infer the personality traits for this backstory:\n\n${backstory}`;
+
+    const result = await this.llmService.createChatCompletion(
+      [
+        { role: "system", content: system },
+        { role: "user", content: user },
+      ],
+      {
+        model: this.llmService.smallTextModel,
+        temperature: 0.3,
+        purpose: "Infer Traits from Backstory",
+      },
+    );
+
+    try {
+      const cleaned = stripCodeFence(result);
+      const parsed = JSON.parse(cleaned);
+      const validated = InferredTraitsSchema.parse(parsed);
+      return validated;
+    } catch (e) {
+      console.warn("[PersonaAdapter] Failed to parse inferred traits from LLM response:", e);
+      console.warn("[PersonaAdapter] Raw result:", result.slice(0, 300));
+      throw new Error(`Failed to infer traits from backstory: ${e}`);
+    }
+  }
+}
+
+const InferredTraitsSchema = z.object({
+  conscientiousness: z.number().min(0).max(100),
+  neuroticism: z.number().min(0).max(100),
+  openness: z.number().min(0).max(100),
+  extraversion: z.number().min(0).max(100),
+  agreeableness: z.number().min(0).max(100),
+  values: z.array(z.string()),
+  fears: z.array(z.string()),
+  communicationStyle: z.string(),
+  decisionStyle: z.string(),
+});
+
+/** Response type for backstory-based trait inference */
+interface InferredTraitsResponse {
+  conscientiousness: number;
+  neuroticism: number;
+  openness: number;
+  extraversion: number;
+  agreeableness: number;
+  values: string[];
+  fears: string[];
+  communicationStyle: string;
+  decisionStyle: string;
 }
 

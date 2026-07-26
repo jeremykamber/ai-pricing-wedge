@@ -435,16 +435,8 @@ export class LlmServiceImpl implements LlmServicePort {
     yield* this.personaAdapter.generateAbbreviatedBackstoryStream(persona);
   }
 
-  async generatePersonaInsight(persona: Persona): Promise<string> {
-    return this.personaAdapter.generatePersonaInsight(persona);
-  }
-
   async generateAbbreviatedBackstoriesBatch(personas: Persona[]): Promise<string[]> {
     return this.personaAdapter.generateAbbreviatedBackstoriesBatch(personas);
-  }
-
-  async generatePersonaInsightsBatch(personas: Persona[]): Promise<string[]> {
-    return this.personaAdapter.generatePersonaInsightsBatch(personas);
   }
 
   async generateVariationPersonas(
@@ -453,6 +445,10 @@ export class LlmServiceImpl implements LlmServicePort {
     count: number,
   ): Promise<Persona[]> {
     return this.personaAdapter.generateVariationPersonas(referencePersona, adjustments, count);
+  }
+
+  async inferTraitsFromBackstory(backstory: string) {
+    return this.personaAdapter.inferTraitsFromBackstory(backstory);
   }
 
   async rationalizePersonas(personas: Persona[]): Promise<Persona[]> {

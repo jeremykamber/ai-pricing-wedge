@@ -204,12 +204,6 @@ describe('DashboardClient — setup view visibility (isGenerating logic)', () =>
     expect(setupVisible()).toBe(false)
   })
 
-  it('hides setup view when personaProgress.step is GENERATING_INSIGHTS', () => {
-    resetPersonaFlow({ personaProgress: { step: 'GENERATING_INSIGHTS' } })
-    render(<DashboardClient />)
-    expect(setupVisible()).toBe(false)
-  })
-
   it('hides setup view when activeRunIds is non-empty', () => {
     resetStore({ activeGenerationRunIds: ['run-1'] })
     render(<DashboardClient />)

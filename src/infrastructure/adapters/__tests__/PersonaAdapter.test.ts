@@ -33,7 +33,6 @@ describe('PersonaAdapter', () => {
     typicalBudget: '$50-100/user/month',
     domainExpertise: ['product management', 'B2B SaaS'],
     backstory: 'I have spent a decade in product management...',
-    aiInsight: 'Jordan is motivated by efficiency but fears wasting budget.',
   }
 
   beforeEach(() => {
@@ -81,7 +80,6 @@ describe('PersonaAdapter', () => {
           typicalBudget: '$30-60/user/month',
           domainExpertise: ['product management'],
           backstory: 'I started in engineering...',
-          aiInsight: 'Alex moves fast but needs validation.',
         },
       ])
 
@@ -97,7 +95,6 @@ describe('PersonaAdapter', () => {
       expect(result[0].name).toBe('Alex Rivera')
       expect(result[0].occupation).toBe('Associate Product Manager')
       expect(result[0].backstory).toBeTruthy()
-      expect(result[0].aiInsight).toBeTruthy()
     })
 
     it('should generate multiple variations', async () => {
@@ -109,7 +106,7 @@ describe('PersonaAdapter', () => {
           values: ['quality'], fears: ['bugs'], communicationStyle: 'direct', decisionStyle: 'analytical',
           pricingSensitivity: 50, typicalBudget: '$50/mo',
           domainExpertise: ['engineering'],
-          backstory: 'Story A', aiInsight: 'Insight A',
+          backstory: 'Story A',
         },
         {
           id: 'var-2', name: 'Persona B', age: 35, occupation: 'Designer', educationLevel: 'BFA',
@@ -118,7 +115,7 @@ describe('PersonaAdapter', () => {
           values: ['aesthetics'], fears: ['ugliness'], communicationStyle: 'warm', decisionStyle: 'intuitive',
           pricingSensitivity: 50, typicalBudget: '$40/mo',
           domainExpertise: ['design'],
-          backstory: 'Story B', aiInsight: 'Insight B',
+          backstory: 'Story B',
         },
         {
           id: 'var-3', name: 'Persona C', age: 28, occupation: 'Marketer', educationLevel: 'BA',
@@ -127,7 +124,7 @@ describe('PersonaAdapter', () => {
           values: ['reach'], fears: ['low engagement'], communicationStyle: 'persuasive', decisionStyle: 'data-driven',
           pricingSensitivity: 50, typicalBudget: '$60/mo',
           domainExpertise: ['marketing'],
-          backstory: 'Story C', aiInsight: 'Insight C',
+          backstory: 'Story C',
         },
       ])
 
@@ -195,7 +192,7 @@ describe('PersonaAdapter', () => {
     })
 
     it('should strip code fences from LLM response', async () => {
-      const llmResponse = '```json\n[{"name":"Test","age":25,"occupation":"Dev","educationLevel":"BS","interests":["code"],"goals":["ship"],"conscientiousness":70,"neuroticism":50,"openness":60,"extraversion":40,"agreeableness":65,"values":["x"],"fears":["y"],"communicationStyle":"direct","decisionStyle":"fast","pricingSensitivity":50,"typicalBudget":"$50","domainExpertise":["eng"],"backstory":"story","aiInsight":"insight"}]\n```'
+      const llmResponse = '```json\n[{"name":"Test","age":25,"occupation":"Dev","educationLevel":"BS","interests":["code"],"goals":["ship"],"conscientiousness":70,"neuroticism":50,"openness":60,"extraversion":40,"agreeableness":65,"values":["x"],"fears":["y"],"communicationStyle":"direct","decisionStyle":"fast","pricingSensitivity":50,"typicalBudget":"$50","domainExpertise":["eng"],"backstory":"story"}]\n```'
       mockLlm.createChatCompletion.mockResolvedValue(llmResponse)
 
       const result = await adapter.generateVariationPersonas(

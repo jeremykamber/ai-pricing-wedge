@@ -22,13 +22,14 @@ describe('personaStore', () => {
     usePersonaStore.setState({ batches: [], activeBatchId: null })
   })
 
-  it('addBatch adds a batch and sets it active', () => {
+  it('addBatch adds a batch without setting it active', () => {
     const batch = createBatch()
     usePersonaStore.getState().addBatch(batch)
 
     const state = usePersonaStore.getState()
     expect(state.batches).toHaveLength(1)
-    expect(state.activeBatchId).toBe('batch-1')
+    // addBatch intentionally does NOT set activeBatchId so the batch list view stays visible
+    expect(state.activeBatchId).toBeNull()
   })
 
   it('insertPersonasAfter inserts right after the reference persona', () => {
