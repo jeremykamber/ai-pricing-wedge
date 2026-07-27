@@ -376,257 +376,238 @@ export function PersonaDetailSheet({
                                     </div>
                                 )}
 
-                                {/* 1. Behavior Summary */}
-                                <div className="flex flex-col gap-2">
-                                    <div className="flex items-center gap-2">
+{/* TIER 1 */}
+
+                                <div className="flex flex-col gap-8 mt-8">
+
+                                <div className="flex flex-col gap-3">
+                                    <div className="flex items-center gap-3">
                                         <h4 className="text-xs font-bold text-muted-foreground uppercase tracking-widest">BEHAVIOR SUMMARY</h4>
                                         {persona.provenance && (
-                                            <span className="text-[10px] text-muted-foreground/50 bg-secondary/40 px-1.5 py-0.5 rounded-sm">
-                                                {Math.round(persona.provenance.overallConfidence * 100)}% confidence
+                                            <span className="inline-flex items-center gap-1.5 text-[10px] font-medium text-muted-foreground bg-secondary/40 border border-border/30 rounded-full px-2.5 py-0.5">
+                                                <span className="w-1 h-1 rounded-full bg-primary/60" />
+                                                {Math.round(persona.provenance.overallConfidence * 100)}%
                                             </span>
                                         )}
                                     </div>
                                     {persona.backstory ? (
-                                        <p className="text-xs text-foreground/80 leading-relaxed">
-                                            {persona.backstory.split('\n\n')[0]}
-                                        </p>
+                                        <p className="text-xs text-foreground/80 leading-relaxed max-w-prose">{persona.backstory.split('\n\n')[0]}</p>
                                     ) : (
                                         <p className="text-xs text-muted-foreground/60 italic">No summary available</p>
                                     )}
                                 </div>
 
-                                {/* Best For / Less Reliable For */}
                                 {(persona.bestFor || persona.lessReliableFor) && (
-                                    <div className="flex flex-col gap-2">
+                                    <div className="flex flex-col gap-3">
                                         <h4 className="text-xs font-bold text-muted-foreground uppercase tracking-widest">PREDICTION SCOPE</h4>
                                         {persona.bestFor && persona.bestFor.length > 0 && (
-                                            <div className="flex flex-col gap-1">
-                                                <span className="text-[11px] font-medium text-green-700">Best for</span>
-                                                <div className="flex flex-wrap gap-1.5">
-                                                    {persona.bestFor.map((item, i) => (
-                                                        <span key={i} className="inline-flex items-center gap-1 text-[11px] bg-green-50 text-green-700 border border-green-200 px-2 py-0.5 rounded-sm">
-                                                            ✓ {item}
-                                                        </span>
-                                                    ))}
-                                                </div>
+                                            <div className="flex flex-wrap gap-2">
+                                                {persona.bestFor!.map((item, i) => (
+                                                    <span key={i} className="inline-flex items-center text-[11px] font-medium text-emerald-600 bg-emerald-50 border border-emerald-200 rounded-full px-3 py-1">{item}</span>
+                                                ))}
                                             </div>
                                         )}
                                         {persona.lessReliableFor && persona.lessReliableFor.length > 0 && (
-                                            <div className="flex flex-col gap-1 mt-1">
-                                                <span className="text-[11px] font-medium text-amber-600">Less reliable for</span>
-                                                <div className="flex flex-wrap gap-1.5">
-                                                    {persona.lessReliableFor.map((item, i) => (
-                                                        <span key={i} className="inline-flex items-center gap-1 text-[11px] bg-amber-50 text-amber-700 border border-amber-200 px-2 py-0.5 rounded-sm">
-                                                            △ {item}
-                                                        </span>
-                                                    ))}
-                                                </div>
+                                            <div className="flex flex-wrap gap-2">
+                                                {persona.lessReliableFor!.map((item, i) => (
+                                                    <span key={i} className="inline-flex items-center text-[11px] font-medium text-amber-600 bg-amber-50 border border-amber-200 rounded-full px-3 py-1">{item}</span>
+                                                ))}
                                             </div>
                                         )}
                                     </div>
                                 )}
 
-                                {/* 2. Decision Model */}
-                                <div className="flex flex-col gap-2">
-                                    <div className="flex items-center gap-2">
+                                <div className="flex flex-col gap-3">
+                                    <div className="flex items-center gap-3">
                                         <h4 className="text-xs font-bold text-muted-foreground uppercase tracking-widest">DECISION MODEL</h4>
                                         {persona.provenance && (
-                                            <span className="text-[10px] text-muted-foreground/50 bg-secondary/40 px-1.5 py-0.5 rounded-sm">
-                                                {Math.round(persona.provenance.overallConfidence * 100)}% confidence
+                                            <span className="inline-flex items-center gap-1.5 text-[10px] font-medium text-muted-foreground bg-secondary/40 border border-border/30 rounded-full px-2.5 py-0.5">
+                                                <span className="w-1 h-1 rounded-full bg-primary/60" />
+                                                {Math.round(persona.provenance.overallConfidence * 100)}%
                                             </span>
                                         )}
                                     </div>
-                                    {persona.decisionStyle && (
-                                        <p className="text-xs text-foreground/80">
-                                            <span className="text-muted-foreground">Style:</span> {persona.decisionStyle}
-                                        </p>
-                                    )}
-                                    <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-muted-foreground/80">
+                                    {persona.decisionStyle && <p className="text-xs text-foreground/80"><span className="text-muted-foreground">Style:</span> {persona.decisionStyle}</p>}
+                                    <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground/80">
                                         <span>Price sensitivity: {persona.pricingSensitivity}/100</span>
-                                        {persona.typicalBudget && <span>· {persona.typicalBudget}</span>}
+                                        {persona.typicalBudget && <span className="text-muted-foreground/40">/</span>}
+                                        {persona.typicalBudget && <span>{persona.typicalBudget}</span>}
                                     </div>
                                     {persona.goals.length > 0 && (
-                                        <div className="flex flex-col gap-1 mt-1">
-                                            <span className="text-[11px] font-medium text-green-700">Likely to adopt if helps with:</span>
-                                            <div className="flex flex-wrap gap-1.5">
+                                        <div className="flex flex-col gap-1.5 mt-1">
+                                            <span className="text-[11px] font-medium text-emerald-600">Likely to adopt if helps with</span>
+                                            <div className="flex flex-wrap gap-x-3 gap-y-1">
                                                 {persona.goals.slice(0, 4).map((g, i) => (
-                                                    <span key={i} className="text-xs text-green-700/80">✓ {g}</span>
+                                                    <span key={i} className="text-xs text-emerald-600/80">{g}</span>
                                                 ))}
                                             </div>
                                         </div>
                                     )}
                                 </div>
 
-                                {/* 3. Behavior Patterns (sorted by confidence descending) */}
                                 <div className="flex flex-col gap-3">
-                                    <div className="flex items-center gap-2">
+                                    <div className="flex items-center gap-3">
                                         <h4 className="text-xs font-bold text-muted-foreground uppercase tracking-widest">BEHAVIOR PATTERNS</h4>
                                         {persona.provenance && (
-                                            <span className="text-[10px] text-muted-foreground/50 bg-secondary/40 px-1.5 py-0.5 rounded-sm">
-                                                {Math.round(persona.provenance.overallConfidence * 100)}% confidence
+                                            <span className="inline-flex items-center gap-1.5 text-[10px] font-medium text-muted-foreground bg-secondary/40 border border-border/30 rounded-full px-2.5 py-0.5">
+                                                <span className="w-1 h-1 rounded-full bg-primary/60" />
+                                                {Math.round(persona.provenance.overallConfidence * 100)}%
                                             </span>
                                         )}
                                     </div>
                                     {persona.behavioralDimensions && persona.behavioralDimensions.length > 0 ? (
-                                        <div className="space-y-2">
-                                            {[...persona.behavioralDimensions]
-                                                .sort((a, b) => {
-                                                    const aProv = persona.provenance?.attributes?.find(pa => pa.attribute === a.name)
-                                                    const bProv = persona.provenance?.attributes?.find(pa => pa.attribute === b.name)
-                                                    return (bProv?.confidence ?? 0) - (aProv?.confidence ?? 0)
-                                                })
-                                                .map((dim, i) => {
-                                                    const label = dim.score >= 80 ? 'Very High' : dim.score >= 60 ? 'High' : dim.score >= 40 ? 'Moderate' : dim.score >= 20 ? 'Low' : 'Very Low'
-                                                    const labelColor = dim.score >= 80 ? 'text-green-600' : dim.score >= 60 ? 'text-emerald-500' : dim.score >= 40 ? 'text-amber-500' : 'text-gray-400'
-                                                    return (
-                                                        <div key={i} className="flex items-start gap-3 py-1.5 border-b border-border/10 last:border-0">
-                                                            <div className="flex-1 min-w-0">
-                                                                <div className="flex items-center gap-2">
-                                                                    <span className="text-xs font-medium text-foreground">{dim.name}</span>
-                                                                    <span className={`text-[10px] font-medium ${labelColor}`}>{label}</span>
-                                                                </div>
-                                                                <p className="text-[11px] text-muted-foreground/70 mt-0.5">{dim.description}</p>
+                                        <div className="flex flex-col">
+                                            {[...persona.behavioralDimensions].sort((a, b) => {
+                                                const ap = persona.provenance?.attributes?.find(pa => pa.attribute === a.name);
+                                                const bp = persona.provenance?.attributes?.find(pa => pa.attribute === b.name);
+                                                return (bp?.confidence ?? 0) - (ap?.confidence ?? 0);
+                                            }).map((dim, i) => {
+                                                const label = dim.score >= 80 ? 'Very High' : dim.score >= 60 ? 'High' : dim.score >= 40 ? 'Moderate' : dim.score >= 20 ? 'Low' : 'Very Low';
+                                                const lc = dim.score >= 80 ? 'text-emerald-600' : dim.score >= 60 ? 'text-sky-600' : dim.score >= 40 ? 'text-amber-600' : 'text-gray-400';
+                                                return (
+                                                    <div key={i} className="flex items-start gap-3 py-3 border-b border-border/10 last:border-0">
+                                                        <div className="flex-1 min-w-0">
+                                                            <div className="flex items-center gap-2.5">
+                                                                <span className="text-xs font-medium text-foreground">{dim.name}</span>
+                                                                <span className={'text-[10px] font-medium ' + lc}>{label}</span>
                                                             </div>
-                                                            {dim.evidence && (
-                                                                <div className="group relative shrink-0">
-                                                                    <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-primary/10 text-primary cursor-help text-[10px] font-bold">?</span>
-                                                                    <div className="absolute right-0 top-full mt-1 w-56 p-2 rounded-lg border border-border bg-card shadow-lg text-[11px] text-foreground/80 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50">
-                                                                        {dim.evidence}
-                                                                    </div>
-                                                                </div>
-                                                            )}
+                                                            <p className="text-[11px] text-muted-foreground/60 mt-1 leading-relaxed">{dim.description}</p>
                                                         </div>
-                                                    )
-                                                })}
+                                                        {dim.evidence && (
+                                                            <div className="group relative shrink-0 mt-0.5">
+                                                                <span className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-secondary/60 text-muted-foreground/50 cursor-help text-[9px] font-bold">?</span>
+                                                                <div className="absolute right-0 top-full mt-1.5 w-60 p-2.5 rounded-lg border border-border bg-card text-[11px] text-foreground/80 leading-relaxed opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50 pointer-events-none">
+                                                                    {dim.evidence}
+                                                                </div>
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                );
+                                            })}
                                         </div>
-                                    ) : (
-                                        <div className="flex flex-col gap-1.5">
-                                            {persona.goals.slice(0, 4).map((goal, i) => (
-                                                <div key={i} className="flex items-center gap-2 text-xs text-foreground/80">
-                                                    <span className="text-primary shrink-0">✓</span>
-                                                    {goal}
-                                                </div>
-                                            ))}
-                                        </div>
-                                    )}
+                                    ) : null}
+                                </div>
                                 </div>
 
-                                {/* 4. Motivations */}
+                                {/* TIER 2 */}
+                                <div className="flex flex-col gap-6 mt-8">
+
                                 {persona.values && persona.values.length > 0 && (
-                                    <div className="flex flex-col gap-2">
-                                        <div className="flex items-center gap-2">
+                                    <div className="flex flex-col gap-3">
+                                        <div className="flex items-center gap-3">
                                             <h4 className="text-xs font-bold text-muted-foreground uppercase tracking-widest">MOTIVATIONS</h4>
                                             {persona.provenance && (
-                                                <span className="text-[10px] text-muted-foreground/50 bg-secondary/40 px-1.5 py-0.5 rounded-sm">
-                                                    {Math.round(persona.provenance.overallConfidence * 100)}% confidence
+                                                <span className="inline-flex items-center gap-1.5 text-[10px] font-medium text-muted-foreground bg-secondary/40 border border-border/30 rounded-full px-2.5 py-0.5">
+                                                    <span className="w-1 h-1 rounded-full bg-primary/60" />
+                                                    {Math.round(persona.provenance.overallConfidence * 100)}%
                                                 </span>
                                             )}
                                         </div>
-                                        <div className="flex flex-wrap gap-1.5">
+                                        <div className="flex flex-wrap gap-2">
                                             {persona.values.map((v, i) => (
-                                                <span key={i} className="inline-flex items-center gap-1.5 text-xs font-medium bg-primary/10 text-primary px-2.5 py-1 rounded-sm">
-                                                    <span className="w-1.5 h-1.5 rounded-full bg-primary" />
-                                                    {v}
-                                                </span>
+                                                <span key={i} className="inline-flex items-center text-xs font-medium text-foreground bg-secondary/50 border border-border/30 rounded-full px-3 py-1">{v}</span>
                                             ))}
                                         </div>
                                     </div>
                                 )}
 
-                                {/* 5. Frictions */}
                                 {persona.fears && persona.fears.length > 0 && (
-                                    <div className="flex flex-col gap-2">
-                                        <div className="flex items-center gap-2">
+                                    <div className="flex flex-col gap-3">
+                                        <div className="flex items-center gap-3">
                                             <h4 className="text-xs font-bold text-muted-foreground uppercase tracking-widest">FRICTIONS</h4>
                                             {persona.provenance && (
-                                                <span className="text-[10px] text-muted-foreground/50 bg-secondary/40 px-1.5 py-0.5 rounded-sm">
-                                                    {Math.round(persona.provenance.overallConfidence * 100)}% confidence
+                                                <span className="inline-flex items-center gap-1.5 text-[10px] font-medium text-muted-foreground bg-secondary/40 border border-border/30 rounded-full px-2.5 py-0.5">
+                                                    <span className="w-1 h-1 rounded-full bg-primary/60" />
+                                                    {Math.round(persona.provenance.overallConfidence * 100)}%
                                                 </span>
                                             )}
                                         </div>
-                                        <ul className="space-y-1.5">
+                                        <ul className="space-y-2">
                                             {persona.fears.map((f, i) => (
-                                                <li key={i} className="text-xs text-foreground/80 flex gap-2 leading-relaxed">
-                                                    <span className="text-destructive shrink-0 mt-0.5">✕</span>
+                                                <li key={i} className="text-xs text-foreground/70 flex gap-2.5 leading-relaxed">
+                                                    <span className="text-destructive/60 shrink-0 mt-0.5">/</span>
                                                     {f}
                                                 </li>
                                             ))}
                                         </ul>
                                     </div>
                                 )}
+                                </div>
 
-                                {/* 6. Evidence & Confidence */}
+                                {/* TIER 3 */}
+                                <div className="flex flex-col gap-5 mt-6 border-t border-border/10 pt-6">
+
                                 <div className="flex flex-col gap-3">
                                     <h4 className="text-xs font-bold text-muted-foreground uppercase tracking-widest">EVIDENCE &amp; CONFIDENCE</h4>
                                     {persona.provenance ? (
                                         <>
-                                            <div className="flex items-center gap-2 text-xs text-foreground/80">
-                                                <span>Overall:</span>
-                                                <div className="flex-1 h-1.5 max-w-[100px] rounded-full bg-secondary">
-                                                    <div className="h-full rounded-full bg-primary" style={{ width: `${persona.provenance.overallConfidence * 100}%` }} />
+                                            <div className="flex items-center gap-3 text-xs">
+                                                <span className="text-muted-foreground">Overall</span>
+                                                <div className="flex-1 h-1 max-w-[80px] rounded-full bg-secondary">
+                                                    <div className="h-full rounded-full bg-primary" style={{ width: persona.provenance.overallConfidence * 100 + '%' }} />
                                                 </div>
-                                                <span className="font-mono text-muted-foreground text-[11px]">{Math.round(persona.provenance.overallConfidence * 100)}%</span>
+                                                <span className="font-mono text-muted-foreground/60 text-[11px]">{Math.round(persona.provenance.overallConfidence * 100)}%</span>
                                             </div>
                                             {persona.provenance.attributes.length > 0 && (
-                                                <div className="flex flex-wrap gap-1.5">
-                                                    {persona.provenance.attributes.map((attr, i) => (
-                                                        <div key={i} className="group relative inline-flex items-center gap-1.5 text-[10px] bg-secondary/30 border border-border/30 rounded-sm px-1.5 py-1">
-                                                            <span className={`w-1.5 h-1.5 rounded-full ${attr.tier === 'observed' ? 'bg-green-500' : attr.tier === 'interpreted' ? 'bg-amber-400' : 'bg-gray-300'}`} />
-                                                            <span className="text-muted-foreground">{attr.attribute}</span>
-                                                            {attr.confidence < 1 && (
-                                                                <span className="text-muted-foreground/50">{Math.round(attr.confidence * 100)}%</span>
-                                                            )}
-                                                            {attr.evidence && (
-                                                                <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 w-48 p-2 rounded-lg border border-border bg-card shadow-lg text-[11px] text-foreground/80 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50 pointer-events-none">
-                                                                    {attr.evidence}
+                                                <div className="grid grid-cols-2 gap-x-4 gap-y-2 mt-1">
+                                                    {persona.provenance.attributes.map((attr, i) => {
+                                                        const tc = attr.tier === 'observed' ? 'bg-emerald-500' : attr.tier === 'interpreted' ? 'bg-amber-400' : 'bg-gray-400';
+                                                        return (
+                                                            <div key={i} className="group relative flex items-center gap-2.5 text-xs">
+                                                                <span className={'w-1.5 h-1.5 rounded-full shrink-0 ' + tc} />
+                                                                <div className="flex-1 min-w-0 flex items-center gap-2">
+                                                                    <span className="text-foreground/70 truncate">{attr.attribute}</span>
+                                                                    <span className="text-muted-foreground/40 text-[10px] font-mono">{Math.round(attr.confidence * 100)}%</span>
                                                                 </div>
-                                                            )}
-                                                        </div>
-                                                    ))}
+                                                                {attr.evidence && (
+                                                                    <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 w-56 p-2.5 rounded-lg border border-border bg-card text-[11px] text-foreground/80 leading-relaxed opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50 pointer-events-none">
+                                                                        {attr.evidence}
+                                                                    </div>
+                                                                )}
+                                                            </div>
+                                                        );
+                                                    })}
                                                 </div>
                                             )}
                                         </>
                                     ) : (
                                         <p className="text-xs text-muted-foreground/60">
-                                            {persona.generationMode === 'research'
-                                                ? "No provenance data available"
-                                                : "Generated from a description. Not linked to interview sources."
-                                            }
+                                            {persona.generationMode === 'research' ? "No provenance data available" : "Generated from a description."}
                                         </p>
                                     )}
                                 </div>
 
-                                {/* 7. Sources */}
                                 {persona.evidenceLinks && persona.evidenceLinks.length > 0 && (
-                                    <div className="flex flex-col gap-2">
+                                    <div className="flex flex-col gap-3">
                                         <h4 className="text-xs font-bold text-muted-foreground uppercase tracking-widest">SOURCES</h4>
-                                        <div className="space-y-2">
+                                        <div className="flex flex-col gap-2">
                                             {persona.evidenceLinks.map((link, i) => (
-                                                <div key={i} className="flex flex-col gap-1 rounded-lg border border-border/40 bg-secondary/20 p-3">
-                                                    <div className="flex items-center gap-2">
-                                                        <span className="text-[10px] font-medium text-muted-foreground uppercase">{link.attribute}</span>
-                                                        <span className="text-[10px] text-muted-foreground/50">{link.transcriptId}</span>
+                                                <div key={i} className="relative pl-4 border-l-2 border-border/40">
+                                                    <div className="flex items-center gap-2 mb-1">
+                                                        <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">{link.attribute}</span>
+                                                        <span className="text-[10px] text-muted-foreground/40">{link.transcriptId}</span>
                                                     </div>
-                                                    <p className="text-xs text-foreground/80 italic leading-relaxed">"{link.excerpt}"</p>
+                                                    <p className="text-xs text-foreground/70 italic leading-relaxed">{link.excerpt}</p>
                                                 </div>
                                             ))}
                                         </div>
                                     </div>
                                 )}
+                                </div>
 
-                                {/* 8. Additional Context (collapsible) */}
-                                <details className="flex flex-col gap-3 group border-t border-border/10 pt-3">
-                                    <summary className="text-xs font-bold text-muted-foreground uppercase tracking-widest cursor-pointer hover:text-foreground transition-colors list-none flex items-center gap-2">
-                                        <span className="text-[10px] text-muted-foreground/30 group-open:rotate-90 transition-transform">▶</span>
+                                <div className="flex flex-col gap-3 mt-6 border-t border-border/10 pt-6">
+
+                                <details className="group">
+                                    <summary className="text-xs font-bold text-muted-foreground uppercase tracking-widest cursor-pointer hover:text-foreground transition-colors list-none flex items-center gap-2 py-1">
+                                        <span className="text-[10px] text-muted-foreground/30 group-open:rotate-90 transition-transform duration-150">{'▶'}</span>
                                         ADDITIONAL CONTEXT
                                     </summary>
-                                    <div className="flex flex-col gap-4 pt-3">
+                                    <div className="flex flex-col gap-4 pt-4 pb-2">
                                         <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
                                             {persona.age && <span>{persona.age} years old</span>}
                                             {persona.educationLevel && <><span className="w-1 h-1 rounded-full bg-border" /><span>{persona.educationLevel}</span></>}
                                             {persona.occupation && <><span className="w-1 h-1 rounded-full bg-border" /><span>{persona.occupation}</span></>}
                                         </div>
-
                                         {persona.backstory && (
                                             <div className="flex flex-col gap-2">
                                                 <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">BACKSTORY</h4>
@@ -636,37 +617,34 @@ export function PersonaDetailSheet({
                                                 </div>
                                                 <div className="flex flex-col gap-3 max-h-[200px] overflow-y-auto custom-scrollbar pr-1">
                                                     {filteredBackstory.map((paragraph, i) => (
-                                                        <p key={`${persona.id}-para-${i}`} className={cn("text-sm leading-relaxed text-foreground/70",
+                                                        <p key={persona.id + '-para-' + i} className={cn("text-sm leading-relaxed text-foreground/70",
                                                             searchTerm && paragraph.toLowerCase().includes(searchTerm.toLowerCase()) ? "bg-primary/5 rounded-lg p-2" : ""
                                                         )}>{paragraph}</p>
                                                     ))}
                                                 </div>
                                             </div>
                                         )}
-
                                         {(persona.identityContext || persona.situationContext) && (
                                             <div className="flex flex-col gap-2">
-                                                {persona.identityContext && <p className="text-xs text-foreground/70"><span className="text-muted-foreground">Stable:</span> {persona.identityContext}</p>}
-                                                {persona.situationContext && <p className="text-xs text-foreground/70"><span className="text-muted-foreground">Context:</span> {persona.situationContext}</p>}
+                                                {persona.identityContext && <p className="text-xs text-foreground/70"><span className="text-muted-foreground">Stable</span> {persona.identityContext}</p>}
+                                                {persona.situationContext && <p className="text-xs text-foreground/70"><span className="text-muted-foreground">Context</span> {persona.situationContext}</p>}
                                             </div>
                                         )}
-
                                         {persona.clusterInfo && (
                                             <div className="text-xs text-muted-foreground/70">
                                                 Represents {persona.clusterInfo.representedCount} interview subjects
-                                                {persona.clusterInfo.sourceIds.length > 0 && ` (${persona.clusterInfo.sourceIds.join(", ")})`}
+                                                {persona.clusterInfo.sourceIds.length > 0 && (' (' + persona.clusterInfo.sourceIds.join(', ') + ')')}
                                             </div>
                                         )}
                                     </div>
                                 </details>
 
-                                {/* 9. Advanced Model Details (collapsible) */}
-                                <details className="flex flex-col gap-3 group">
-                                    <summary className="text-xs font-bold text-muted-foreground uppercase tracking-widest cursor-pointer hover:text-foreground transition-colors list-none flex items-center gap-2">
-                                        <span className="text-[10px] text-muted-foreground/30 group-open:rotate-90 transition-transform">▶</span>
+                                <details className="group">
+                                    <summary className="text-xs font-bold text-muted-foreground uppercase tracking-widest cursor-pointer hover:text-foreground transition-colors list-none flex items-center gap-2 py-1">
+                                        <span className="text-[10px] text-muted-foreground/30 group-open:rotate-90 transition-transform duration-150">{'▶'}</span>
                                         ADVANCED MODEL DETAILS
                                     </summary>
-                                    <div className="flex flex-col gap-5 pt-3">
+                                    <div className="flex flex-col gap-5 pt-4 pb-2">
                                         <div className="space-y-4">
                                             {renderScalar("Conscientiousness", persona.conscientiousness, "Chaotic", "Meticulous")}
                                             {renderScalar("Neuroticism", persona.neuroticism, "Stable", "Anxious")}
@@ -674,9 +652,7 @@ export function PersonaDetailSheet({
                                             {renderScalar("Extraversion", persona.extraversion, "Introvert", "Extrovert")}
                                             {renderScalar("Agreeableness", persona.agreeableness, "Competitive", "Compassionate")}
                                         </div>
-                                        {persona.communicationStyle && (
-                                            <p className="text-xs text-foreground/70">Communication: {persona.communicationStyle}</p>
-                                        )}
+                                        {persona.communicationStyle && <p className="text-xs text-foreground/70">Communication: {persona.communicationStyle}</p>}
                                         {persona.interests && persona.interests.length > 0 && (
                                             <div className="flex flex-wrap gap-1.5">
                                                 {persona.interests.map((v, i) => (
@@ -684,21 +660,18 @@ export function PersonaDetailSheet({
                                                 ))}
                                             </div>
                                         )}
-                                        {/* PB&J Rationales */}
                                         {persona.pbjRationales && (
                                             <div className="flex flex-col gap-2 pt-2 border-t border-border/10">
-                                                <h4 className="text-xs font-bold text-muted-foreground uppercase tracking-widest">PSYCHOLOGICAL RATIONALES (PB&J)</h4>
-                                                <div className="text-xs text-foreground/70 leading-relaxed whitespace-pre-wrap max-h-[300px] overflow-y-auto custom-scrollbar">
-                                                    {persona.pbjRationales}
-                                                </div>
+                                                <h4 className="text-xs font-bold text-muted-foreground uppercase tracking-widest">PSYCHOLOGICAL RATIONALES (PB&amp;J)</h4>
+                                                <div className="text-xs text-foreground/70 leading-relaxed whitespace-pre-wrap max-h-[300px] overflow-y-auto custom-scrollbar">{persona.pbjRationales}</div>
                                             </div>
                                         )}
                                     </div>
                                 </details>
+                                </div>
                             </div>
                         </ScrollArea>
                     )}
-
                     {/* Profile Tab — Edit Mode */}
                     {activeTab === "profile" && isEditing && draftPersona && (
                         <ScrollArea className="flex-1 min-h-0">
