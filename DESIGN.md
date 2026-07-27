@@ -11,10 +11,11 @@ colors:
   secondary: oklch(0.16 0.01 265)
   secondary-foreground: oklch(0.95 0 0)
   muted: oklch(0.18 0.01 265)
-  muted-foreground: oklch(0.52 0.01 265)
+  muted-foreground: oklch(0.65 0.01 265)
   accent: oklch(0.18 0.01 265)
   accent-foreground: oklch(0.95 0 0)
   destructive: oklch(0.58 0.2 28)
+  warning-foreground: oklch(0.76 0.14 24)
   border: oklch(0.2 0.01 265)
   input: oklch(0.2 0.01 265)
   ring: oklch(0.25 0 0)
@@ -134,7 +135,7 @@ A restrained palette built around cool charcoal neutrals and a single cerulean b
 - **Raised Surface** (`oklch(0.16 0.01 265)`): Secondary surfaces, sidebar, hovered cards.
 - **Cerulean Blue** (`oklch(0.62 0.2 230)`): Primary accent. A warm cerulean blue used sparingly for interactive elements, active states, and data highlights. Never decorative.
 - **Instrument White** (`oklch(0.95 0 0)`): Primary text, headings, high-importance labels.
-- **Instrument Grey** (`oklch(0.52 0.01 265)`): Secondary text, metadata, placeholders.
+- **Instrument Grey** (`oklch(0.65 0.01 265)`): Secondary text, metadata, placeholders.
 - **Panel Edge** (`oklch(0.2 0.01 265)`): Borders and dividers. Thin, crisp, present but not dominant.
 
 ### Primary (Light Mode — Secondary Expression)
@@ -148,6 +149,7 @@ A restrained palette built around cool charcoal neutrals and a single cerulean b
 ### Semantic Colors
 
 - **Alert Red** (`oklch(0.58 0.2 28)`): Destructive actions, errors, critical signals.
+- **Caution** (`oklch(0.76 0.14 24)`): Negative information that isn't an error — model uncertainty, low-confidence outputs, "less reliable for" labels. Visually softer than Alert Red; reads as caution, not danger.
 - **Cerulean Blue (low opacity)** (`oklch(0.62 0.2 230 / 0.12)`): User chat bubbles, selection highlights, active filter backgrounds. The accent color applied as a tint rather than a solid.
 
 ### Named Rules
@@ -220,7 +222,7 @@ Flat by default. This system does not use box-shadows to convey surface hierarch
 - **Style:** Transparent background, Panel Edge `1px` full border, 6px radius.
 - **Focus:** Panel Edge is replaced with Cerulean Blue `1px` border + very subtle ambient glow (`0 0 0 2px oklch(0.62 0.2 230 / 0.15)`). No ring offset.
 - **Padding:** `10px 14px` vertical/horizontal.
-- **Placeholder:** Muted Foreground at `oklch(0.40 0.01 265)`.
+- **Placeholder:** Muted Foreground at `oklch(0.50 0.01 265)`.
 - **Error:** Alert Red border. Error text in Alert Red at Label size.
 - **Disabled:** Full opacity at 0.4. No special background change.
 
@@ -245,7 +247,7 @@ Flat by default. This system does not use box-shadows to convey surface hierarch
 Selection states (segmented controls, option toggles, count selectors, filter chips) use tonal hierarchy, not color, to indicate the active item. The accent color is reserved for primary actions — using it for selected-in-a-group state would violate the Rarity Rule.
 
 - **Selected:** Raised Surface background (`muted` / `oklch(0.18 0.01 265)`), Foreground text (`oklch(0.95 0 0)`), Panel Edge border (`oklch(0.2 0.01 265)`). The background step up from the surrounding surface is enough to signal "this one is active" without introducing a second blue element.
-- **Unselected:** Transparent background, Muted Foreground text (`oklch(0.52 0.01 265)`), Panel Edge border (`oklch(0.2 0.01 265)`). Hover elevates text to Foreground and border to a lighter step.
+- **Unselected:** Transparent background, Muted Foreground text (`oklch(0.65 0.01 265)`), Panel Edge border (`oklch(0.2 0.01 265)`). Hover elevates text to Foreground and border to a lighter step.
 - **Implementation:** `bg-muted text-foreground border-border` for selected, `bg-transparent text-muted-foreground border-border hover:text-foreground hover:border-border/80` for unselected.
 
 This applies to all segmented toggle groups, option rows, and count selectors across the app. The principle: selected state is communicated by a surface lightness step, never by the accent color alone.
