@@ -280,7 +280,7 @@ Return ONLY valid JSON without explanatory text or markdown code blocks.`;
 
             backstory: (p.backstory as string) ?? (p.story as string) ?? undefined,
             generationMode: 'strategy' as const,
-            behavioralDimensions: Array.isArray(p.behavioralDimensions) ? (p.behavioralDimensions as any) : [],
+            behavioralDimensions: PersonaAdapter.extractBehavioralDimensions(p),
             evidenceLinks: [{
               transcriptId: 'user-input',
               excerpt: personaDescription.length > 200 ? personaDescription.slice(0, 200) + "..." : personaDescription,
@@ -751,7 +751,7 @@ Return ONLY valid JSON array without explanatory text or markdown code blocks.`;
             domainExpertise: Array.isArray(p.domainExpertise) ? (p.domainExpertise as string[]) : [],
             backstory: (p.backstory as string) ?? "",
             generationMode: 'strategy' as const,
-            behavioralDimensions: Array.isArray(p.behavioralDimensions) ? (p.behavioralDimensions as any) : [],
+            behavioralDimensions: PersonaAdapter.extractBehavioralDimensions(p),
           }      ) as Persona,
       );
     } catch (err) {

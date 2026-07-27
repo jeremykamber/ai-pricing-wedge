@@ -65,6 +65,7 @@ export function PersonaDetailSheet({
     const handleCounterfactual = React.useCallback(async () => {
         if (!persona) return
         setIsRunningCounterfactual(true)
+        setCounterfactualResults(null)
         try {
             const result = await applyCounterfactualTestAction(persona)
             setCounterfactualResults(result)
@@ -75,15 +76,9 @@ export function PersonaDetailSheet({
         }
     }, [persona])
 
-    const attrOpacity = (tier?: string, confidence?: number): number => {
-        if (!tier || tier === 'observed') return 1
-        if (tier === 'interpreted') return confidence && confidence < 0.7 ? 0.6 : 0.8
-        if (tier === 'synthetic') return 0.5
-        return 1
-    }
-
     React.useEffect(() => {
         if (persona) {
+            setCounterfactualResults(null)
             setBigFive({
                 conscientiousness: mapToDiscrete(persona.conscientiousness),
                 neuroticism: mapToDiscrete(persona.neuroticism),
