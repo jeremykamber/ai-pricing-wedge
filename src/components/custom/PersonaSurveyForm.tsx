@@ -114,23 +114,39 @@ export function PersonaSurveyForm({ onSubmit, onUseTextarea, isPending, error }:
   const [audienceKnowledge, setAudienceKnowledge] = useState("")
   const [decisionTypes, setDecisionTypes] = useState<string[]>([])
   const [additionalNotes, setAdditionalNotes] = useState("")
+  const [frustrationCustom, setFrustrationCustom] = useState("")
+  const [solutionCustom, setSolutionCustom] = useState("")
+  const [goalCustom, setGoalCustom] = useState("")
+
+  const hasGoalCustom = goals.includes("Something else")
+  const isOtherFrustration = frustration === "Other"
+  const isOtherSolution = currentSolution === "Other"
 
   const isComplete =
     targetAudience.trim().length > 0 &&
     goals.length > 0 &&
+    (!hasGoalCustom || goalCustom.trim().length > 0) &&
     frustration.length > 0 &&
+    (!isOtherFrustration || frustrationCustom.trim().length > 0) &&
     currentSolution.length > 0 &&
+    (!isOtherSolution || solutionCustom.trim().length > 0) &&
     decisionFactors.length > 0 &&
     audienceKnowledge.length > 0 &&
     decisionTypes.length > 0
 
   const handleSubmit = () => {
     if (!isComplete) return
+
+    const resolveCustom = (val: string, custom: string) =>
+      val === "Other" && custom.trim() ? custom.trim() : val
+    const resolveGoalCustom = (g: string) =>
+      g === "Something else" && goalCustom.trim() ? goalCustom.trim() : g
+
     onSubmit({
       targetAudience: targetAudience.trim(),
-      goals,
-      frustration,
-      currentSolution,
+      goals: goals.map(resolveGoalCustom),
+      frustration: resolveCustom(frustration, frustrationCustom),
+      currentSolution: resolveCustom(currentSolution, solutionCustom),
       decisionFactors,
       audienceKnowledge,
       decisionTypes,
@@ -162,6 +178,16 @@ export function PersonaSurveyForm({ onSubmit, onUseTextarea, isPending, error }:
         max={3}
         label="What are they trying to accomplish?"
       />
+      {hasGoalCustom && (
+        <input
+          type="text"
+          value={goalCustom}
+          onChange={(e) => setGoalCustom(e.target.value)}
+          placeholder="Describe their goal..."
+          disabled={isPending}
+          className="-mt-2 h-10 rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+        />
+      )}
 
       {/* Question 3: Frustration */}
       <SingleSelect
@@ -170,6 +196,16 @@ export function PersonaSurveyForm({ onSubmit, onUseTextarea, isPending, error }:
         onChange={setFrustration}
         label="What is their biggest frustration?"
       />
+      {isOtherFrustration && (
+        <input
+          type="text"
+          value={frustrationCustom}
+          onChange={(e) => setFrustrationCustom(e.target.value)}
+          placeholder="Describe their frustration..."
+          disabled={isPending}
+          className="-mt-2 h-10 rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+        />
+      )}
 
       {/* Question 4: Current solution */}
       <SingleSelect
@@ -178,6 +214,16 @@ export function PersonaSurveyForm({ onSubmit, onUseTextarea, isPending, error }:
         onChange={setCurrentSolution}
         label="How do they solve this today?"
       />
+      {isOtherSolution && (
+        <input
+          type="text"
+          value={solutionCustom}
+          onChange={(e) => setSolutionCustom(e.target.value)}
+          placeholder="Describe their current solution..."
+          disabled={isPending}
+          className="-mt-2 h-10 rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+        />
+      )}
 
       {/* Question 5: Decision factors */}
       <MultiSelect
