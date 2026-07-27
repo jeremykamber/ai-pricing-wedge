@@ -298,9 +298,11 @@ export function DashboardClient() {
                                 </button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end" className="w-52">
-                                <DropdownMenuItem onClick={() => { setActiveBatch(null); setShowSetup(true) }}>
-                                    <PenIcon className="h-4 w-4 mr-2" />
-                                    From ICP description
+                                <DropdownMenuItem asChild>
+                                    <Link href="/dashboard/new">
+                                        <PenIcon className="h-4 w-4 mr-2" />
+                                        From ICP description
+                                    </Link>
                                 </DropdownMenuItem>
                                 <DropdownMenuItem asChild>
                                     <Link href="/dashboard/interviews">
