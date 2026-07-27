@@ -56,6 +56,8 @@ export interface Persona {
   // Psychographic Specification — Wang et al. (2024b) Section 3.1(2)
   values: string[];            // Core values that drive decisions
   fears: string[];             // Anxieties and risk concerns
+  valueEvidence?: string[];    // Evidence quotes for each value (parallel to values)
+  fearEvidence?: string[];     // Evidence quotes for each fear (parallel to fears)
   communicationStyle: string;  // How they speak (e.g. "direct", "analytical", "collaborative")
   decisionStyle: string;       // Decision process (e.g. "data-driven", "gut-driven", "consensus-seeking")
 
@@ -136,6 +138,8 @@ export const PersonaSchema = z.object({
   // Psychographic Specification
   values: z.array(z.string()).describe("Core values driving decisions"),
   fears: z.array(z.string()).describe("Anxieties and risk concerns"),
+  valueEvidence: z.array(z.string()).optional().describe("Evidence quotes for each value (parallel to values)"),
+  fearEvidence: z.array(z.string()).optional().describe("Evidence quotes for each fear (parallel to fears)"),
   communicationStyle: z.string().describe("How they speak — direct, analytical, collaborative, etc."),
   decisionStyle: z.string().describe("Decision process — data-driven, gut-driven, consensus-seeking, etc."),
 

@@ -376,7 +376,59 @@ export function PersonaDetailSheet({
                                     </div>
                                 )}
 
-                                {(persona.bestFor || persona.lessReliableFor) && (
+                                <div className="flex flex-col gap-3">
+                                    <div className="flex items-center gap-3">
+                                            <h4 className="text-xs font-bold text-muted-foreground uppercase tracking-widest">BEHAVIOR PATTERNS</h4>
+                                    </div>
+                                    {persona.behavioralDimensions && persona.behavioralDimensions.length > 0 ? (
+                                        <div className="flex flex-col">
+                                            {[...persona.behavioralDimensions].sort((a, b) => {
+                                                const ap = persona.provenance?.attributes?.find(pa => pa.attribute === a.name);
+                                                const bp = persona.provenance?.attributes?.find(pa => pa.attribute === b.name);
+                                                return (bp?.confidence ?? 0) - (ap?.confidence ?? 0);
+                                            }).map((dim, i) => {
+                                                const label = dim.score >= 80 ? 'Very High' : dim.score >= 60 ? 'High' : dim.score >= 40 ? 'Moderate' : dim.score >= 20 ? 'Low' : 'Very Low';
+                                                const lc = dim.score >= 80 ? 'text-emerald-600' : dim.score >= 60 ? 'text-sky-600' : dim.score >= 40 ? 'text-amber-600' : 'text-gray-400';
+                                                return (
+                                                    <div key={i} className="flex flex-col py-3 border-b border-border/10 last:border-0">
+                                                        <div className="flex items-center gap-2.5">
+                                                            <span className="text-xs font-medium text-foreground">{dim.name}</span>
+                                                            <span className={'text-[10px] font-medium ' + lc}>{label}</span>
+                                                        </div>
+                                                        <p className="text-[11px] text-muted-foreground/60 mt-1 leading-relaxed">{dim.description}</p>
+                                                        {dim.evidence && <details className="mt-1.5 group"><summary className="text-[10px] text-muted-foreground/50 cursor-pointer hover:text-foreground/70 transition-colors list-none flex items-center gap-1.5 font-sans"><span className="text-[10px] leading-none">▶</span> Source</summary><p className="text-[11px] text-foreground/60 italic mt-1.5 leading-relaxed border-l-2 border-border/30 pl-3">{dim.evidence}</p></details>}
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+                                    ) : null}
+                                </div>
+
+
+                                <div className="flex flex-col gap-3">
+                                    <div className="flex items-center gap-3">
+                                            <h4 className="text-xs font-bold text-muted-foreground uppercase tracking-widest">DECISION MODEL</h4>
+                                    </div>
+                                    {persona.decisionStyle && <p className="text-xs text-foreground/80"><span className="text-muted-foreground">Style:</span> {persona.decisionStyle}</p>}
+                                    <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground/80">
+                                        <span>Price sensitivity: {persona.pricingSensitivity}/100</span>
+                                        {persona.typicalBudget && <span className="text-muted-foreground/40">/</span>}
+                                        {persona.typicalBudget && <span>{persona.typicalBudget}</span>}
+                                    </div>
+                                    {persona.goals.length > 0 && (
+                                        <div className="flex flex-col gap-1.5 mt-1">
+                                             <span className="text-[11px] font-medium text-muted-foreground">Likely to adopt if helps with</span>
+                                             <div className="flex flex-wrap gap-x-3 gap-y-1">
+                                                 {persona.goals.slice(0, 4).map((g, i) => (
+                                                     <span key={i} className="text-xs text-foreground/80">{g}</span>
+                                                 ))}
+                                             </div>
+                                        </div>
+                                    )}
+                                </div>
+
+
+                                    {(persona.bestFor?.length || persona.lessReliableFor?.length) ? (
                                     <div className="flex flex-col gap-3">
                                         <h4 className="text-xs font-bold text-muted-foreground uppercase tracking-widest">PREDICTION SCOPE</h4>
                                         {persona.bestFor && persona.bestFor.length > 0 && (
@@ -394,60 +446,8 @@ export function PersonaDetailSheet({
                                             </div>
                                         )}
                                     </div>
-                                )}
-
-                                <div className="flex flex-col gap-3">
-                                    <div className="flex items-center gap-3">
-                                            <h4 className="text-xs font-bold text-muted-foreground uppercase tracking-widest">DECISION MODEL</h4>
-                                    </div>
-                                    {persona.decisionStyle && <p className="text-xs text-foreground/80"><span className="text-muted-foreground">Style:</span> {persona.decisionStyle}</p>}
-                                    <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground/80">
-                                        <span>Price sensitivity: {persona.pricingSensitivity}/100</span>
-                                        {persona.typicalBudget && <span className="text-muted-foreground/40">/</span>}
-                                        {persona.typicalBudget && <span>{persona.typicalBudget}</span>}
-                                    </div>
-                                    {persona.goals.length > 0 && (
-                                        <div className="flex flex-col gap-1.5 mt-1">
-                                            <span className="text-[11px] font-medium text-emerald-600">Likely to adopt if helps with</span>
-                                            <div className="flex flex-wrap gap-x-3 gap-y-1">
-                                                {persona.goals.slice(0, 4).map((g, i) => (
-                                                    <span key={i} className="text-xs text-emerald-600/80">{g}</span>
-                                                ))}
-                                            </div>
-                                        </div>
-                                    )}
-                                </div>
-
-                                <div className="flex flex-col gap-3">
-                                    <div className="flex items-center gap-3">
-                                            <h4 className="text-xs font-bold text-muted-foreground uppercase tracking-widest">BEHAVIOR PATTERNS</h4>
-                                    </div>
-                                    {persona.behavioralDimensions && persona.behavioralDimensions.length > 0 ? (
-                                        <div className="flex flex-col">
-                                            {[...persona.behavioralDimensions].sort((a, b) => {
-                                                const ap = persona.provenance?.attributes?.find(pa => pa.attribute === a.name);
-                                                const bp = persona.provenance?.attributes?.find(pa => pa.attribute === b.name);
-                                                return (bp?.confidence ?? 0) - (ap?.confidence ?? 0);
-                                            }).map((dim, i) => {
-                                                const label = dim.score >= 80 ? 'Very High' : dim.score >= 60 ? 'High' : dim.score >= 40 ? 'Moderate' : dim.score >= 20 ? 'Low' : 'Very Low';
-                                                const lc = dim.score >= 80 ? 'text-emerald-600' : dim.score >= 60 ? 'text-sky-600' : dim.score >= 40 ? 'text-amber-600' : 'text-gray-400';
-                                                return (
-                                                    <div key={i} className="flex items-start gap-3 py-3 border-b border-border/10 last:border-0">
-                                                        <div className="flex-1 min-w-0">
-                                                            <div className="flex items-center gap-2.5">
-                                                                <span className="text-xs font-medium text-foreground">{dim.name}</span>
-                                                                <span className={'text-[10px] font-medium ' + lc}>{label}</span>
-                                                            </div>
-                                                            <p className="text-[11px] text-muted-foreground/60 mt-1 leading-relaxed">{dim.description}</p>
-                                                        </div>
-                                                            {dim.evidence && <details className="mt-1 group"><summary className="text-[10px] text-muted-foreground/40 cursor-pointer hover:text-foreground/60 transition-colors list-none flex items-center gap-1 font-sans">▶ Source</summary><p className="text-[11px] text-foreground/60 italic mt-1.5 leading-relaxed border-l-2 border-border/30 pl-2.5">{dim.evidence}</p></details>}
-                                                    </div>
-                                                );
-                                            })}
-                                        </div>
                                     ) : null}
-                                </div>
-
+                                    
                                 {/* TIER 2 */}
                                 <div className="flex flex-col gap-6">
 
@@ -456,10 +456,15 @@ export function PersonaDetailSheet({
                                         <div className="flex items-center gap-3">
                                             <h4 className="text-xs font-bold text-muted-foreground uppercase tracking-widest">MOTIVATIONS</h4>
                                         </div>
-                                        <div className="flex flex-wrap gap-2">
-                                            {persona.values.map((v, i) => (
-                                                <span key={i} className="inline-flex items-center text-xs font-medium text-foreground bg-secondary/50 border border-border/30 rounded-full px-3 py-1">{v}</span>
-                                            ))}
+                                        <div className="flex flex-col gap-2">
+                                            <div className="flex flex-wrap gap-2">
+                                                {persona.values.map((v, i) => (
+                                                    <div key={i} className="flex flex-col">
+                                                        <span className="inline-flex items-center text-xs font-medium text-foreground bg-secondary/50 border border-border/30 rounded-full px-3 py-1">{v}</span>
+                                                        {persona.valueEvidence?.[i] && <details className="mt-1 group"><summary className="text-[10px] text-muted-foreground/50 cursor-pointer hover:text-foreground/70 transition-colors list-none flex items-center gap-1.5 font-sans pl-1"><span className="text-[10px] leading-none">▶</span> Source</summary><p className="text-[11px] text-foreground/60 italic mt-1 leading-relaxed border-l-2 border-border/30 pl-3 ml-1">{persona.valueEvidence[i]}</p></details>}
+                                                    </div>
+                                                ))}
+                                            </div>
                                         </div>
                                     </div>
                                 )}
@@ -469,11 +474,14 @@ export function PersonaDetailSheet({
                                         <div className="flex items-center gap-3">
                                             <h4 className="text-xs font-bold text-muted-foreground uppercase tracking-widest">FRICTIONS</h4>
                                         </div>
-                                        <ul className="space-y-2">
+                                        <ul className="space-y-3">
                                             {persona.fears.map((f, i) => (
-                                                <li key={i} className="text-xs text-foreground/70 flex gap-2.5 leading-relaxed">
-                                                    <span className="text-destructive/60 shrink-0 mt-0.5">/</span>
-                                                    {f}
+                                                <li key={i} className="flex flex-col">
+                                                    <div className="flex items-center gap-2.5 text-xs text-foreground/70 leading-relaxed">
+                                                        <span className="text-destructive/60 shrink-0 mt-0.5">/</span>
+                                                        {f}
+                                                    </div>
+                                                    {persona.fearEvidence?.[i] && <details className="mt-1 group ml-4"><summary className="text-[10px] text-muted-foreground/50 cursor-pointer hover:text-foreground/70 transition-colors list-none flex items-center gap-1.5 font-sans"><span className="text-[10px] leading-none">▶</span> Source</summary><p className="text-[11px] text-foreground/60 italic mt-1 leading-relaxed border-l-2 border-border/30 pl-3">{persona.fearEvidence[i]}</p></details>}
                                                 </li>
                                             ))}
                                         </ul>
@@ -490,7 +498,7 @@ export function PersonaDetailSheet({
                                         <>
                                             {persona.provenance.attributes.length > 0 && (
                                                 <div className="grid grid-cols-2 gap-x-4 gap-y-2 mt-1">
-                                                    {persona.provenance.attributes.map((attr, i) => {
+                                                    {[...persona.provenance.attributes].sort((a, b) => b.confidence - a.confidence).map((attr, i) => {
                                                         const tc = attr.tier === 'observed' ? 'bg-emerald-500' : attr.tier === 'interpreted' ? 'bg-amber-400' : 'bg-gray-400';
                                                         return (
                                                             <div key={i} className="group relative flex items-center gap-2.5 text-xs">

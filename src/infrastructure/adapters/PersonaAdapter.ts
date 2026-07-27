@@ -62,6 +62,8 @@ export class PersonaAdapter {
       agreeableness: Number(p.agreeableness) || 50,
       values: Array.isArray(p.values) ? p.values : [],
       fears: Array.isArray(p.fears) ? p.fears : [],
+      valueEvidence: Array.isArray(p.valueEvidence) ? (p.valueEvidence as string[]) : undefined,
+      fearEvidence: Array.isArray(p.fearEvidence) ? (p.fearEvidence as string[]) : undefined,
       communicationStyle: (p.communicationStyle as string) ?? "",
       decisionStyle: (p.decisionStyle as string) ?? "",
       pricingSensitivity: Number(p.pricingSensitivity) || 50,
@@ -853,7 +855,9 @@ Generate a JSON array of EXACTLY ${config.count} personas with this structure:
   extraversion: number (0-100);
   agreeableness: number (0-100);
   values: string[];
+  valueEvidence: string[]; // Evidence quote for each value, parallel to values array
   fears: string[];
+  fearEvidence: string[]; // Evidence quote for each fear, parallel to fears array
   communicationStyle: string;
   decisionStyle: string;
   pricingSensitivity: number (0-100);
