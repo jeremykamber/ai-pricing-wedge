@@ -390,8 +390,8 @@ export function PersonaDetailSheet({
                                                             <span className="text-xs font-medium text-foreground">{dim.name}</span>
                                                             <span className={'text-[10px] font-medium ' + lc}>{label}</span>
                                                         </div>
-                                                        <p className="text-[11px] text-muted-foreground/60 mt-1 leading-relaxed">{dim.description}</p>
-                                                        {dim.evidence && <details className="mt-2 group"><summary className="text-xs text-muted-foreground/60 cursor-pointer hover:text-foreground transition-colors list-none flex items-center gap-1.5 font-sans"><span className="text-xs text-muted-foreground/30 group-open:text-foreground/60 transition-colors">▶</span> Source</summary><p className="text-xs text-foreground/70 mt-1.5 leading-relaxed border-l-2 border-border/30 pl-3">{dim.evidence}</p></details>}
+                                                        <p className="text-[11px] text-muted-foreground/80 mt-1 leading-relaxed">{dim.description}</p>
+                                                        {dim.evidence && <details className="mt-2 group"><summary className="text-xs text-muted-foreground/80 cursor-pointer hover:text-foreground transition-colors list-none flex items-center gap-1.5 font-sans"><span className="text-xs text-muted-foreground/30 group-open:text-foreground/60 transition-colors">▶</span> Source</summary><p className="text-xs text-foreground/70 mt-1.5 leading-relaxed border-l-2 border-border/30 pl-3">{dim.evidence}</p></details>}
                                                     </div>
                                                 );
                                             })}
@@ -406,7 +406,7 @@ export function PersonaDetailSheet({
                                     </div>
                                     <div className="flex flex-col gap-6">
                                         {persona.decisionStyle && <p className="text-sm text-foreground/80"><span className="text-muted-foreground">Style:</span> {persona.decisionStyle}</p>}
-                                        <div className="flex flex-wrap gap-x-6 gap-y-1.5 text-sm text-muted-foreground/70">
+                                        <div className="flex flex-wrap gap-x-6 gap-y-1.5 text-sm text-muted-foreground/80">
                                             <span>Price sensitivity: {persona.pricingSensitivity}/100</span>
                                             {persona.typicalBudget && <span className="text-muted-foreground/40">/</span>}
                                             {persona.typicalBudget && <span className="text-foreground/80">{persona.typicalBudget}</span>}
@@ -440,7 +440,7 @@ export function PersonaDetailSheet({
                                         )}
                                         {persona.lessReliableFor && persona.lessReliableFor.length > 0 && (
                                             <div className="flex flex-col gap-2">
-                                                <span className="text-xs font-medium text-muted-foreground">Less reliable for</span>
+                                                <span className="text-xs font-medium text-warning-foreground">Less reliable for</span>
                                                 <div className="flex flex-wrap gap-x-4 gap-y-1">
                                                     {persona.lessReliableFor.map((item, i) => (
                                                         <span key={i} className="text-sm text-foreground/80">{item}</span>
@@ -463,7 +463,7 @@ export function PersonaDetailSheet({
                                                 {persona.values.map((v, i) => (
                                                     <div key={i} className="flex flex-col">
                                                         <span className="text-sm text-foreground/80">{v}</span>
-                                                        {persona.valueEvidence?.[i] && <details className="mt-1.5 group"><summary className="text-xs text-muted-foreground/60 cursor-pointer hover:text-foreground transition-colors list-none flex items-center gap-1.5 font-sans"><span className="text-xs text-muted-foreground/30 group-open:text-foreground/60 transition-colors">▶</span> Source</summary><p className="text-xs text-foreground/70 mt-1.5 leading-relaxed border-l-2 border-border/30 pl-3">{persona.valueEvidence[i]}</p></details>}
+                                                        {persona.valueEvidence?.[i] && <details className="mt-1.5 group"><summary className="text-xs text-muted-foreground/80 cursor-pointer hover:text-foreground transition-colors list-none flex items-center gap-1.5 font-sans"><span className="text-xs text-muted-foreground/30 group-open:text-foreground/60 transition-colors">▶</span> Source</summary><p className="text-xs text-foreground/70 mt-1.5 leading-relaxed border-l-2 border-border/30 pl-3">{persona.valueEvidence[i]}</p></details>}
                                                     </div>
                                                 ))}
                                             </div>
@@ -482,7 +482,7 @@ export function PersonaDetailSheet({
                                                             <span className="text-destructive/60 shrink-0 mt-0.5">/</span>
                                                             {f}
                                                         </div>
-                                                        {persona.fearEvidence?.[i] && <details className="mt-1.5 group ml-4"><summary className="text-xs text-muted-foreground/60 cursor-pointer hover:text-foreground transition-colors list-none flex items-center gap-1.5 font-sans"><span className="text-xs text-muted-foreground/30 group-open:text-foreground/60 transition-colors">▶</span> Source</summary><p className="text-xs text-foreground/70 mt-1.5 leading-relaxed border-l-2 border-border/30 pl-3">{persona.fearEvidence[i]}</p></details>}
+                                                        {persona.fearEvidence?.[i] && <details className="mt-1.5 group ml-4"><summary className="text-xs text-muted-foreground/80 cursor-pointer hover:text-foreground transition-colors list-none flex items-center gap-1.5 font-sans"><span className="text-xs text-muted-foreground/30 group-open:text-foreground/60 transition-colors">▶</span> Source</summary><p className="text-xs text-foreground/70 mt-1.5 leading-relaxed border-l-2 border-border/30 pl-3">{persona.fearEvidence[i]}</p></details>}
                                                     </li>
                                                 ))}
                                             </ul>
@@ -506,7 +506,7 @@ export function PersonaDetailSheet({
                                                                     <span className={'w-2 h-2 rounded-full shrink-0 ' + tc} />
                                                                     <div className="flex-1 min-w-0 flex items-center gap-2">
                                                                         <span className="text-foreground/80 truncate">{attr.attribute}</span>
-                                                                        <span className="text-muted-foreground/60 text-xs font-mono">{attr.confidence >= 0.8 ? 'High' : attr.confidence >= 0.6 ? 'Moderate' : 'Low'}</span>
+                                                                        <span className="text-muted-foreground/80 text-xs font-mono">{attr.confidence >= 0.8 ? 'High' : attr.confidence >= 0.6 ? 'Moderate' : 'Low'}</span>
                                                                     </div>
                                                                     {attr.evidence && (
                                                                         <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-64 p-3 rounded-lg border border-border bg-card text-xs text-foreground/80 leading-relaxed opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50 pointer-events-none shadow-lg">
@@ -529,12 +529,12 @@ export function PersonaDetailSheet({
                                     {persona.evidenceLinks && persona.evidenceLinks.length > 0 && (
                                         <div className="flex flex-col gap-4">
                                             <h4 className="text-xs font-bold text-muted-foreground uppercase tracking-widest">SOURCES</h4>
-                                        <div className="flex flex-col gap-5">
-                                            {persona.evidenceLinks.map((link, i) => (
+                                            <div className="flex flex-col gap-5">
+                                                {persona.evidenceLinks.map((link, i) => (
                                                     <div key={i} className="relative pl-4 border-l-2 border-border/40">
                                                         <div className="flex items-center gap-2 mb-1.5">
                                                             <span className="text-xs font-medium text-primary/70 uppercase tracking-wider">{link.attribute}</span>
-                                                            <span className="text-xs text-muted-foreground/50">{link.transcriptId}</span>
+                                                            <span className="text-xs text-muted-foreground/70">{link.transcriptId}</span>
                                                         </div>
                                                         <p className="text-sm text-foreground/70 leading-relaxed">{link.excerpt}</p>
                                                     </div>
@@ -561,7 +561,7 @@ export function PersonaDetailSheet({
                                                 <div className="flex flex-col gap-2">
                                                     <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">BACKSTORY</h4>
                                                     <div className="relative">
-                                                        <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3 h-3 text-muted-foreground/50" />
+                                                        <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3 h-3 text-muted-foreground/70" />
                                                         <Input placeholder="Search..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="h-8 text-xs pl-8 rounded-md bg-muted/30 border-none" />
                                                     </div>
                                                     <div className="flex flex-col gap-3 max-h-[200px] overflow-y-auto custom-scrollbar pr-1">
@@ -754,7 +754,7 @@ export function PersonaDetailSheet({
                                                 onChange={(e) => updateDraft({ pricingSensitivity: Math.max(0, Math.min(100, Number(e.target.value) || 0)) })}
                                                 className="h-9 text-sm bg-muted/30 border border-transparent focus:border-primary/50 focus:ring-2 focus:ring-primary/15"
                                             />
-                                            <span className="text-[11px] text-muted-foreground/60">1 = low sensitivity, 100 = high sensitivity</span>
+                                            <span className="text-[11px] text-muted-foreground/70">1 = low sensitivity, 100 = high sensitivity</span>
                                         </div>
                                         <div className="flex flex-col gap-1.5">
                                             <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Typical Budget</span>
@@ -831,7 +831,7 @@ export function PersonaDetailSheet({
                                                 <ShuffleIcon className="w-3.5 h-3.5" />
                                             </button>
                                         </div>
-                                        <span className="text-xs text-muted-foreground/60">
+                                        <span className="text-xs text-muted-foreground/80">
                                             Adjust the personality profile
                                         </span>
                                     </div>
@@ -874,7 +874,7 @@ export function PersonaDetailSheet({
                                         <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-widest">
                                             How Many?
                                         </h3>
-                                        <span className="text-xs text-muted-foreground/60">
+                                        <span className="text-xs text-muted-foreground/80">
                                             Number of variations to generate
                                         </span>
                                     </div>

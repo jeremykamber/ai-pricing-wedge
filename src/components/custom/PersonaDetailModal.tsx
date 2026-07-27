@@ -54,7 +54,7 @@ export function PersonaDetailModal({
         <span className="text-sm font-bold font-mono">{value}</span>
       </div>
       <Progress value={value} className="h-1.5" />
-      <div className="flex justify-between text-xs text-muted-foreground/60 font-medium">
+      <div className="flex justify-between text-xs text-muted-foreground/80 font-medium">
         <span>{leftLabel}</span>
         <span>{rightLabel}</span>
       </div>
@@ -100,7 +100,7 @@ export function PersonaDetailModal({
               <PersonaAvatar name={persona.name} size="xl" className="w-16 h-16 md:w-24 md:h-24 border-2 border-background shrink-0" />
               <div className="flex flex-col gap-1 min-w-0">
                 <DialogTitle className="text-2xl md:text-4xl font-bold tracking-tight truncate">{persona.name}</DialogTitle>
-                <div className="flex flex-wrap items-center gap-x-2 md:gap-x-3 gap-y-1 text-xs md:text-sm text-muted-foreground font-medium">
+                <div className="flex flex-wrap items-center gap-x-2 md:gap-x-3 gap-y-1 text-xs md:text-sm text-muted-foreground/80 font-medium">
                   <span>{persona.age} years old</span>
                   <span className="w-1 h-1 rounded-full bg-border" />
                   <span className="truncate max-w-[120px] md:max-w-none">{persona.occupation}</span>
@@ -138,7 +138,7 @@ export function PersonaDetailModal({
                   <div className="flex items-center justify-between mb-6">
                     <h4 className="text-xs md:text-sm font-bold text-muted-foreground uppercase tracking-widest">THE BACKSTORY VAULT</h4>
                     <div className="relative">
-                      <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3 h-3 text-muted-foreground/50" />
+                      <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3 h-3 text-muted-foreground/70" />
                       <Input
                         placeholder="Search backstory..."
                         value={searchTerm}
