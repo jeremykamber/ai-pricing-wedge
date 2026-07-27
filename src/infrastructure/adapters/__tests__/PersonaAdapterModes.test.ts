@@ -134,7 +134,7 @@ describe("PersonaAdapter dual-mode generation", () => {
       await expect(adapter.generateResearchPersonas({
         count: 1,
         personaDescription: "Test",
-      })).rejects.toThrow("Expected JSON array");
+      })).rejects.toThrow("research personas");
     })
   })
 

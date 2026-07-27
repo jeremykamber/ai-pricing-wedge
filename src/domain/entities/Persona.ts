@@ -106,6 +106,15 @@ export interface Persona {
   // product decision be made?" Details that fail this test should not influence
   // product decisions.
   counterfactualTest?: string;
+
+  // Prediction scope: what this persona is good at / less reliable for
+  bestFor?: string[];
+  lessReliableFor?: string[];
+
+  // PB&J (Psychology of Behavior and Judgment) rationales — Joshi et al. (2025)
+  // Causal explanations connecting the persona's profile to their values, fears, and decisions.
+  // Displayed in the Advanced Model Details section, not in the backstory.
+  pbjRationales?: string;
 }
 
 export const PersonaSchema = z.object({
@@ -168,6 +177,12 @@ export const PersonaSchema = z.object({
     .describe("Contextual behavior specific to a domain"),
   counterfactualTest: z.string().optional()
     .describe("If this detail were false, would a different product decision be made?"),
+  bestFor: z.array(z.string()).optional()
+    .describe("What this persona model is good at predicting"),
+  lessReliableFor: z.array(z.string()).optional()
+    .describe("What this persona model is less reliable for"),
+  pbjRationales: z.string().optional()
+    .describe("PB&J rationales — causal explanations connecting the persona's profile to their values, fears, and decisions"),
 });
 
 export function validatePersona(entity: unknown): boolean {

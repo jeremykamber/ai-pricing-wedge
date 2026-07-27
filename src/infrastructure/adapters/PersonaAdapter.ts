@@ -38,6 +38,9 @@ export class PersonaAdapter {
         `[PersonaAdapter] ${context} persona count mismatch: expected ${expectedCount}, got ${parsed.length}. The generation will be retried automatically.`
       );
     }
+    if (parsed.length > expectedCount) {
+      console.warn(`[PersonaAdapter] ${context} returned ${parsed.length} personas, truncating to ${expectedCount}`);
+    }
     return parsed.slice(0, expectedCount) as Record<string, unknown>[];
   }
 
@@ -832,8 +835,9 @@ Base your analysis on explicit life experiences, attitudes toward money/risk, an
 CRITICAL RULES:
 - Base all claims on the provided interview/description evidence.
 - Do NOT fabricate specific life events, purchases, or trauma unless explicitly stated.
-- Keep backstories minimal and evidence-based — no invented childhood stories or fake purchasing trauma.
+- For each behavioral dimension, include a direct quote from the source material as evidence.
 - If the evidence is thin, say so rather than inventing details.
+- Backstory should be a rich, detailed narrative (6-10 paragraphs) grounded in the source material. Research (Moon et al. 2024, Anthology framework) shows that detailed narrative backstories yield 18-27% better behavioral consistency than short summaries. The backstory is evidence-based but vivid.
 
 Generate a JSON array of EXACTLY ${config.count} personas with this structure:
 {
@@ -855,16 +859,20 @@ Generate a JSON array of EXACTLY ${config.count} personas with this structure:
   pricingSensitivity: number (0-100);
   typicalBudget: string;
   domainExpertise: string[];
-  behavioralDimensions: { name: string; score: number (0-100); context: string; description: string; evidence?: string }[];
-  backstory: string; // 2-3 sentences max, evidence-based only
+  behavioralDimensions: { name: string; score: number (0-100); context: string; description: string; evidence: string }[];
+  backstory: string; // 6-10 paragraph evidence-based narrative
   identityContext: string; // Stable traits that apply across domains
   situationContext: string; // Contextual behavior specific to this domain
+  bestFor: string[]; // What this persona model is good at predicting (2-4 items)
+  lessReliableFor: string[]; // What this persona model is less reliable for (1-3 items)
+  evidenceLinks: { transcriptId: string; excerpt: string; attribute: string }[]; // Direct quotes from source material
 }`;
 
     const user = `Generate ${config.count} research-mode personas for: "${config.personaDescription}"
 ${config.interviewIds ? `Base on interview IDs: ${config.interviewIds.join(", ")}` : ""}
 ${config.evidenceThreshold ? `Minimum evidence confidence threshold: ${config.evidenceThreshold}` : ""}
-Do NOT fabricate life events or personal history not supported by evidence.`;
+${config.contextNotes ? `\nAdditional context: ${config.contextNotes}` : ""}
+Base all backstory details on the provided evidence. Do not fabricate events.`;
 
     try {
       const content = await this.llmService.createChatCompletion(
@@ -880,38 +888,46 @@ Do NOT fabricate life events or personal history not supported by evidence.`;
       );
 
       const records = PersonaAdapter.parsePersonaList(content, config.count, "research");
-      const threshold = config.evidenceThreshold ?? 0.7;
 
       return records.map((p, idx) => {
         const dims = PersonaAdapter.extractBehavioralDimensions(p);
         const base = PersonaAdapter.extractBaseFields(p);
+        const llmEvidenceLinks = Array.isArray(p.evidenceLinks) ? p.evidenceLinks as { transcriptId: string; excerpt: string; attribute: string }[] : [];
+        const attrProvenance = [
+          { attribute: "values", tier: "interpreted" as const, confidence: 0.7 },
+          { attribute: "fears", tier: "interpreted" as const, confidence: 0.7 },
+          { attribute: "backstory", tier: "synthetic" as const, confidence: 0.4 },
+          ...dims.map((d) => ({
+            attribute: d.name,
+            tier: (d.evidence ? "observed" : "interpreted") as "observed" | "interpreted",
+            confidence: d.evidence ? 0.9 : 0.6,
+            evidence: d.evidence,
+          })),
+        ];
+        const computedConfidence = attrProvenance.length > 0
+          ? Math.round(attrProvenance.reduce((sum, a) => sum + a.confidence, 0) / attrProvenance.length * 10) / 10
+          : 0.7;
         return {
           ...base,
           id: `research-persona-${idx}`,
           generationMode: "research" as const,
           behavioralDimensions: dims,
+          bestFor: Array.isArray(p.bestFor) ? p.bestFor as string[] : undefined,
+          lessReliableFor: Array.isArray(p.lessReliableFor) ? p.lessReliableFor as string[] : undefined,
           provenance: {
-            attributes: [
-              { attribute: "values", tier: "interpreted" as const, confidence: 0.7 },
-              { attribute: "fears", tier: "interpreted" as const, confidence: 0.7 },
-              { attribute: "backstory", tier: "synthetic" as const, confidence: 0.4 },
-              ...dims.map((d) => ({
-                attribute: d.name,
-                tier: (d.evidence ? "observed" : "interpreted") as "observed" | "interpreted",
-                confidence: d.evidence ? 0.9 : 0.6,
-                evidence: d.evidence,
-              })),
-            ],
+            attributes: attrProvenance,
             generationMode: "research" as const,
-            overallConfidence: threshold,
+            overallConfidence: computedConfidence,
           },
-          evidenceLinks: config.interviewIds
-            ? config.interviewIds.map((id) => ({
-                transcriptId: id,
-                excerpt: `Evidence grounded in interview ${id}`,
-                attribute: "overall-persona",
-              }))
-            : [],
+          evidenceLinks: llmEvidenceLinks.length > 0
+            ? llmEvidenceLinks
+            : config.interviewIds
+              ? config.interviewIds.map((id) => ({
+                  transcriptId: id,
+                  excerpt: `Quotes from interview ${id} fed into persona generation`,
+                  attribute: "overall-persona",
+                }))
+              : [],
           identityContext: (p.identityContext as string) ?? undefined,
           situationContext: (p.situationContext as string) ?? undefined,
         } as Persona;
@@ -929,7 +945,7 @@ Do NOT fabricate life events or personal history not supported by evidence.`;
   async * generateResearchPersonasStream(config: ResearchPersonaConfig): AsyncIterable<Partial<Persona>[]> {
     const personaCount = config.count;
     const system = `You are a research-grade persona generator. Base all claims on evidence. Do NOT fabricate specific life events or trauma.
-Generate a JSON array of ${personaCount} personas. Keep backstories minimal (2-3 sentences) and evidence-based.`;
+Generate a JSON array of ${personaCount} personas. Backstories should be rich narratives (6-10 paragraphs), evidence-based.`;
 
     const { partialOutputStream } = streamText({
       model: this.llmService.provider(this.llmService.smallTextModel),

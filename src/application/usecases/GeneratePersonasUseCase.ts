@@ -50,6 +50,20 @@ export class GeneratePersonasUseCase {
                 personaDescription,
                 contextNotes,
             });
+
+            // Run PB&J rationalization for research mode, store in pbjRationales
+            // Capture backstories BEFORE calling rationalizePersonas (which mutates in-place)
+            const backstoriesBefore = personas.map(p => p.backstory ?? '');
+            const rationalized = await this.llmService.rationalizePersonas(personas, contextNotes);
+            for (let i = 0; i < personas.length; i++) {
+                const enhanced = rationalized[i]?.backstory ?? backstoriesBefore[i];
+                const pbjMatch = enhanced.match(/<<PSYCHOLOGICAL RATIONALES \(PB&J\)>>[\s\S]*$/);
+                if (pbjMatch && personas[i]) {
+                    personas[i].pbjRationales = pbjMatch[0].trim();
+                    personas[i].backstory = backstoriesBefore[i];
+                }
+            }
+
             return personas;
         }
 
@@ -149,8 +163,17 @@ export class GeneratePersonasUseCase {
             streamingText: `Phase 3 of 3: Connecting traits to behavior...`,
         });
 
+        const backstoriesBeforePbj = personas.map(p => p.backstory ?? '');
         personas = await this.llmService.rationalizePersonas(personas, contextNotes);
-        console.log("[GeneratePersonasUseCase] PB&J enhancement complete for all personas");
+        for (let i = 0; i < personas.length; i++) {
+            const enhanced = personas[i]?.backstory ?? backstoriesBeforePbj[i];
+            const pbjMatch = enhanced.match(/<<PSYCHOLOGICAL RATIONALES \(PB&J\)>>[\s\S]*$/);
+            if (pbjMatch && personas[i]) {
+                personas[i].pbjRationales = pbjMatch[0].trim();
+                personas[i].backstory = backstoriesBeforePbj[i];
+            }
+        }
+        console.log("[GeneratePersonasUseCase] PB&J extraction complete");
 
         return personas;
     }
