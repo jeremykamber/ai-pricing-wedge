@@ -470,7 +470,11 @@ export function PersonaDetailSheet({
                                     {persona.behavioralDimensions && persona.behavioralDimensions.length > 0 ? (
                                         <div className="space-y-2">
                                             {[...persona.behavioralDimensions]
-                                                .sort((a, b) => b.score - a.score)
+                                                .sort((a, b) => {
+                                                    const aProv = persona.provenance?.attributes?.find(pa => pa.attribute === a.name)
+                                                    const bProv = persona.provenance?.attributes?.find(pa => pa.attribute === b.name)
+                                                    return (bProv?.confidence ?? 0) - (aProv?.confidence ?? 0)
+                                                })
                                                 .map((dim, i) => {
                                                     const label = dim.score >= 80 ? 'Very High' : dim.score >= 60 ? 'High' : dim.score >= 40 ? 'Moderate' : dim.score >= 20 ? 'Low' : 'Very Low'
                                                     const labelColor = dim.score >= 80 ? 'text-green-600' : dim.score >= 60 ? 'text-emerald-500' : dim.score >= 40 ? 'text-amber-500' : 'text-gray-400'

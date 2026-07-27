@@ -947,11 +947,12 @@ Base all backstory details on the provided evidence. Do not fabricate events.`;
     const system = `You are a research-grade persona generator. Base all claims on evidence. Do NOT fabricate specific life events or trauma.
 Generate a JSON array of ${personaCount} personas. Backstories should be rich narratives (6-10 paragraphs), evidence-based.`;
 
+    const streamUser = `Generate ${personaCount} research-mode personas for: "${config.personaDescription}". Evidence-first, no fabricated memories.${config.interviewIds ? ` Base on interview IDs: ${config.interviewIds.join(", ")}` : ""}${config.evidenceThreshold ? ` Minimum evidence confidence threshold: ${config.evidenceThreshold}` : ""}${config.contextNotes ? `\nAdditional context: ${config.contextNotes}` : ""}`;
     const { partialOutputStream } = streamText({
       model: this.llmService.provider(this.llmService.smallTextModel),
       output: Output.array({ element: PersonaSchema }),
       system,
-      prompt: `Generate ${personaCount} research-mode personas for: "${config.personaDescription}". Evidence-first, no fabricated memories.`,
+      prompt: streamUser,
     });
 
     if (!partialOutputStream) {
