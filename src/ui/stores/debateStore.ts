@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
 import type { DebateRoom, DebateMessage } from "@/domain/entities/DebateRoom";
+import { indexedDBStorage } from "@/infrastructure/services/indexedDBStorage";
 
 interface DebateStoreState {
   debates: DebateRoom[];
@@ -69,7 +70,7 @@ export const useDebateStore = create<DebateStoreState>()(
     }),
     {
       name: "debate-storage",
-      storage: createJSONStorage(() => localStorage),
+      storage: createJSONStorage(() => indexedDBStorage),
       partialize: (state) => ({
         debates: state.debates,
         activeDebateId: state.activeDebateId,
