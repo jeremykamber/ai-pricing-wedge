@@ -376,27 +376,6 @@ export function PersonaDetailSheet({
                                     </div>
                                 )}
 
-{/* TIER 1 */}
-
-                                <div className="flex flex-col gap-8 mt-8">
-
-                                <div className="flex flex-col gap-3">
-                                    <div className="flex items-center gap-3">
-                                        <h4 className="text-xs font-bold text-muted-foreground uppercase tracking-widest">BEHAVIOR SUMMARY</h4>
-                                        {persona.provenance && (
-                                            <span className="inline-flex items-center gap-1.5 text-[10px] font-medium text-muted-foreground bg-secondary/40 border border-border/30 rounded-full px-2.5 py-0.5">
-                                                <span className="w-1 h-1 rounded-full bg-primary/60" />
-                                                {Math.round(persona.provenance.overallConfidence * 100)}%
-                                            </span>
-                                        )}
-                                    </div>
-                                    {persona.backstory ? (
-                                        <p className="text-xs text-foreground/80 leading-relaxed max-w-prose">{persona.backstory.split('\n\n')[0]}</p>
-                                    ) : (
-                                        <p className="text-xs text-muted-foreground/60 italic">No summary available</p>
-                                    )}
-                                </div>
-
                                 {(persona.bestFor || persona.lessReliableFor) && (
                                     <div className="flex flex-col gap-3">
                                         <h4 className="text-xs font-bold text-muted-foreground uppercase tracking-widest">PREDICTION SCOPE</h4>
@@ -419,13 +398,7 @@ export function PersonaDetailSheet({
 
                                 <div className="flex flex-col gap-3">
                                     <div className="flex items-center gap-3">
-                                        <h4 className="text-xs font-bold text-muted-foreground uppercase tracking-widest">DECISION MODEL</h4>
-                                        {persona.provenance && (
-                                            <span className="inline-flex items-center gap-1.5 text-[10px] font-medium text-muted-foreground bg-secondary/40 border border-border/30 rounded-full px-2.5 py-0.5">
-                                                <span className="w-1 h-1 rounded-full bg-primary/60" />
-                                                {Math.round(persona.provenance.overallConfidence * 100)}%
-                                            </span>
-                                        )}
+                                            <h4 className="text-xs font-bold text-muted-foreground uppercase tracking-widest">DECISION MODEL</h4>
                                     </div>
                                     {persona.decisionStyle && <p className="text-xs text-foreground/80"><span className="text-muted-foreground">Style:</span> {persona.decisionStyle}</p>}
                                     <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground/80">
@@ -447,13 +420,7 @@ export function PersonaDetailSheet({
 
                                 <div className="flex flex-col gap-3">
                                     <div className="flex items-center gap-3">
-                                        <h4 className="text-xs font-bold text-muted-foreground uppercase tracking-widest">BEHAVIOR PATTERNS</h4>
-                                        {persona.provenance && (
-                                            <span className="inline-flex items-center gap-1.5 text-[10px] font-medium text-muted-foreground bg-secondary/40 border border-border/30 rounded-full px-2.5 py-0.5">
-                                                <span className="w-1 h-1 rounded-full bg-primary/60" />
-                                                {Math.round(persona.provenance.overallConfidence * 100)}%
-                                            </span>
-                                        )}
+                                            <h4 className="text-xs font-bold text-muted-foreground uppercase tracking-widest">BEHAVIOR PATTERNS</h4>
                                     </div>
                                     {persona.behavioralDimensions && persona.behavioralDimensions.length > 0 ? (
                                         <div className="flex flex-col">
@@ -473,35 +440,21 @@ export function PersonaDetailSheet({
                                                             </div>
                                                             <p className="text-[11px] text-muted-foreground/60 mt-1 leading-relaxed">{dim.description}</p>
                                                         </div>
-                                                        {dim.evidence && (
-                                                            <div className="group relative shrink-0 mt-0.5">
-                                                                <span className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-secondary/60 text-muted-foreground/50 cursor-help text-[9px] font-bold">?</span>
-                                                                <div className="absolute right-0 top-full mt-1.5 w-60 p-2.5 rounded-lg border border-border bg-card text-[11px] text-foreground/80 leading-relaxed opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50 pointer-events-none">
-                                                                    {dim.evidence}
-                                                                </div>
-                                                            </div>
-                                                        )}
+                                                            {dim.evidence && <details className="mt-1 group"><summary className="text-[10px] text-muted-foreground/40 cursor-pointer hover:text-foreground/60 transition-colors list-none flex items-center gap-1 font-sans">▶ Source</summary><p className="text-[11px] text-foreground/60 italic mt-1.5 leading-relaxed border-l-2 border-border/30 pl-2.5">{dim.evidence}</p></details>}
                                                     </div>
                                                 );
                                             })}
                                         </div>
                                     ) : null}
                                 </div>
-                                </div>
 
                                 {/* TIER 2 */}
-                                <div className="flex flex-col gap-6 mt-8">
+                                <div className="flex flex-col gap-6">
 
                                 {persona.values && persona.values.length > 0 && (
                                     <div className="flex flex-col gap-3">
                                         <div className="flex items-center gap-3">
                                             <h4 className="text-xs font-bold text-muted-foreground uppercase tracking-widest">MOTIVATIONS</h4>
-                                            {persona.provenance && (
-                                                <span className="inline-flex items-center gap-1.5 text-[10px] font-medium text-muted-foreground bg-secondary/40 border border-border/30 rounded-full px-2.5 py-0.5">
-                                                    <span className="w-1 h-1 rounded-full bg-primary/60" />
-                                                    {Math.round(persona.provenance.overallConfidence * 100)}%
-                                                </span>
-                                            )}
                                         </div>
                                         <div className="flex flex-wrap gap-2">
                                             {persona.values.map((v, i) => (
@@ -515,12 +468,6 @@ export function PersonaDetailSheet({
                                     <div className="flex flex-col gap-3">
                                         <div className="flex items-center gap-3">
                                             <h4 className="text-xs font-bold text-muted-foreground uppercase tracking-widest">FRICTIONS</h4>
-                                            {persona.provenance && (
-                                                <span className="inline-flex items-center gap-1.5 text-[10px] font-medium text-muted-foreground bg-secondary/40 border border-border/30 rounded-full px-2.5 py-0.5">
-                                                    <span className="w-1 h-1 rounded-full bg-primary/60" />
-                                                    {Math.round(persona.provenance.overallConfidence * 100)}%
-                                                </span>
-                                            )}
                                         </div>
                                         <ul className="space-y-2">
                                             {persona.fears.map((f, i) => (
@@ -541,13 +488,6 @@ export function PersonaDetailSheet({
                                     <h4 className="text-xs font-bold text-muted-foreground uppercase tracking-widest">EVIDENCE &amp; CONFIDENCE</h4>
                                     {persona.provenance ? (
                                         <>
-                                            <div className="flex items-center gap-3 text-xs">
-                                                <span className="text-muted-foreground">Overall</span>
-                                                <div className="flex-1 h-1 max-w-[80px] rounded-full bg-secondary">
-                                                    <div className="h-full rounded-full bg-primary" style={{ width: persona.provenance.overallConfidence * 100 + '%' }} />
-                                                </div>
-                                                <span className="font-mono text-muted-foreground/60 text-[11px]">{Math.round(persona.provenance.overallConfidence * 100)}%</span>
-                                            </div>
                                             {persona.provenance.attributes.length > 0 && (
                                                 <div className="grid grid-cols-2 gap-x-4 gap-y-2 mt-1">
                                                     {persona.provenance.attributes.map((attr, i) => {
@@ -557,7 +497,7 @@ export function PersonaDetailSheet({
                                                                 <span className={'w-1.5 h-1.5 rounded-full shrink-0 ' + tc} />
                                                                 <div className="flex-1 min-w-0 flex items-center gap-2">
                                                                     <span className="text-foreground/70 truncate">{attr.attribute}</span>
-                                                                    <span className="text-muted-foreground/40 text-[10px] font-mono">{Math.round(attr.confidence * 100)}%</span>
+                                                                    <span className="text-muted-foreground/40 text-[10px] font-mono">{attr.confidence >= 0.8 ? 'High' : attr.confidence >= 0.6 ? 'Moderate' : 'Low'}</span>
                                                                 </div>
                                                                 {attr.evidence && (
                                                                     <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 w-56 p-2.5 rounded-lg border border-border bg-card text-[11px] text-foreground/80 leading-relaxed opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50 pointer-events-none">
