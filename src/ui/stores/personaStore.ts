@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import { persist, createJSONStorage } from 'zustand/middleware'
 import { Persona } from '@/domain/entities/Persona'
+import { indexedDBStorage } from '@/infrastructure/services/indexedDBStorage'
 
 export interface PersonaBatch {
   id: string
@@ -114,7 +115,7 @@ export const usePersonaStore = create<PersonaStoreState>()(
     }),
     {
       name: 'persona-storage',
-      storage: createJSONStorage(() => localStorage),
+      storage: createJSONStorage(() => indexedDBStorage),
     }
   )
 )
