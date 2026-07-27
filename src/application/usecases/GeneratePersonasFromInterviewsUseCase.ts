@@ -75,6 +75,8 @@ function formatPersonaDescription(signal: SampledPersonaSignal): string {
     return lines.join('\n');
 }
 
+export type InterviewGenerationMode = 'individual' | 'synthesized';
+
 export class GeneratePersonasFromInterviewsUseCase {
     constructor(
         private llmService: LlmServicePort,
@@ -86,6 +88,7 @@ export class GeneratePersonasFromInterviewsUseCase {
         transcripts: { filename: string; content: string }[],
         onProgress?: (progress: InterviewPipelineProgress) => void,
         count: number = 5,
+        mode: InterviewGenerationMode = 'synthesized',
     ): Promise<Persona[]> {
         if (transcripts.length === 0) {
             throw new Error("At least one interview transcript is required");
@@ -99,16 +102,16 @@ export class GeneratePersonasFromInterviewsUseCase {
                 const interviewId = `interview-${i}`;
                 onProgress?.({ step: 'EXTRACTING', total: transcripts.length, current: i + 1, message: t.filename });
                 const signals = await this.llmService.extractInterviewSignals(t.content, interviewId);
-                return { filename: t.filename, signals };
+                return { filename: t.filename, signals, content: t.content };
             }),
         );
 
         const unsuccessfulExtractions: { filename: string; reason: unknown }[] = [];
-        const successfulExtractions: ExtractedInterviewSignals[] = [];
+        const successfulExtractions: { signals: ExtractedInterviewSignals; content: string }[] = [];
 
         for (const result of extractionResults) {
             if (result.status === "fulfilled") {
-                successfulExtractions.push(result.value.signals);
+                successfulExtractions.push(result.value);
             } else {
                 console.warn(
                     `[GeneratePersonasFromInterviews] Extraction failed:`,
@@ -123,9 +126,88 @@ export class GeneratePersonasFromInterviewsUseCase {
             );
         }
 
+        // Mode: Individual — generate personas per interview
+        if (mode === 'individual') {
+            return this.generateIndividual(
+                successfulExtractions,
+                onProgress,
+                count,
+            );
+        }
+
+        // Mode: Synthesized — existing pool/sample/generate pipeline (default)
+        return this.generateSynthesized(
+            successfulExtractions.map(e => e.signals),
+            onProgress,
+            count,
+        );
+    }
+
+    private async generateIndividual(
+        successfulExtractions: { signals: ExtractedInterviewSignals; content: string }[],
+        onProgress?: (progress: InterviewPipelineProgress) => void,
+        personasPerInterview: number = 3,
+    ): Promise<Persona[]> {
+        const allPersonas: Persona[] = [];
+        const totalPersonas = successfulExtractions.length * personasPerInterview;
+        let completed = 0;
+
+        for (let i = 0; i < successfulExtractions.length; i++) {
+            const { signals, content } = successfulExtractions[i];
+            const interviewId = `interview-${i}`;
+            onProgress?.({
+                step: 'GENERATING',
+                message: `Generating personas from transcript ${i + 1}...`,
+                current: completed,
+                total: totalPersonas,
+            });
+
+            const description = `Interview transcript excerpt: ${content.slice(0, 1500)}
+
+Key signals extracted from this interview:
+Pain points:
+${signals.painPoints.map(s => `- ${s.text}`).join('\n')}
+Goals:
+${signals.goals.map(s => `- ${s.text}`).join('\n')}
+Values:
+${signals.values.map(s => `- ${s.text}`).join('\n')}
+Feature desires:
+${signals.featureDesires.map(s => `- ${s.text}`).join('\n')}
+Decision patterns:
+${signals.decisionPatterns.map(s => `- ${s.text}`).join('\n')}
+Context: role=${signals.context.role ?? 'unknown'}, industry=${signals.context.industry ?? 'unknown'}
+Communication style: ${signals.communicationStyle}`;
+
+            const personas = await this.llmService.generateResearchPersonas({
+                count: personasPerInterview,
+                personaDescription: description,
+                interviewIds: [interviewId],
+                evidenceThreshold: 0.7,
+            });
+
+            allPersonas.push(...personas);
+            completed += personas.length;
+
+            onProgress?.({
+                step: 'GENERATING',
+                message: `Generated ${completed}/${totalPersonas} personas`,
+                current: completed,
+                total: totalPersonas,
+            });
+        }
+
+        onProgress?.({ step: 'DONE', personas: allPersonas });
+        return allPersonas;
+    }
+
+    private async generateSynthesized(
+        extractedSignals: ExtractedInterviewSignals[],
+        onProgress?: (progress: InterviewPipelineProgress) => void,
+        count: number = 5,
+    ): Promise<Persona[]> {
         // Phase 2: Pool — aggregate signals into weighted distribution
         onProgress?.({ step: 'POOLING' });
-        const distribution = poolSignals(successfulExtractions);
+        const distribution = poolSignals(extractedSignals);
 
         // Phase 3: Sample — weighted draw with LLM-based coherence validation
         onProgress?.({ step: 'SAMPLING' });
@@ -142,23 +224,16 @@ export class GeneratePersonasFromInterviewsUseCase {
             .map(formatPersonaDescription)
             .join('\n\n---\n\n');
 
-        // Phase 5: Generate — delegate to GeneratePersonasUseCase for full persona creation
-        // Forward sub-step progress (backstories, behavioral depth, etc.) so the UI
-        // shows actual progress during this long-running phase instead of staying stuck.
-        onProgress?.({ step: 'GENERATING', message: 'Generating personas from interview signals' });
-        const personas = await this.generatePersonasUseCase.execute(
-            combinedDescription,
-            onProgress ? (inner) => {
-                onProgress({
-                    step: 'GENERATING',
-                    message: inner.streamingText ?? inner.step,
-                    current: inner.completedCount,
-                    total: inner.totalCount,
-                });
-            } : undefined,
-            targetCount,
-            combinedDescription,
-        );
+        // Phase 5: Generate — use research mode for evidence-grounded personas
+        // Research mode keeps backstories minimal (2-3 evidence-based sentences)
+        // and avoids Tier 4 fabricated memories (trauma, fake events, fake purchases)
+        onProgress?.({ step: 'GENERATING', message: 'Generating evidence-grounded personas' });
+        const personas = await this.llmService.generateResearchPersonas({
+            count: targetCount,
+            personaDescription: combinedDescription,
+            interviewIds: extractedSignals.map((_, i) => `interview-${i}`),
+            evidenceThreshold: 0.7,
+        });
 
         // Phase 6: Ingest — store backstory and interview chunks in ID-RAG store
         onProgress?.({ step: 'INGESTING' });
@@ -167,7 +242,7 @@ export class GeneratePersonasFromInterviewsUseCase {
                 persona.id,
                 persona.backstory ?? '',
             );
-            const interviewChunks = successfulExtractions.flatMap(
+            const interviewChunks = extractedSignals.flatMap(
                 (signals) => chunkInterviewSignals(signals, persona.id),
             );
             const allChunks: Chunk[] = [...backstoryChunks, ...interviewChunks];

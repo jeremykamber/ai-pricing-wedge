@@ -5,6 +5,7 @@ import { getPersonaGenerationResultAction } from '@/actions/getPersonaGeneration
 import { getProgressAction } from '@/actions/getProgress'
 import { usePersonaStore, type PersonaBatch } from '@/ui/stores/personaStore'
 import { readStreamableValue } from '@ai-sdk/rsc'
+import { batchConsumedRunIds } from '@/lib/generationRunState'
 
 export type InterviewProgressStep = 'UPLOADING' | 'EXTRACTING' | 'POOLING' | 'SAMPLING' | 'GENERATING' | 'INGESTING' | 'DONE' | 'ERROR'
 
@@ -25,8 +26,9 @@ export interface InterviewFile {
 
 export function useInterviewPipeline(onSuccess?: (personas: Persona[]) => void) {
   const [files, setFiles] = useState<InterviewFile[]>([])
-  const [personaCount, setPersonaCount] = useState(5)
+  const [personaCount, setPersonaCount] = useState(3)
   const [personas, setPersonas] = useState<Persona[] | null>(null)
+  const [generationMode, setGenerationMode] = useState<'individual' | 'synthesized'>('individual')
   const [error, setError] = useState<string | null>(null)
   const [isPending, setIsPending] = useState(false)
   const [progress, setProgress] = useState<InterviewProgress | null>(null)
@@ -120,7 +122,10 @@ export function useInterviewPipeline(onSuccess?: (personas: Persona[]) => void) 
               createdAt: new Date().toISOString(),
               personas: pollResult.personas!,
             }
-            usePersonaStore.getState().addBatch(batch)
+            if (!batchConsumedRunIds.has(runId)) {
+              batchConsumedRunIds.add(runId)
+              usePersonaStore.getState().addBatch(batch)
+            }
             if (mountedRef.current) {
               setPersonas(pollResult.personas)
               setProgress(null)
@@ -167,6 +172,7 @@ export function useInterviewPipeline(onSuccess?: (personas: Persona[]) => void) 
           formData.append('files', blob, file.name)
         }
         formData.append('count', String(personaCount))
+        formData.append('mode', generationMode)
 
         const result: any = await generatePersonasFromInterviewsAction(formData)
         const streamData = result.streamData
@@ -206,7 +212,10 @@ export function useInterviewPipeline(onSuccess?: (personas: Persona[]) => void) 
                   createdAt: new Date().toISOString(),
                   personas: update.personas!,
                 }
-                usePersonaStore.getState().addBatch(batch)
+                if (id && !batchConsumedRunIds.has(id)) {
+                  batchConsumedRunIds.add(id)
+                  usePersonaStore.getState().addBatch(batch)
+                }
                 if (mountedRef.current) {
                   setPersonas(update.personas)
                   setProgress(null)
@@ -251,6 +260,7 @@ export function useInterviewPipeline(onSuccess?: (personas: Persona[]) => void) 
   return {
     files, addFile, removeFile, clearFiles,
     personaCount, setPersonaCount,
+    generationMode, setGenerationMode,
     personas, setPersonas,
     error, setError,
     isPending,

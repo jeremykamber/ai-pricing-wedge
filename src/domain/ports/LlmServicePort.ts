@@ -2,6 +2,7 @@ import { Persona } from "../entities/Persona";
 import { PricingAnalysis } from "../entities/PricingAnalysis";
 import { StreamOfConsciousness } from "../entities/StreamOfConsciousness";
 import { ExtractedInterviewSignals } from "@/application/interviewPipeline/types";
+import type { ResearchPersonaConfig, StrategyPersonaConfig, ClusterPersonaConfig } from "../dtos/PersonaGenerationConfig";
 
 export type AgentAction =
     | { type: "CLICK"; selector: string; reasoning: string }
@@ -285,5 +286,41 @@ export interface LlmServicePort {
         communicationStyle: string;
         decisionStyle: string;
     }>;
+
+    // --- Dual-Mode Persona Generation (2025 Philosophy) ---
+
+    /**
+     * Research Mode: evidence-first persona generation from interview transcripts.
+     * Produces personas with provenance tracking, minimal invention, no fabricated memories.
+     */
+    generateResearchPersonas(config: ResearchPersonaConfig): Promise<Persona[]>;
+
+    /**
+     * Research Mode streaming variant.
+     */
+    generateResearchPersonasStream(config: ResearchPersonaConfig): AsyncIterable<Partial<Persona>[]>;
+
+    /**
+     * Strategy Mode: richer storytelling persona generation from ICP/market descriptions.
+     * Representative assumptions allowed for imagination and decision-making.
+     */
+    generateStrategyPersonas(config: StrategyPersonaConfig): Promise<Persona[]>;
+
+    /**
+     * Strategy Mode streaming variant.
+     */
+    generateStrategyPersonasStream(config: StrategyPersonaConfig): AsyncIterable<Partial<Persona>[]>;
+
+    /**
+     * Cluster Mode: synthetic representative personas from multiple interview signals.
+     * Produces labeled cluster personas with source references.
+     */
+    generateClusterPersonas(config: ClusterPersonaConfig): Promise<Persona[]>;
+
+    /**
+     * Counterfactual test: checks whether synthetic persona details would change
+     * product decisions. Details that fail this test should not influence decisions.
+     */
+    applyCounterfactualTest(persona: Persona): Promise<{ detail: string; reason: string; attribute?: string }[]>;
 }
 

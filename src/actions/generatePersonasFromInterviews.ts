@@ -50,6 +50,7 @@ async function runLocally(formData: FormData) {
 
     const files: { filename: string; content: string }[] = [];
     let personaCount = 5;
+    let generationMode: 'individual' | 'synthesized' = 'individual';
     for (const [key, value] of formData.entries()) {
         if (value instanceof File && (key === "files" || key.startsWith("file_"))) {
             const content = await value.text();
@@ -57,6 +58,8 @@ async function runLocally(formData: FormData) {
         } else if (key === "count" && typeof value === "string") {
             const parsed = parseInt(value, 10);
             if (!isNaN(parsed) && parsed >= 1 && parsed <= 20) personaCount = parsed;
+        } else if (key === "mode" && typeof value === "string") {
+            if (value === 'individual' || value === 'synthesized') generationMode = value;
         }
     }
 
@@ -84,7 +87,7 @@ async function runLocally(formData: FormData) {
                     completedCount: progress.current,
                     totalCount: progress.total,
                 });
-            }, personaCount);
+            }, personaCount, generationMode);
 
             const finalPersonas = JSON.parse(JSON.stringify(personas));
             stream.done({ step: "DONE", personas: finalPersonas });

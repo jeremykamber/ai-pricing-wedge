@@ -19,14 +19,15 @@ const personasRateLimiter = new RateLimiterMemory({
 import { shouldRunLocally, VPS_BACKEND_URL, getVpsAuthToken } from "@/infrastructure/config";
 import { storeProgress, storeCompleted } from "@/actions/getProgress";
 import { personaGenerationStore } from "@/infrastructure/PersonaGenerationStore";
+import type { PersonaGenerationMode } from "@/domain/entities/PersonaProvenance";
 
 function generateRunId(): string {
   return `persona-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
 }
 
-async function runLocally(personaDescription: string, count: number) {
+async function runLocally(personaDescription: string, count: number, mode?: PersonaGenerationMode) {
     const runId = generateRunId();
-    console.log(`generatePersonasAction called [runId=${runId}]...`);
+    console.log(`generatePersonasAction called [runId=${runId}] mode=${mode ?? "default"}...`);
     const stream = createStreamableValue<any>({ step: "BRAINSTORMING_PERSONAS" });
 
     let clientIP = 'unknown';
@@ -62,7 +63,7 @@ async function runLocally(personaDescription: string, count: number) {
                     completedCount: progress.completedCount,
                     totalCount: progress.totalCount,
                 });
-            }, count);
+            }, count, undefined, mode);
 
             const finalPersonas = JSON.parse(JSON.stringify(personas));
             stream.done({ step: "DONE", personas: finalPersonas });
@@ -81,14 +82,14 @@ async function runLocally(personaDescription: string, count: number) {
     return { streamData: stream.value, runId };
 }
 
-async function runRemote(personaDescription: string, count: number) {
+async function runRemote(personaDescription: string, count: number, mode?: PersonaGenerationMode) {
     const res = await fetch(`${VPS_BACKEND_URL}/api/vps/generate-personas`, {
         method: "POST",
         headers: {
             "Content-Type": "application/json",
             Authorization: `Bearer ${getVpsAuthToken()}`,
         },
-        body: JSON.stringify({ personaDescription, count }),
+        body: JSON.stringify({ personaDescription, count, mode }),
     });
 
     if (!res.ok) {
@@ -100,7 +101,11 @@ async function runRemote(personaDescription: string, count: number) {
     return { streamData: undefined as unknown as ReturnType<typeof createStreamableValue>['value'], runId: data.runId as string };
 }
 
-export async function generatePersonasAction(personaDescription: string, count: number = 5) {
-    if (shouldRunLocally()) return runLocally(personaDescription, count);
-    return runRemote(personaDescription, count);
+export async function generatePersonasAction(
+    personaDescription: string,
+    count: number = 5,
+    mode?: PersonaGenerationMode,
+) {
+    if (shouldRunLocally()) return runLocally(personaDescription, count, mode);
+    return runRemote(personaDescription, count, mode);
 }
