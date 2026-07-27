@@ -349,7 +349,7 @@ export function DashboardClient() {
                                             <span className="text-sm text-muted-foreground">
                                                 {batch.personas.length} personas ·{' '}
                                                 {batch.source === 'interviews'
-                                                    ? `${batch.transcriptCount} transcripts`
+                                                    ? 'from interviews'
                                                     : 'from description'}
                                             </span>
                                         </div>
@@ -397,7 +397,7 @@ export function DashboardClient() {
                                     <p className="text-sm text-muted-foreground">
                                         {activeBatch.personas.length} personas ·{' '}
                                         {activeBatch.source === 'interviews'
-                                            ? `${activeBatch.transcriptCount} interview transcripts`
+                                            ? 'from interviews'
                                             : 'Generated from description'}
                                         · {new Date(activeBatch.createdAt).toLocaleString()}
                                     </p>
