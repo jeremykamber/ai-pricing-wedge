@@ -1379,7 +1379,7 @@ Return ONLY the JSON object.`;
         responses: PersonaResponse[],
         businessGoal: string,
         researchQuestion: string,
-        options: { tokenLimit?: number; runId?: string } = {},
+        options: { runId?: string } = {},
     ): Promise<ArtifactSynthesis> {
         const log = options.runId ? AnalysisLogger.forRun(options.runId) : null;
         const TIMEOUT_MS = 120_000;
@@ -1390,10 +1390,10 @@ Return ONLY the JSON object.`;
             const name = r.personaProfile?.name || `Persona ${i + 1}`;
             return `=== ${name} ===
 Overview: ${r.overview || "(none)"}
-Journey: ${r.customerJourney.map(s => `${s.stage}: ${s.outcome} (${s.sentiment})`).join(" | ")}
-Findings: ${r.majorFindings.map(f => `- ${f.observation}: ${f.evidence} (impact: ${f.impact})`).join("\n")}
-Friction: ${r.pointsOfFriction.join("; ") || "(none)"}
-Questions: ${r.unansweredQuestions.join("; ") || "(none)"}
+Journey: ${(r.customerJourney || []).map(s => `${s.stage}: ${s.outcome} (${s.sentiment})`).join(" | ") || "(none)"}
+Findings: ${(r.majorFindings || []).map(f => `- ${f.observation}: ${f.evidence} (impact: ${f.impact})`).join("\n") || "(none)"}
+Friction: ${(r.pointsOfFriction || []).join("; ") || "(none)"}
+Questions: ${(r.unansweredQuestions || []).join("; ") || "(none)"}
 `;
         }).join("\n\n");
 

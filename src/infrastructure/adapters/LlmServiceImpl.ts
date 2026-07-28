@@ -482,7 +482,7 @@ export class LlmServiceImpl implements LlmServicePort {
     responses: import("@/domain/entities/PersonaResponse").PersonaResponse[],
     businessGoal: string,
     researchQuestion: string,
-    options?: { tokenLimit?: number; runId?: string }
+    options?: { runId?: string }
   ): Promise<import("@/domain/entities/ArtifactSynthesis").ArtifactSynthesis> {
     return this.visionAdapter.generateArtifactSynthesis(
       responses,

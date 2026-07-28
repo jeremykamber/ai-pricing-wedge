@@ -261,7 +261,7 @@ export interface LlmServicePort {
         responses: PersonaResponse[],
         businessGoal: string,
         researchQuestion: string,
-        options?: { tokenLimit?: number; runId?: string }
+        options?: { runId?: string }
     ): Promise<import("../entities/ArtifactSynthesis").ArtifactSynthesis>;
 
     /**
