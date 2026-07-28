@@ -50,6 +50,7 @@ export function useAnalysisFlow(onSuccess?: (analyses: PersonaResponse[]) => voi
     if (abortControllerRef.current) {
       abortControllerRef.current.abort()
     }
+    setIsPending(false)
     setCurrentRequestId(null)
     setAnalysisProgress(null)
     setError('Analysis cancelled by user')
@@ -208,17 +209,25 @@ export function useAnalysisFlow(onSuccess?: (analyses: PersonaResponse[]) => voi
             const result = await getSimulationResultAction(simulationId)
             if (!result.found) continue
             clearScreenshotPoll()
+
             if (result.error) {
               useSimulationStore.getState().markError(simulationId, result.error)
-            } else if (result.analyses && result.analyses.length > 0) {
-              useSimulationStore.getState().markComplete(simulationId, result.analyses)
+              if (mountedRef.current) {
+                setError(result.error)
+                setAnalysisProgress(null)
+                setCurrentRequestId(null)
+              }
+              return
             }
+
+            const responses = result.analyses ?? []
+            useSimulationStore.getState().markComplete(simulationId, responses)
             if (mountedRef.current) {
-              setAnalyses(result.analyses ?? null)
+              setAnalyses(responses)
               setAnalysisProgress(null)
               setCurrentRequestId(null)
             }
-            if (result.analyses && onSuccess) onSuccess(result.analyses)
+            if (responses.length > 0 && onSuccess) onSuccess(responses)
             return
           } catch { /* retry */ }
         }
