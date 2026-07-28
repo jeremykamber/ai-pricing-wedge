@@ -307,15 +307,8 @@ function PersonaIdentityCard({
       content: <span className="text-xs text-foreground/80 uppercase">{profile.communicationStyle}</span>,
     },
     {
-      label: 'Price Sensitivity (0=cheapest, 10=premium)',
-      content: (
-        <div className="flex items-center gap-2">
-          <div className="flex-1 h-1.5 bg-secondary rounded-full overflow-hidden">
-            <div className="h-full bg-amber-500 rounded-full transition-all" style={{ width: `${profile.pricingSensitivity}%` }} />
-          </div>
-          <span className="text-xs text-muted-foreground tabular-nums">{Math.round(profile.pricingSensitivity / 10)}/10</span>
-        </div>
-      ),
+      label: 'Decision Style',
+      content: <span className="text-xs text-foreground/80 uppercase">{profile.decisionStyle}</span>,
     },
   ];
 

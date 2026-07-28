@@ -11,6 +11,5 @@ export interface PersonaProfile {
   values: string[];
   fears: string[];
   communicationStyle: string;
-  pricingSensitivity: number;
-  typicalBudget: string;
+  decisionStyle: string;
 }

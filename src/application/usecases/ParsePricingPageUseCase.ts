@@ -464,8 +464,7 @@ export class ParsePricingPageUseCase {
           values: persona.values ? [...persona.values] : [],
           fears: persona.fears ? [...persona.fears] : [],
           communicationStyle: persona.communicationStyle ?? "",
-          pricingSensitivity: persona.pricingSensitivity ?? 50,
-          typicalBudget: persona.typicalBudget ?? "",
+          decisionStyle: persona.decisionStyle ?? "",
         };
         fullAnalysis.personaId = persona.id;
 

@@ -1,6 +1,6 @@
 import OpenAI from "openai";
 import { Persona, stringifyPersona } from "@/domain/entities/Persona";
-import { GazePoint } from "@/domain/entities/PricingAnalysis";
+import { GazePoint } from "@/domain/entities/GazePoint";
 import { IGazePredictionPort } from "@/domain/ports/IGazePredictionPort";
 import { stripCodeFence } from "./llmUtils";
 

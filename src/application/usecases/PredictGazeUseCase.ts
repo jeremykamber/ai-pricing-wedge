@@ -1,6 +1,6 @@
 import { IGazePredictionPort } from "@/domain/ports/IGazePredictionPort";
 import { Persona } from "@/domain/entities/Persona";
-import { GazePoint } from "@/domain/entities/PricingAnalysis";
+import { GazePoint } from "@/domain/entities/GazePoint";
 
 export class PredictGazeUseCase {
   constructor(private gazePredictionPort: IGazePredictionPort) { }

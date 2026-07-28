@@ -61,9 +61,10 @@ export interface Persona {
   communicationStyle: string;  // How they speak (e.g. "direct", "analytical", "collaborative")
   decisionStyle: string;       // Decision process (e.g. "data-driven", "gut-driven", "consensus-seeking")
 
-  // Pricing calibration — LLM-generated per persona based on role + context
-  pricingSensitivity: number;  // 0-100: how price-sensitive they are (derived from Big Five + role)
-  typicalBudget: string;       // What they're used to paying (e.g. "Up to $20/user/month")
+  // @deprecated Pricing calibration fields — removed in artifact analysis overhaul.
+  // Artifact-artifact interaction now comes entirely from identity traits (values, fears, Big Five).
+  pricingSensitivity?: number;
+  typicalBudget?: string;
 
   // Epistemic boundaries — Wang et al. (2024b) Section 3.1(3)
   domainExpertise?: string[];
@@ -143,9 +144,9 @@ export const PersonaSchema = z.object({
   communicationStyle: z.string().describe("How they speak — direct, analytical, collaborative, etc."),
   decisionStyle: z.string().describe("Decision process — data-driven, gut-driven, consensus-seeking, etc."),
 
-  // Pricing calibration
-  pricingSensitivity: z.number().min(0).max(100).describe("0-100: how price-sensitive they are"),
-  typicalBudget: z.string().describe("What they're used to paying (e.g. 'Up to $20/user/month')"),
+  // @deprecated Pricing calibration — migrating to identity-only artifact interaction.
+  pricingSensitivity: z.number().min(0).max(100).optional().describe("Deprecated: price sensitivity. Use identity traits instead."),
+  typicalBudget: z.string().optional().describe("Deprecated: typical budget. Use identity traits instead."),
 
   // Epistemic boundaries
   domainExpertise: z.array(z.string()).optional().describe("Domains the persona knows well"),
@@ -203,7 +204,7 @@ export function stringifyPersona(entity: unknown): string {
   const normalize = (text?: unknown) =>
     typeof text === "string" ? text.replace(/\s+/g, " ").trim() : undefined;
 
-  const lines: string[] = [
+  const lines: (string | null)[] = [
     `Name: ${str(p.name)}`,
     `Age: ${str(p.age)}`,
     `Occupation: ${str(p.occupation)}`,
@@ -221,9 +222,9 @@ export function stringifyPersona(entity: unknown): string {
     `Fears: ${join(p.fears)}`,
     `Communication Style: ${str(p.communicationStyle)}`,
     `Decision Style: ${str(p.decisionStyle)}`,
-    `Pricing Sensitivity: ${str(p.pricingSensitivity)}/100`,
-    `Typical Budget: ${str(p.typicalBudget)}`,
-  ];
+    p.pricingSensitivity !== undefined ? `Pricing Sensitivity: ${p.pricingSensitivity}/100` : null,
+    p.typicalBudget !== undefined ? `Typical Budget: ${p.typicalBudget}` : null,
+  ].filter(Boolean) as string[];
 
   // Epistemic boundaries
   const expertise = join(p.domainExpertise);

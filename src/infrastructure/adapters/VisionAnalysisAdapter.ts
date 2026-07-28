@@ -1,5 +1,8 @@
 import { Persona } from "@/domain/entities/Persona";
 import { PricingAnalysisSchema } from "@/domain/entities/PricingAnalysis";
+import { PersonaResponseSchema } from "@/domain/entities/PersonaResponse";
+import type { ArtifactIntake } from "@/domain/entities/ArtifactIntake";
+import type { PersonaResponse } from "@/domain/entities/PersonaResponse";
 import { LlmServiceImpl } from "./LlmServiceImpl";
 import { PersonaPromptCompiler } from "./PersonaPromptCompiler";
 import { IdRagStore } from "./IdRagStore";
@@ -818,6 +821,494 @@ Return ONLY a JSON array of strings.`;
                 contentPreview: content.slice(0, 200),
             });
             return [];
+        }
+    }
+
+    // ─── New artifact-agnostic pipeline (5 cognitive stages) ────────────────
+
+    private buildCognitiveStreamSystemPrompt(
+        persona: Persona,
+        compartments: string,
+        personaAnchor: string,
+        ragContextString: string,
+        businessGoal: string,
+        researchQuestion: string,
+    ): string {
+        return `You are a persona experiencing an artifact. Think aloud as this persona.
+
+${compartments}
+
+${ragContextString ? `<<RETRIEVED MEMORY>>\n${ragContextString}\n` : ""}
+
+<<ARTIFACT CONTEXT>>
+You are looking at a user experience — a page, a flow, or a design. You have been provided with:
+1. A screenshot of what the user sees.
+2. A factual summary of the content.
+
+<<BUSINESS CONTEXT>>
+The creator of this artifact wants to accomplish: ${businessGoal}
+
+You are not here to evaluate design. You are here to react honestly as yourself.
+
+<<VOICE AND AUDIENCE>>
+Write as the persona in FIRST PERSON. "I think...", "This concerns me...", "I'd want to see..."
+
+<<PERSONALITY BIAS APPLICATION>>
+Your personality profile drives how you react:
+- Your Neuroticism determines what concerns or worries you pick up on.
+- Your Conscientiousness determines how closely you examine details.
+- Your Openness determines whether new concepts excite or concern you.
+- Your Extraversion determines whether you think about what others would say.
+- Your Agreeableness determines whether you give benefit of doubt.
+These are WHO YOU ARE.
+
+<<OPENNESS PRIMING>>
+${personaAnchor} You're open to this. You're approaching this as someone who COULD genuinely engage with this. You're not looking for reasons to reject it — you're reacting honestly. A skeptical but fair assessment.
+
+Think aloud. Walk through your experience naturally:
+
+1. INTERPRETATION — What am I looking at? Who is this for? Is this relevant to me?
+2. UNDERSTANDING — Do I get it? What are they offering? What am I supposed to do?
+3. BELIEF — Do I believe them? Does this feel credible? What makes me trust or doubt this?
+4. MOTIVATION — Is this valuable to me? Is it worth my time? Do I care enough to continue?
+5. ACTION — What would I actually do next? Click, leave, compare, save, ignore?
+
+Be blunt, honest, and natural. Be your persona. Write freely — no JSON, no formatting constraints.`;
+    }
+
+    private buildPersonaResponseFormatterSystemPrompt(
+        persona: Persona,
+        compartments: string,
+        businessGoal: string,
+        researchQuestion: string,
+    ): string {
+        return `Extract the persona's raw reasoning into a structured PersonaResponse object.
+
+${compartments}
+
+Business Goal: ${businessGoal}
+Research Question: ${researchQuestion}
+
+Formatting Rules:
+1. ALL fields are in FIRST PERSON as the persona — the report IS the persona's experience.
+2. The customerJourney must have exactly 5 entries, one per stage in order.
+3. For each stage: describe what the persona experienced, the sentiment, the outcome, and what caused transition.
+4. majorFindings: extract 2-4 key observations with evidence from the stream, impact, and confidence level.
+5. pointsOfFriction: identify where the persona got stuck or stopped.
+6. unansweredQuestions: what the persona still wondered about after the experience.
+7. researchQuestionAnswer: answer the research question directly using evidence from the stream.
+8. overview: a high-level summary that captures the persona's full journey.
+
+Confidence in major findings is derived from how clearly the evidence appears in the persona's own words — do NOT fabricate confidence levels. Only High if the persona was explicit and consistent.`;
+    }
+
+    async generateCognitiveStream(
+        persona: Persona,
+        context: ArtifactIntake,
+        businessGoal: string,
+        researchQuestion: string,
+        options: { tokenLimit?: number; runId?: string } = {},
+    ) {
+        const log = options.runId ? AnalysisLogger.forRun(options.runId) : null;
+        const tokenLimit = options.tokenLimit ?? 2000;
+        const TIMEOUT_MS = 120_000;
+
+        log?.info("VisionAnalysisAdapter", `generateCognitiveStream START for "${persona.name}"`, { tokenLimit });
+
+        this.ensureIngested(persona, options.runId);
+
+        const ragStart = Date.now();
+        const query = context.summary ? `Artifact about ${context.summary.slice(0, 200)}` : "Experiencing an artifact";
+        const ragContext = this.ragService.retrieveContext(persona, query, 3);
+        log?.info("VisionAnalysisAdapter", `ID-RAG retrieval for "${persona.name}"`, {
+            chunkCount: ragContext.chunkCount,
+            durationMs: Date.now() - ragStart,
+        });
+
+        const compartments = this.promptCompiler.compileSystemPrompt(persona);
+        const personaAnchor = this.promptCompiler.generateAnchor(persona);
+
+        const system = this.buildCognitiveStreamSystemPrompt(
+            persona, compartments, personaAnchor, ragContext.contextString, businessGoal, researchQuestion,
+        );
+
+        const prompt = `Experience this artifact. Think aloud as ${persona.name}.${context.summary ? `\n\nPAGE FACT SUMMARY:\n"""\n${context.summary}\n"""` : ""}`;
+
+        log?.info("VisionAnalysisAdapter", `Calling LLM for cognitive stream for "${persona.name}"...`, {
+            model: this.llmService.visionModel,
+            systemPromptLength: system.length,
+        });
+
+        const text = await Promise.race([
+            this.llmService.createChatCompletion(
+                [
+                    {
+                        role: "user",
+                        content: [
+                            { type: "text", text: prompt },
+                            { type: "image_url", image_url: { url: `data:image/jpeg;base64,${context.screenshotBase64}` } },
+                        ] as any,
+                    },
+                ],
+                {
+                    temperature: 0.4,
+                    max_tokens: tokenLimit,
+                    model: this.llmService.visionModel,
+                    purpose: `Cognitive Stream — ${persona.name}`,
+                    runId: options.runId,
+                }
+            ),
+            new Promise<string>((_, reject) =>
+                setTimeout(() => reject(new Error(`Cognitive stream timed out after ${TIMEOUT_MS}ms`)), TIMEOUT_MS)
+            ),
+        ]);
+
+        log?.info("VisionAnalysisAdapter", `generateCognitiveStream completed for "${persona.name}"`, {
+            durationMs: Date.now() - ragStart,
+            textLength: text.length,
+        });
+
+        return {
+            text,
+            personaId: persona.id,
+            personaName: persona.name,
+        };
+    }
+
+    async formatPersonaResponse(
+        persona: Persona,
+        stream: { text: string; personaId: string; personaName: string },
+        businessGoal: string,
+        researchQuestion: string,
+        options: { tokenLimit?: number; runId?: string } = {},
+    ) {
+        const log = options.runId ? AnalysisLogger.forRun(options.runId) : null;
+        const tokenLimit = options.tokenLimit ?? 2000;
+        const TIMEOUT_MS = 90_000;
+        const MAX_RETRIES = 2;
+        const RETRY_DELAY_MS = 2_000;
+
+        log?.info("VisionAnalysisAdapter", `formatPersonaResponse START for "${persona.name}"`, {
+            streamLength: stream.text.length,
+        });
+
+        const compartments = this.promptCompiler.compileSystemPrompt(persona);
+        const system = this.buildPersonaResponseFormatterSystemPrompt(persona, compartments, businessGoal, researchQuestion);
+
+        const prompt = `Here is the raw cognitive stream from ${persona.name}:
+
+---
+${stream.text}
+---
+
+Convert this into a structured PersonaResponse JSON object. Return ONLY the JSON.`;
+
+        let responseObj: any = null;
+
+        for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+            if (attempt > 0) {
+                log?.info("VisionAnalysisAdapter", `formatPersonaResponse retry ${attempt}/${MAX_RETRIES} for "${persona.name}"`);
+                await new Promise((resolve) => setTimeout(resolve, RETRY_DELAY_MS));
+            }
+
+            try {
+                const streamResult = streamObject({
+                    model: this.llmService.provider(this.llmService.textModel),
+                    schema: PersonaResponseSchema,
+                    schemaName: "PersonaResponse",
+                    schemaDescription: "A persona's structured response to an artifact based on five cognitive stages.",
+                    system,
+                    messages: [{ role: "user", content: prompt }],
+                    temperature: 0.1,
+                    maxTokens: tokenLimit,
+                } as any);
+
+                const drainAndResolve = (async () => {
+                    for await (const _ of streamResult.partialObjectStream) {
+                        // discard
+                    }
+                    return streamResult.object;
+                })().catch(() => null);
+
+                responseObj = await Promise.race([
+                    drainAndResolve,
+                    new Promise<any>((_, reject) =>
+                        setTimeout(() => reject(new Error(`Formatter timed out after ${TIMEOUT_MS}ms`)), TIMEOUT_MS)
+                    ),
+                ]);
+
+                if (responseObj) break;
+            } catch (e) {
+                log?.warn("VisionAnalysisAdapter", `formatPersonaResponse attempt ${attempt + 1} failed for "${persona.name}"`, {
+                    error: String(e),
+                });
+                if (attempt === MAX_RETRIES) throw e;
+            }
+        }
+
+        if (!responseObj) {
+            throw new Error(`formatPersonaResponse returned null for "${persona.name}"`);
+        }
+
+        log?.info("VisionAnalysisAdapter", `formatPersonaResponse completed for "${persona.name}"`, {
+            durationMs: Date.now() - (options.runId ? 0 : 0),
+        });
+
+        return responseObj as PersonaResponse;
+    }
+
+    async deriveResponseSignals(
+        persona: Persona,
+        stream: { text: string; personaId: string; personaName: string },
+        options: { runId?: string } = {},
+    ) {
+        const log = options.runId ? AnalysisLogger.forRun(options.runId) : null;
+        const TIMEOUT_MS = 60_000;
+
+        log?.info("VisionAnalysisAdapter", `deriveResponseSignals START for "${persona.name}"`);
+
+        const system = `You are a signal extractor. Given a persona's cognitive stream about an artifact, extract key signals.
+
+Each signal should be one concise sentence capturing what happened.
+
+Return ONLY a JSON object:
+{
+  "highestStageReached": "interpretation" | "understanding" | "belief" | "motivation" | "action",
+  "finalAction": "What the persona would actually do next — one sentence in first person",
+  "keySignals": ["Signal 1", "Signal 2", "Signal 3"]
+}`;
+
+        const prompt = `Extract signals from this cognitive stream by ${persona.name}:
+
+---
+${stream.text}
+---
+
+Return ONLY the JSON object.`;
+
+        const content = await Promise.race([
+            this.llmService.createChatCompletion(
+                [{ role: "user", content: prompt }],
+                {
+                    temperature: 0.1,
+                    model: this.llmService.smallTextModel,
+                    response_format: { type: "json_object" },
+                    purpose: `Derive signals — ${persona.name}`,
+                    runId: options.runId,
+                }
+            ),
+            new Promise<string>((_, reject) =>
+                setTimeout(() => reject(new Error(`Signal derivation timed out after ${TIMEOUT_MS}ms`)), TIMEOUT_MS)
+            ),
+        ]);
+
+        try {
+            const parsed = JSON.parse(content);
+            log?.info("VisionAnalysisAdapter", `deriveResponseSignals completed for "${persona.name}"`, {
+                highestStageReached: parsed.highestStageReached,
+                finalAction: parsed.finalAction?.slice(0, 100),
+                signalCount: parsed.keySignals?.length,
+            });
+            return {
+                highestStageReached: parsed.highestStageReached || "unknown",
+                finalAction: parsed.finalAction || "",
+                keySignals: Array.isArray(parsed.keySignals) ? parsed.keySignals : [],
+            };
+        } catch {
+            log?.warn("VisionAnalysisAdapter", `deriveResponseSignals parse failed for "${persona.name}"`, {
+                contentPreview: content.slice(0, 200),
+            });
+            return {
+                highestStageReached: "unknown",
+                finalAction: "",
+                keySignals: [],
+            };
+        }
+    }
+
+    async analyzeArtifactStream(
+        persona: Persona,
+        context: ArtifactIntake,
+        businessGoal: string,
+        researchQuestion: string,
+        options: { tokenLimit?: number; runId?: string } = {},
+    ) {
+        const log = options.runId ? AnalysisLogger.forRun(options.runId) : null;
+        const tokenLimit = options.tokenLimit ?? 2000;
+
+        log?.info("VisionAnalysisAdapter", `analyzeArtifactStream START for "${persona.name}"`, { tokenLimit });
+
+        this.ensureIngested(persona, options.runId);
+
+        const ragStart = Date.now();
+        const query = context.summary
+            ? `Artifact about ${context.summary.slice(0, 200)}`
+            : "Experiencing an artifact";
+        const ragContext = this.ragService.retrieveContext(persona, query, 3);
+        const ragDuration = Date.now() - ragStart;
+        log?.info("VisionAnalysisAdapter", `ID-RAG retrieval for "${persona.name}"`, {
+            chunkCount: ragContext.chunkCount,
+            contextStringLength: ragContext.contextString.length,
+            durationMs: ragDuration,
+        });
+
+        const compartments = this.promptCompiler.compileSystemPrompt(persona);
+        const personaAnchor = this.promptCompiler.generateAnchor(persona);
+
+        const system = this.buildCognitiveStreamSystemPrompt(
+            persona, compartments, personaAnchor, ragContext.contextString, businessGoal, researchQuestion,
+        );
+
+        const prompt = `Experience this artifact. Return ONLY the JSON object.${
+            context.summary ? `\n\nPAGE FACT SUMMARY:\n"""\n${context.summary}\n"""` : ""
+        }`;
+
+        log?.info("VisionAnalysisAdapter", `Calling streamObject for artifact stream for "${persona.name}"...`, {
+            model: this.llmService.visionModel,
+            systemPromptLength: system.length,
+            promptLength: prompt.length,
+            maxTokens: tokenLimit,
+        });
+
+        const streamObjResult = streamObject({
+            model: this.llmService.provider(this.llmService.visionModel),
+            schema: PersonaResponseSchema,
+            schemaName: "PersonaResponse",
+            schemaDescription: "A persona's structured response to an artifact based on five cognitive stages.",
+            system,
+            messages: [
+                {
+                    role: "user",
+                    content: [
+                        { type: "text", text: prompt },
+                        { type: "image", image: context.screenshotBase64 },
+                    ],
+                },
+            ],
+            temperature: 0.4,
+            maxTokens: tokenLimit,
+        } as any);
+
+        streamObjResult.object
+            .then((fullObject: any) => {
+                console.log(
+                    `[TRACE] [AnalysisComplete] persona=${persona.name}, stages=${fullObject.customerJourney?.length ?? 0}, findings=${fullObject.majorFindings?.length ?? 0}`
+                );
+            })
+            .catch(() => {});
+
+        return streamObjResult;
+    }
+
+    async analyzeArtifactCompletion(
+        persona: Persona,
+        context: ArtifactIntake,
+        businessGoal: string,
+        researchQuestion: string,
+        options: { tokenLimit?: number; runId?: string } = {},
+    ) {
+        const log = options.runId ? AnalysisLogger.forRun(options.runId) : null;
+        const tokenLimit = options.tokenLimit ?? 2000;
+        const methodStart = Date.now();
+
+        log?.info("VisionAnalysisAdapter", `analyzeArtifactCompletion START for "${persona.name}"`, { tokenLimit });
+
+        this.ensureIngested(persona, options.runId);
+
+        const ragStart = Date.now();
+        const query = context.summary
+            ? `Artifact about ${context.summary.slice(0, 200)}`
+            : "Experiencing an artifact";
+        const ragContext = this.ragService.retrieveContext(persona, query, 3);
+        const ragDuration = Date.now() - ragStart;
+        log?.info("VisionAnalysisAdapter", `ID-RAG retrieval for "${persona.name}"`, {
+            chunkCount: ragContext.chunkCount,
+            durationMs: ragDuration,
+        });
+
+        const compartments = this.promptCompiler.compileSystemPrompt(persona);
+        const personaAnchor = this.promptCompiler.generateAnchor(persona);
+
+        const system = this.buildCognitiveStreamSystemPrompt(
+            persona, compartments, personaAnchor, ragContext.contextString, businessGoal, researchQuestion,
+        );
+
+        const prompt = `Experience this artifact.${
+            context.summary ? `\n\nPAGE FACT SUMMARY:\n"""\n${context.summary}\n"""` : ""
+        }`;
+
+        try {
+            const MAX_RETRIES = 2;
+            const RETRY_DELAY_MS = 2_000;
+            const ANALYSIS_TIMEOUT_MS = 180_000;
+
+            let responseObj: any = null;
+
+            for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+                if (attempt > 0) {
+                    log?.info("VisionAnalysisAdapter", `analyzeArtifactCompletion retry ${attempt}/${MAX_RETRIES} for "${persona.name}"`);
+                    await new Promise((resolve) => setTimeout(resolve, RETRY_DELAY_MS));
+                }
+
+                const streamResult = streamObject({
+                    model: this.llmService.provider(this.llmService.visionModel),
+                    schema: PersonaResponseSchema,
+                    schemaName: "PersonaResponse",
+                    schemaDescription: "A persona's structured response to an artifact based on five cognitive stages.",
+                    system,
+                    messages: [
+                        {
+                            role: "user",
+                            content: [
+                                { type: "text", text: prompt },
+                                { type: "image", image: context.screenshotBase64 },
+                            ],
+                        },
+                    ],
+                    temperature: 0.1,
+                    maxTokens: tokenLimit,
+                } as any);
+
+                const drainAndResolve = (async () => {
+                    for await (const _ of streamResult.partialObjectStream) {
+                        // discard
+                    }
+                    return streamResult.object;
+                })().catch(() => null);
+
+                responseObj = await Promise.race([
+                    drainAndResolve,
+                    new Promise<any>((_, reject) =>
+                        setTimeout(() => reject(new Error(`Analysis timed out after ${ANALYSIS_TIMEOUT_MS}ms`)), ANALYSIS_TIMEOUT_MS)
+                    ),
+                ]);
+
+                if (responseObj) break;
+            }
+
+            const completionDuration = Date.now() - methodStart;
+            log?.info("VisionAnalysisAdapter", `analyzeArtifactCompletion completed for "${persona.name}"`, {
+                durationMs: completionDuration,
+                stages: responseObj?.customerJourney?.length,
+                findings: responseObj?.majorFindings?.length,
+            });
+            return responseObj as PersonaResponse;
+        } catch (e) {
+            log?.error("VisionAnalysisAdapter", `analyzeArtifactCompletion error for "${persona.name}"`, {
+                error: String(e),
+                totalDurationMs: Date.now() - methodStart,
+            });
+            return {
+                id: "",
+                screenshotBase64: context.screenshotBase64,
+                rawAnalysis: "An error occurred during artifact analysis.",
+                overview: "Analysis could not be completed due to a system issue.",
+                customerJourney: [],
+                researchQuestionAnswer: "Analysis failed — no answer available.",
+                majorFindings: [],
+                pointsOfFriction: ["System error during analysis."],
+                unansweredQuestions: [],
+            } as PersonaResponse;
         }
     }
 }
