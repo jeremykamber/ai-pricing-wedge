@@ -13,7 +13,7 @@ export interface SynthesizedFinding {
   observation: string
   evidence: string
   impact: string
-  confidence: 'High' | 'Medium' | 'Low'
+  confidence: 'strongly supported' | 'some support' | 'weakly supported'
   affectedPersonaCount: number
   totalPersonaCount: number
 }

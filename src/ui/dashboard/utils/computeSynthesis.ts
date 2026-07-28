@@ -75,7 +75,7 @@ function groupSimilarFindings(responses: PersonaResponse[]): SynthesizedFinding[
         observation: g.observation,
         evidence: `${name}: "${g.evidence}"`,
         impact: g.impact,
-        confidence: g.personaIndices.size >= Math.ceil(totalCount * 0.8) ? 'High' as const : g.personaIndices.size >= Math.ceil(totalCount * 0.4) ? 'Medium' as const : 'Low' as const,
+        confidence: g.personaIndices.size >= Math.ceil(totalCount * 0.8) ? 'strongly supported' as const : g.personaIndices.size >= Math.ceil(totalCount * 0.4) ? 'some support' as const : 'weakly supported' as const,
         affectedPersonaCount: g.personaIndices.size,
         totalPersonaCount: totalCount,
       }

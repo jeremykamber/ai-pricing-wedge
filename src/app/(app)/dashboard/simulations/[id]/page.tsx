@@ -432,8 +432,8 @@ function CompletedView({
                   <div className="flex items-start justify-between gap-2">
                     <p className="text-sm font-medium text-foreground">{finding.observation}</p>
                     <span className={`shrink-0 text-xs font-medium px-2 py-0.5 rounded-full ${
-                      finding.confidence === 'High' ? 'bg-green-500/10 text-green-600 border border-green-500/20' :
-                      finding.confidence === 'Medium' ? 'bg-amber-500/10 text-amber-600 border border-amber-500/20' :
+                      finding.confidence === 'strongly supported' ? 'bg-green-500/10 text-green-600 border border-green-500/20' :
+                      finding.confidence === 'some support' ? 'bg-amber-500/10 text-amber-600 border border-amber-500/20' :
                       'bg-red-500/10 text-red-600 border border-red-500/20'
                     }`}>
                       {finding.confidence}
