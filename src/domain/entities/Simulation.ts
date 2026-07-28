@@ -1,4 +1,5 @@
-import { PricingAnalysisProgressStep } from '@/application/usecases/AnalyzeArtifactUseCase'
+import type { AnalysisProgressStep } from '@/domain/entities/ArtifactAnalysis'
+type PricingAnalysisProgressStep = AnalysisProgressStep
 
 export type SimulationStatus = 'IN_PROGRESS' | 'COMPLETED' | 'ERROR' | 'CANCELLED'
 

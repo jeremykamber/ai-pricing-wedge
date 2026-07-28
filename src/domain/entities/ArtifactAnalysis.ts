@@ -4,7 +4,6 @@ export type AnalysisStatus = 'IN_PROGRESS' | 'COMPLETED' | 'ERROR' | 'CANCELLED'
 
 export type AnalysisProgressStep =
   | 'STARTING'
-  | 'OPENING_PAGE'
   | 'INTAKE'
   | 'ANALYZING'
   | 'DONE'

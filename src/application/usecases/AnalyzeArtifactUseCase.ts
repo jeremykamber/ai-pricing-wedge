@@ -2,13 +2,13 @@ import type { Persona } from "@/domain/entities/Persona";
 import type { PersonaResponse } from "@/domain/entities/PersonaResponse";
 import { validatePersonaResponse } from "@/domain/entities/PersonaResponse";
 import type { ArtifactIntake } from "@/domain/entities/ArtifactIntake";
+import { AnalysisProgressStep } from "@/domain/entities/ArtifactAnalysis";
 import type { LlmServicePort } from "@/domain/ports/LlmServicePort";
+
 import { ArtifactIntakeAdapter, type ArtifactInput, type IntakeProgress } from "@/infrastructure/adapters/ArtifactIntakeAdapter";
 import { AnalysisLogger } from "@/infrastructure/AnalysisLogger";
 
-export type AnalysisProgressStep = 'STARTING' | 'INTAKE' | 'ANALYZING' | 'DONE' | 'ERROR' | 'CANCELLED';
-
-/** @deprecated Use AnalysisProgressStep instead. */
+/** @deprecated Use AnalysisProgressStep from @/domain/entities/ArtifactAnalysis instead. */
 export type PricingAnalysisProgressStep = AnalysisProgressStep;
 
 export interface AnalysisProgress {
@@ -196,7 +196,7 @@ export class AnalyzeArtifactUseCase {
             };
 
             if (!validatePersonaResponse(fullResponse)) {
-              log.warn("AnalyzeArtifactUseCase", `${personaLog} Validation failed, using fallback`, {
+              log.warn("AnalyzeArtifactUseCase", `${personaLog} Validation failed — response may have missing fields`, {
                 hasOverview: !!fullResponse.overview,
                 stagesCount: fullResponse.customerJourney.length,
               });
