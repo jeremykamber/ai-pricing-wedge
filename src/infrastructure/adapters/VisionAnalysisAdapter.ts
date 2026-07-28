@@ -964,6 +964,8 @@ Follow these rules strictly. Findings describe observed behavior, not inferred p
         const log = options.runId ? AnalysisLogger.forRun(options.runId) : null;
         const tokenLimit = options.tokenLimit ?? 2000;
         const TIMEOUT_MS = 120_000;
+        const MAX_RETRIES = 2;
+        const RETRY_DELAY_MS = 3_000;
 
         log?.info("VisionAnalysisAdapter", `generateCognitiveStream START for "${persona.name}"`, { tokenLimit });
 
@@ -991,40 +993,59 @@ Follow these rules strictly. Findings describe observed behavior, not inferred p
             systemPromptLength: system.length,
         });
 
-        const text = await Promise.race([
-            this.llmService.createChatCompletion(
-                [
-                    {
-                        role: "user",
-                        content: [
-                            { type: "text", text: prompt },
-                            { type: "image_url", image_url: { url: `data:image/jpeg;base64,${context.screenshotBase64}` } },
-                        ] as any,
-                    },
-                ],
-                {
-                    temperature: 0.4,
-                    max_tokens: tokenLimit,
-                    model: this.llmService.visionModel,
-                    purpose: `Cognitive Stream — ${persona.name}`,
-                    runId: options.runId,
-                }
-            ),
-            new Promise<string>((_, reject) =>
-                setTimeout(() => reject(new Error(`Cognitive stream timed out after ${TIMEOUT_MS}ms`)), TIMEOUT_MS)
-            ),
-        ]);
+        let lastError: Error | null = null;
 
-        log?.info("VisionAnalysisAdapter", `generateCognitiveStream completed for "${persona.name}"`, {
-            durationMs: Date.now() - ragStart,
-            textLength: text.length,
-        });
+        for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+            if (attempt > 0) {
+                log?.warn("VisionAnalysisAdapter", `generateCognitiveStream retry ${attempt}/${MAX_RETRIES} for "${persona.name}"`);
+                await new Promise((resolve) => setTimeout(resolve, RETRY_DELAY_MS));
+            }
 
-        return {
-            text,
-            personaId: persona.id,
-            personaName: persona.name,
-        };
+            try {
+                const text = await Promise.race([
+                    this.llmService.createChatCompletion(
+                        [
+                            {
+                                role: "user",
+                                content: [
+                                    { type: "text", text: prompt },
+                                    { type: "image_url", image_url: { url: `data:image/jpeg;base64,${context.screenshotBase64}` } },
+                                ] as any,
+                            },
+                        ],
+                        {
+                            temperature: 0.4,
+                            max_tokens: tokenLimit,
+                            model: this.llmService.visionModel,
+                            purpose: `Cognitive Stream — ${persona.name}`,
+                            runId: options.runId,
+                        }
+                    ),
+                    new Promise<string>((_, reject) =>
+                        setTimeout(() => reject(new Error(`Cognitive stream timed out after ${TIMEOUT_MS}ms`)), TIMEOUT_MS)
+                    ),
+                ]);
+
+                log?.info("VisionAnalysisAdapter", `generateCognitiveStream completed for "${persona.name}"`, {
+                    durationMs: Date.now() - ragStart,
+                    textLength: text.length,
+                });
+
+                return {
+                    text,
+                    personaId: persona.id,
+                    personaName: persona.name,
+                };
+            } catch (e) {
+                lastError = e as Error;
+                log?.warn("VisionAnalysisAdapter", `generateCognitiveStream attempt ${attempt + 1} failed for "${persona.name}"`, {
+                    error: String(e),
+                });
+                if (attempt === MAX_RETRIES) throw lastError;
+            }
+        }
+
+        throw lastError || new Error("generateCognitiveStream failed after all retries");
     }
 
     async formatPersonaResponse(

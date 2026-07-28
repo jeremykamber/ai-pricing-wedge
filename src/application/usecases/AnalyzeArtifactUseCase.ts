@@ -204,19 +204,26 @@ export class AnalyzeArtifactUseCase {
 
             return fullResponse;
           } catch (err) {
+            const errMsg = (err as Error).message;
             log.error("AnalyzeArtifactUseCase", `${personaLog} Error during analysis`, {
-              error: String(err),
+              error: errMsg,
             });
 
             return {
               id: `${persona.name.replace(/[\s-]+/g, "_")}-${Date.now()}`,
               screenshotBase64: intake.screenshotBase64,
-              rawAnalysis: "Analysis failed due to an error.",
+              rawAnalysis: `Analysis failed: ${errMsg}`,
               overview: "Analysis could not be completed.",
-              customerJourney: [],
+              customerJourney: [
+                { stage: "interpretation", description: `Analysis failed: ${errMsg}`, sentiment: "negative", outcome: "stopped" },
+                { stage: "understanding", description: "Not reached — analysis failed.", sentiment: "negative", outcome: "stopped" },
+                { stage: "belief", description: "Not reached — analysis failed.", sentiment: "negative", outcome: "stopped" },
+                { stage: "motivation", description: "Not reached — analysis failed.", sentiment: "negative", outcome: "stopped" },
+                { stage: "action", description: "Not reached — analysis failed.", sentiment: "negative", outcome: "stopped" },
+              ],
               researchQuestionAnswer: "Analysis failed — no answer available.",
               majorFindings: [],
-              pointsOfFriction: ["System error during analysis."],
+              pointsOfFriction: [errMsg],
               unansweredQuestions: [],
             } as PersonaResponse;
           }
