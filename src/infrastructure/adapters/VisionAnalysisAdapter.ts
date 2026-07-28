@@ -1402,27 +1402,42 @@ Questions: ${r.unansweredQuestions.join("; ") || "(none)"}
 Business Goal: ${businessGoal}
 Research Question: ${researchQuestion}
 
-Your job: Identify patterns across personas. Read all responses carefully, then produce a structured synthesis.
+Your job: Synthesize patterns ACROSS all personas. This is the most important instruction — findings must describe what the GROUP experienced, not any individual.
 
-RULES:
-1. Do NOT assign confidence — confidence is computed from agreement across personas.
-2. Do NOT use persona traits (Big Five, values, fears) as causal explanations. Persona attributes may contextualize but do not cause behavior.
-3. Do NOT make recommendations. Describe what was observed, not what the company should do.
-4. Identify where personas AGREE and where they SPLIT.
-5. Keep the research question answer concise — one paragraph.
+CRITICAL RULES — Follow without exception:
 
-Return a JSON object with these fields:
-- overview: string — One paragraph synthesizing what the personas collectively experienced
-- researchQuestionAnswer: string — Direct answer grounded in cross-persona evidence
-- topFindings: array of { observation: string, evidence: string, impact: string }
+1. Do NOT reference individual persona names anywhere in your output. Not in findings, not in the research question answer, not in the overview. The reader does not know these people.
+
+2. Use group language consistently:
+   - "Most personas..." / "Several personas..." / "A majority..."
+   - "Some personas..." / "A few personas..."
+   - "All personas..."
+   - NOT "Priya was..." or "Jeremy said..." or "Alex found..."
+
+3. If multiple personas had the same reaction, describe it as a group pattern:
+   - CORRECT: "Several personas were skeptical of the bold claims and wanted source verification."
+   - WRONG: "Priya was skeptical of the bold claims and wanted source verification."
+
+4. The research question answer must describe the collective experience, not one persona's journey:
+   - CORRECT: "Most personas showed initial interest but were held back by missing pricing information and unverified claims. Several were willing to try a free version but needed more transparency."
+   - WRONG: "Jeremy showed interest but was unable to evaluate..."
+
+5. Do NOT assign confidence (computed externally).
+6. Do NOT use persona traits as causal explanations.
+7. Do NOT make recommendations.
+
+Return a JSON object with:
+- overview: string — One paragraph synthesizing what the GROUP of personas collectively experienced
+- researchQuestionAnswer: string — The collective answer, grounded in cross-persona evidence, using group language
+- topFindings: array of { observation: string, evidence: string, impact: string } — Each finding describes a pattern observed across MULTIPLE personas. Evidence should cite what multiple personas said or did, not one individual.
 - disagreements: array of { topic: string, split: array of { view: string, personaCount: number }, significance: "High" | "Medium" | "Low" }
-- biggestFrictions: array of string — 2-3 key friction points`;
+- biggestFrictions: array of string — 2-3 friction points that MULTIPLE personas experienced`;
 
-        const prompt = `Here are the persona responses:
+        const prompt = `Here are the responses from ${responses.length} simulated personas. Read all of them, then identify what the GROUP collectively experienced.
 
 ${summaries}
 
-Synthesize these into a structured JSON output. Return ONLY valid JSON.`;
+Produce a structured JSON synthesis. Remember: no individual persona names, no single-persona stories — only cross-persona patterns. Return ONLY valid JSON.`;
 
         const content = await Promise.race([
             this.llmService.createChatCompletion(
