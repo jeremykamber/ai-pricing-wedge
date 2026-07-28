@@ -914,13 +914,15 @@ Your personality profile drives how you react:
 <<OPENNESS PRIMING>>
 ${personaAnchor} You're open to this. A skeptical but fair assessment.
 
-Reason through your mental state, then output the complete PersonaResponse JSON:
+Reason through your mental state, then output the complete PersonaResponse JSON with exactly 5 journey stages in this order:
 
-1. INTERPRETATION — What did I initially believe this product or page was?
-2. UNDERSTANDING — What became clear? What remained confusing?
-3. BELIEF — Which claims, signals, or details increased or decreased trust?
-4. MOTIVATION — Did this become valuable enough for me to continue? Why or why not?
-5. ACTION — What exact next step would I, this persona, take?
+1. interpretation — What did I initially believe this product or page was?
+2. understanding — What became clear? What remained confusing?
+3. belief — Which claims, signals, or details increased or decreased trust?
+4. motivation — Did this become valuable enough for me to continue? Why or why not?
+5. action — What exact next step would I, this persona, take?
+
+The customerJourney array MUST have exactly one entry per stage, in this order. Do NOT repeat stages. Do NOT skip stages. Do NOT reorder them.
 
 RESEARCH QUESTION: ${researchQuestion}
 
@@ -943,15 +945,15 @@ Research Question: ${researchQuestion}
 
 Formatting Rules:
 1. ALL fields are in FIRST PERSON as the persona — the report IS the persona's experience.
-2. The customerJourney must have exactly 5 entries, one per stage in order.
+2. The customerJourney array MUST have exactly 5 entries, one per cognitive stage, IN THIS EXACT ORDER: interpretation, understanding, belief, motivation, action. Do NOT repeat stages. Do NOT skip stages. Do NOT put them out of order.
 3. For each stage: describe the persona's mental state — what they thought, felt, and believed at that stage. Do NOT describe what they saw chronologically.
-4. majorFindings: extract 2-4 specific, non-obvious observations. Each finding must cite concrete evidence from the stream. Avoid generic statements like "the page was confusing" — instead say what specifically caused confusion and why.
-5. pointsOfFriction: identify specific moments where the persona's cognition stalled — what confused, frustrated, or stopped them.
+4. majorFindings: extract 2-4 specific, non-obvious observations. Each finding must cite concrete evidence from the stream.
+5. pointsOfFriction: identify specific moments where the persona's cognition stalled.
 6. unansweredQuestions: what the persona still wondered about after the experience. Do not repeat what's already in friction.
-7. researchQuestionAnswer: answer the research question directly using evidence from the stream. Keep it concise — one paragraph. The overview and major findings should not repeat the same insight.
-8. overview: one paragraph that captures the single most important takeaway from this persona's journey. Do NOT summarize every stage.
+7. researchQuestionAnswer: answer the research question directly using evidence from the stream. Keep it concise — one paragraph.
+8. overview: one paragraph that captures the single most important takeaway from this persona's journey.
 
-Confidence level: High = the persona was explicit and consistent about this. Medium = clear but not universal. Low = inferred or speculative. Never fabricate confidence.`;
+Confidence level: High = the persona was explicit and consistent. Medium = clear but not universal. Low = inferred or speculative. Never fabricate confidence.`;
     }
 
     async generateCognitiveStream(

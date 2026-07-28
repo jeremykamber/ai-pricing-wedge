@@ -3,6 +3,7 @@ import type { PersonaProfile } from "./PersonaProfile";
 import type { StageJourney } from "./StageJourney";
 import type { MajorFinding } from "./MajorFinding";
 import type { CognitiveStage } from "./CognitiveStage";
+import { COGNITIVE_STAGES } from "./CognitiveStage";
 
 /**
  * One persona's response to an artifact — the core output of the analysis.
@@ -59,13 +60,16 @@ export function validatePersonaResponse(response: PersonaResponse): boolean {
   if (!response.overview || typeof response.overview !== "string") return false;
   if (typeof response.researchQuestionAnswer !== "string") return false;
 
-  if (!Array.isArray(response.customerJourney) || response.customerJourney.length !== 5) return false;
+  if (!Array.isArray(response.customerJourney) || response.customerJourney.length !== COGNITIVE_STAGES.length) return false;
   if (!Array.isArray(response.majorFindings)) return false;
   if (!Array.isArray(response.pointsOfFriction)) return false;
   if (!Array.isArray(response.unansweredQuestions)) return false;
 
-  for (const stage of response.customerJourney) {
-    if (!stage.stage || !stage.description || !stage.sentiment || !stage.outcome) return false;
+  // Enforce stage ordering: each stage must appear exactly once, in the correct order
+  for (let i = 0; i < COGNITIVE_STAGES.length; i++) {
+    const stage = response.customerJourney[i];
+    if (!stage || stage.stage !== COGNITIVE_STAGES[i]) return false;
+    if (!stage.description || !stage.sentiment || !stage.outcome) return false;
   }
 
   for (const finding of response.majorFindings) {
