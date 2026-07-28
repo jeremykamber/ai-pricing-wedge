@@ -4,7 +4,12 @@ import { Simulation, SimulationStatus } from '@/domain/entities/Simulation'
 import type { PersonaResponse } from '@/domain/entities/PersonaResponse'
 import { indexedDBStorage } from '@/infrastructure/services/indexedDBStorage'
 
-interface SimulationStoreState {
+interface SimulationPersistedState {
+  simulations: Simulation[]
+  dismissedSimulationIds: string[]
+}
+
+interface SimulationStoreState extends SimulationPersistedState {
   simulations: Simulation[]
   dismissedSimulationIds: string[]
   addSimulation: (simulation: Simulation) => void
@@ -16,6 +21,8 @@ interface SimulationStoreState {
   markError: (id: string, error: string) => void
   markCancelled: (id: string) => void
 }
+
+const STORAGE_VERSION = 2;
 
 export const useSimulationStore = create<SimulationStoreState>()(
   persist(
@@ -93,6 +100,13 @@ export const useSimulationStore = create<SimulationStoreState>()(
     }),
     {
       name: 'simulation-storage',
+      version: STORAGE_VERSION,
+      migrate(persistedState, version) {
+        if (version < STORAGE_VERSION) {
+          return { simulations: [], dismissedSimulationIds: [] } as SimulationPersistedState;
+        }
+        return persistedState as SimulationPersistedState;
+      },
       storage: createJSONStorage(() => indexedDBStorage),
       // Only persist metadata, not streaming data or large screenshots
       partialize: (state) => ({

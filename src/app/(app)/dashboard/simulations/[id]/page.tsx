@@ -412,7 +412,7 @@ function CompletedView({
             )}
 
             {/* Customer Journey */}
-            {analysis.customerJourney.length > 0 && (
+            {analysis.customerJourney?.length > 0 && (
               <div className="flex flex-col gap-3">
                 <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Customer Journey</p>
                 <div className="flex flex-col gap-2">
@@ -439,7 +439,7 @@ function CompletedView({
             )}
 
             {/* Research Question Answer */}
-            {analysis.researchQuestionAnswer && (
+            {analysis.researchQuestionAnswer && analysis.researchQuestionAnswer.length > 0 && (
               <div className="rounded-lg border border-primary/10 bg-primary/5 p-3">
                 <span className="text-xs font-semibold text-primary uppercase tracking-wider mb-1 block">Research Question</span>
                 <p className="text-sm text-foreground/80">{analysis.researchQuestionAnswer}</p>
