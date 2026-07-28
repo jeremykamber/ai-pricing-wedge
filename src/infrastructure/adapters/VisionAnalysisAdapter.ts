@@ -876,6 +876,58 @@ Think aloud. Walk through your experience naturally:
 Be blunt, honest, and natural. Be your persona. Write freely — no JSON, no formatting constraints.`;
     }
 
+    private buildArtifactAnalysisSystemPrompt(
+        persona: Persona,
+        compartments: string,
+        personaAnchor: string,
+        ragContextString: string,
+        businessGoal: string,
+        researchQuestion: string,
+    ): string {
+        return `You are a persona reacting to an artifact. Produce a structured PersonaResponse as this persona.
+
+${compartments}
+
+${ragContextString ? `<<RETRIEVED MEMORY>>\n${ragContextString}\n` : ""}
+
+<<ARTIFACT CONTEXT>>
+You are looking at a user experience — a page, a flow, or a design. You have been provided with:
+1. A screenshot of what the user sees.
+2. A factual summary of the content.
+
+<<BUSINESS CONTEXT>>
+The creator of this artifact wants to accomplish: ${businessGoal}
+
+You are not here to evaluate design. You are here to react honestly as yourself.
+
+<<VOICE AND AUDIENCE>>
+ALL fields are in FIRST PERSON as the persona — the report IS the persona's experience. "I think...", "This concerns me...", "I'd want to see..."
+
+<<PERSONALITY BIAS APPLICATION>>
+Your personality profile drives how you react:
+- Your Neuroticism determines what concerns or worries you pick up on.
+- Your Conscientiousness determines how closely you examine details.
+- Your Openness determines whether new concepts excite or concern you.
+- Your Extraversion determines whether you think about what others would say.
+- Your Agreeableness determines whether you give benefit of doubt.
+
+<<OPENNESS PRIMING>>
+${personaAnchor} You're open to this. A skeptical but fair assessment.
+
+Reason through your experience, then output the complete PersonaResponse JSON:
+
+1. INTERPRETATION — What am I looking at? Who is this for? Is this relevant to me?
+2. UNDERSTANDING — Do I get it? What are they offering? What am I supposed to do?
+3. BELIEF — Do I believe them? Does this feel credible? What makes me trust or doubt this?
+4. MOTIVATION — Is this valuable to me? Is it worth my time? Do I care enough to continue?
+5. ACTION — What would I actually do next? Click, leave, compare, save, ignore?
+
+RESEARCH QUESTION: ${researchQuestion}
+
+Your task is to output a valid structured JSON object matching the PersonaResponse schema.
+Do NOT produce any text outside the JSON object.`;
+    }
+
     private buildPersonaResponseFormatterSystemPrompt(
         persona: Persona,
         compartments: string,
@@ -1155,7 +1207,7 @@ Return ONLY the JSON object.`;
         const compartments = this.promptCompiler.compileSystemPrompt(persona);
         const personaAnchor = this.promptCompiler.generateAnchor(persona);
 
-        const system = this.buildCognitiveStreamSystemPrompt(
+        const system = this.buildArtifactAnalysisSystemPrompt(
             persona, compartments, personaAnchor, ragContext.contextString, businessGoal, researchQuestion,
         );
 
@@ -1229,7 +1281,7 @@ Return ONLY the JSON object.`;
         const compartments = this.promptCompiler.compileSystemPrompt(persona);
         const personaAnchor = this.promptCompiler.generateAnchor(persona);
 
-        const system = this.buildCognitiveStreamSystemPrompt(
+        const system = this.buildArtifactAnalysisSystemPrompt(
             persona, compartments, personaAnchor, ragContext.contextString, businessGoal, researchQuestion,
         );
 
@@ -1298,17 +1350,7 @@ Return ONLY the JSON object.`;
                 error: String(e),
                 totalDurationMs: Date.now() - methodStart,
             });
-            return {
-                id: "",
-                screenshotBase64: context.screenshotBase64,
-                rawAnalysis: "An error occurred during artifact analysis.",
-                overview: "Analysis could not be completed due to a system issue.",
-                customerJourney: [],
-                researchQuestionAnswer: "Analysis failed — no answer available.",
-                majorFindings: [],
-                pointsOfFriction: ["System error during analysis."],
-                unansweredQuestions: [],
-            } as PersonaResponse;
+            throw e;
         }
     }
 }
