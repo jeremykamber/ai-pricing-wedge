@@ -13,7 +13,7 @@ console.log("API Key check:", {
 });
 
 import { GeneratePersonasUseCase } from "@/application/usecases/GeneratePersonasUseCase";
-import { ParsePricingPageUseCase } from "@/application/usecases/ParsePricingPageUseCase";
+import { AnalyzeArtifactUseCase } from "@/application/usecases/AnalyzeArtifactUseCase";
 import { LlmServiceImpl } from "@/infrastructure/adapters/LlmServiceImpl";
 import { RemotePlaywrightAdapter } from "@/infrastructure/adapters/RemotePlaywrightAdapter";
 import { Persona } from "@/domain/entities/Persona";
@@ -139,11 +139,13 @@ async function runBenchmark() {
     const startAnalysis = Date.now();
 
     const browserService = RemotePlaywrightAdapter.createFromEnv();
-    const analysisUseCase = new ParsePricingPageUseCase(browserService, llmService);
+    const { ArtifactIntakeAdapter } = await import("@/infrastructure/adapters/ArtifactIntakeAdapter");
+    const intakeAdapter = new ArtifactIntakeAdapter(browserService, llmService);
+    const analysisUseCase = new AnalyzeArtifactUseCase(intakeAdapter, llmService);
     
     let analysisTime = 0;
     try {
-      await analysisUseCase.execute(flags.url, personas);
+      await analysisUseCase.execute({ type: "url", url: flags.url }, personas, "", "");
       analysisTime = Date.now() - startAnalysis;
       results.push({ phase: "pricing_analysis", timeMs: analysisTime });
       console.log(`      Done: ${formatTime(analysisTime)}\n`);
@@ -165,11 +167,13 @@ async function runBenchmark() {
     const personas = createMockPersonas();
     const browserService = RemotePlaywrightAdapter.createFromEnv();
     const llmService = LlmServiceImpl.createFromEnv("openrouter");
-    const analysisUseCase = new ParsePricingPageUseCase(browserService, llmService);
+    const { ArtifactIntakeAdapter } = await import("@/infrastructure/adapters/ArtifactIntakeAdapter");
+    const intakeAdapter = new ArtifactIntakeAdapter(browserService, llmService);
+    const analysisUseCase = new AnalyzeArtifactUseCase(intakeAdapter, llmService);
     
     let analysisTime = 0;
     try {
-      await analysisUseCase.execute(flags.url, personas);
+      await analysisUseCase.execute({ type: "url", url: flags.url }, personas, "", "");
       analysisTime = Date.now() - startAnalysis;
       results.push({ phase: "pricing_analysis_mock", timeMs: analysisTime });
       console.log(`      Done: ${formatTime(analysisTime)}\n`);

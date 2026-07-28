@@ -1,5 +1,4 @@
-import { PricingAnalysis } from './PricingAnalysis'
-import { PricingAnalysisProgressStep } from '@/application/usecases/ParsePricingPageUseCase'
+import { PricingAnalysisProgressStep } from '@/application/usecases/AnalyzeArtifactUseCase'
 
 export type SimulationStatus = 'IN_PROGRESS' | 'COMPLETED' | 'ERROR' | 'CANCELLED'
 
@@ -17,7 +16,7 @@ export interface Simulation {
     currentStep?: PricingAnalysisProgressStep
     completedAnalyses?: number
     totalAnalyses?: number
-    analyses?: PricingAnalysis[]
+    analyses?: any[]
     screenshot?: string
     streamingTexts?: Record<string, string>
     error?: string

@@ -1,7 +1,7 @@
 import { create } from 'zustand'
 import { persist, createJSONStorage } from 'zustand/middleware'
 import { Simulation, SimulationStatus } from '@/domain/entities/Simulation'
-import { PricingAnalysis } from '@/domain/entities/PricingAnalysis'
+import type { PersonaResponse } from '@/domain/entities/PersonaResponse'
 import { indexedDBStorage } from '@/infrastructure/services/indexedDBStorage'
 
 interface SimulationStoreState {
@@ -12,7 +12,7 @@ interface SimulationStoreState {
   removeSimulation: (id: string) => void
   getSimulation: (id: string) => Simulation | undefined
   dismissSimulation: (id: string) => void
-  markComplete: (id: string, analyses: PricingAnalysis[]) => void
+  markComplete: (id: string, analyses: PersonaResponse[]) => void
   markError: (id: string, error: string) => void
   markCancelled: (id: string) => void
 }

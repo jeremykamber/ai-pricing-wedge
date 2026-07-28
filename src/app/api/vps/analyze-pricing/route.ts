@@ -11,7 +11,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { RateLimiterMemory } from "rate-limiter-flexible";
 
-import { ParsePricingPageUseCase } from "@/application/usecases/ParsePricingPageUseCase";
+import { AnalyzeArtifactUseCase } from "@/application/usecases/AnalyzeArtifactUseCase";
 import { RemotePlaywrightAdapter } from "@/infrastructure/adapters/RemotePlaywrightAdapter";
 import { Persona } from "@/domain/entities/Persona";
 import { LlmServiceImpl } from "@/infrastructure/adapters/LlmServiceImpl";
@@ -50,7 +50,7 @@ const PERSONA_TOKEN_LIMIT =
 // ─────────────────────────────────────────────────────────────────────────────
 
 export async function POST(req: NextRequest) {
-    const { url, personas, runId: reqId, imageBase64 } = await req.json();
+    const { url, personas, runId: reqId, imageBase64, businessGoal, researchQuestion } = await req.json();
     const id = reqId || `pricing-${Date.now()}`;
     if (personas.length == 0) {
         return NextResponse.json({
@@ -95,7 +95,7 @@ export async function POST(req: NextRequest) {
     const ANALYSIS_TIMEOUT_MS = 10 * 60 * 1000; // 10 minutes
 
     Promise.race([
-        runAnalysis(id, url, personas, imageBase64),
+        runAnalysis(id, url, personas, imageBase64, businessGoal, researchQuestion),
         new Promise<never>((_, reject) =>
             setTimeout(() => reject(new Error('Analysis timed out after 10 minutes')), ANALYSIS_TIMEOUT_MS)
         ),
@@ -117,6 +117,8 @@ async function runAnalysis(
     url: string,
     personas: Persona[],
     imageBase64?: string,
+    businessGoal?: string,
+    researchQuestion?: string,
 ) {
     const startTime = Date.now();
     const log = AnalysisLogger.forRun(id);
@@ -145,18 +147,21 @@ async function runAnalysis(
         log.info("runAnalysis", "Instantiating dependencies...");
         const browserService = RemotePlaywrightAdapter.createFromEnv();
         const llmService = LlmServiceImpl.createFromEnv("openrouter");
-        const useCase = new ParsePricingPageUseCase(browserService, llmService);
+        const { ArtifactIntakeAdapter } = await import("@/infrastructure/adapters/ArtifactIntakeAdapter");
+        const intakeAdapter = new ArtifactIntakeAdapter(browserService, llmService);
+        const useCase = new AnalyzeArtifactUseCase(intakeAdapter, llmService);
 
         log.info("runAnalysis", "Calling useCase.execute()...");
-        const analyses = await useCase.execute(
-            url,
+        const input = imageBase64
+            ? { type: "screenshot" as const, imageBase64, url }
+            : { type: "url" as const, url };
+        const responses = await useCase.execute(
+            input,
             personas,
+            businessGoal || "",
+            researchQuestion || "",
             (progress) => {
                 if (!abortSignal.aborted) {
-                    // Persist to side-channel stores for the polling GET endpoints
-                    if (progress.screenshot) {
-                        storeScreenshot(id, progress.screenshot);
-                    }
                     if (progress.step || progress.completedCount !== undefined) {
                         storeProgress(id, {
                             step: progress.step,
@@ -167,16 +172,16 @@ async function runAnalysis(
                 }
             },
             abortSignal,
-            { imageBase64, tokenLimit: PERSONA_TOKEN_LIMIT, runId: id },
+            { tokenLimit: PERSONA_TOKEN_LIMIT, runId: id },
         );
 
         log.info(
             "runAnalysis",
-            `useCase.execute() completed with ${analyses.length} analyses`,
+            `useCase.execute() completed with ${responses.length} responses`,
         );
 
         if (!abortSignal.aborted) {
-            simulationResultStore.save(id, analyses);
+            simulationResultStore.save(id, responses);
             storeCompleted(id);
             log.info("runAnalysis", "Results stored — client can now poll");
         } else {
