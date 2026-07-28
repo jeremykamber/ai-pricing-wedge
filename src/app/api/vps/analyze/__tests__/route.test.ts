@@ -1,13 +1,11 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { NextRequest } from "next/server";
-import { mockPersona, mockAnalysis } from "../../__tests__/test-utils";
-import { clear } from "console";
+import { mockPersona } from "../../__tests__/test-utils";
 
-// ── Hoisted mock functions ──────────────────────────────────────────────────
 const mockRateLimiterConsume = vi.hoisted(() =>
   vi.fn(() => Promise.resolve()),
 );
-const mockParsePricingPageExecute = vi.hoisted(() => vi.fn());
+const mockAnalyzeArtifactExecute = vi.hoisted(() => vi.fn());
 
 vi.mock("rate-limiter-flexible", () => ({
   RateLimiterMemory: class {
@@ -29,15 +27,12 @@ vi.mock("@/infrastructure/SimulationResultStore", () => ({
     save: vi.fn(),
     saveError: vi.fn(),
     get: vi.fn(),
-    set: vi.fn(),
-    delete: vi.fn(),
   },
 }));
 
 vi.mock("@/infrastructure/AnalysisLogger", () => {
   const MockLogger = class {
     log = vi.fn();
-    getLogs = vi.fn(() => []);
     info = vi.fn();
     warn = vi.fn();
     error = vi.fn();
@@ -52,9 +47,6 @@ vi.mock("@/infrastructure/AnalysisLogger", () => {
 vi.mock("@/infrastructure/adapters/LlmServiceImpl", () => {
   const LlmServiceImpl = class {
     createChatCompletion = vi.fn();
-    createChatCompletionStream = vi.fn();
-    generatePersonas = vi.fn();
-    generateVariationPersonas = vi.fn();
   };
   LlmServiceImpl.createFromEnv = vi.fn(() => new LlmServiceImpl());
   return { LlmServiceImpl };
@@ -63,16 +55,21 @@ vi.mock("@/infrastructure/adapters/LlmServiceImpl", () => {
 vi.mock("@/infrastructure/adapters/RemotePlaywrightAdapter", () => {
   const MockAdapter = class {
     navigate = vi.fn();
-    screenshot = vi.fn();
     close = vi.fn();
   };
   MockAdapter.createFromEnv = vi.fn(() => new MockAdapter());
   return { RemotePlaywrightAdapter: MockAdapter };
 });
 
-vi.mock("@/application/usecases/ParsePricingPageUseCase", () => ({
-  ParsePricingPageUseCase: class {
-    execute = mockParsePricingPageExecute;
+vi.mock("@/infrastructure/adapters/ArtifactIntakeAdapter", () => ({
+  ArtifactIntakeAdapter: class {
+    intake = vi.fn(() => Promise.resolve({ screenshotBase64: "mock", url: "https://example.com" }));
+  },
+}));
+
+vi.mock("@/application/usecases/AnalyzeArtifactUseCase", () => ({
+  AnalyzeArtifactUseCase: class {
+    execute = mockAnalyzeArtifactExecute;
   },
 }));
 
@@ -81,25 +78,19 @@ vi.mock("@/actions/getProgress", () => ({
   storeCompleted: vi.fn(),
 }));
 
-vi.mock("@/actions/getScreenshot", () => ({
-  storeScreenshot: vi.fn(),
-}));
-
-// ── Tests ───────────────────────────────────────────────────────────────────
-
-describe("POST /api/vps/analyze-pricing", () => {
+describe("POST /api/vps/analyze", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockParsePricingPageExecute.mockResolvedValue([mockAnalysis]);
+    mockAnalyzeArtifactExecute.mockResolvedValue([]);
   });
 
-  it("returns runId on valid input", async () => {
+  it("returns runId on valid URL input", async () => {
     const { POST } = await import("../route");
-    const req = new NextRequest("http://localhost:3000/api/vps/analyze-pricing", {
+    const req = new NextRequest("http://localhost:3000/api/vps/analyze", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        url: "https://example.com/pricing",
+        input: { type: "url", url: "https://example.com" },
         personas: [mockPersona],
       }),
     });
@@ -107,19 +98,35 @@ describe("POST /api/vps/analyze-pricing", () => {
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body).toHaveProperty("runId");
-    expect(typeof body.runId).toBe("string");
   });
 
-  it("accepts optional runId and imageBase64", async () => {
+  it("returns runId on valid screenshot input", async () => {
     const { POST } = await import("../route");
-    const req = new NextRequest("http://localhost:3000/api/vps/analyze-pricing", {
+    const req = new NextRequest("http://localhost:3000/api/vps/analyze", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        url: "https://example.com/pricing",
+        input: { type: "screenshot", imageBase64: "iVBORw0KG..." },
+        personas: [mockPersona],
+      }),
+    });
+    const res = await POST(req);
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body).toHaveProperty("runId");
+  });
+
+  it("accepts optional runId, businessGoal, researchQuestion", async () => {
+    const { POST } = await import("../route");
+    const req = new NextRequest("http://localhost:3000/api/vps/analyze", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        input: { type: "url", url: "https://example.com" },
         personas: [mockPersona],
         runId: "custom-123",
-        imageBase64: "iVBORw0KG...",
+        businessGoal: "Increase signups",
+        researchQuestion: "Why do users leave?",
       }),
     });
     const res = await POST(req);
@@ -131,11 +138,11 @@ describe("POST /api/vps/analyze-pricing", () => {
   it("returns 429 when rate limited", async () => {
     mockRateLimiterConsume.mockRejectedValueOnce(new Error("Too fast"));
     const { POST } = await import("../route");
-    const req = new NextRequest("http://localhost:3000/api/vps/analyze-pricing", {
+    const req = new NextRequest("http://localhost:3000/api/vps/analyze", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        url: "https://example.com/pricing",
+        input: { type: "url", url: "https://example.com" },
         personas: [mockPersona],
       }),
     });
@@ -146,36 +153,50 @@ describe("POST /api/vps/analyze-pricing", () => {
     expect(body).toHaveProperty("runId");
   });
 
-  it("returns 400 when ran with empty persona array", async () => {
-      const { POST } = await import("../route");
-    const req = new NextRequest("http://localhost:3000/api/vps/analyze-pricing", {
+  it("returns 400 when personas array is empty", async () => {
+    const { POST } = await import("../route");
+    const req = new NextRequest("http://localhost:3000/api/vps/analyze", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        url: "https://example.com/pricing",
+        input: { type: "url", url: "https://example.com" },
         personas: [],
       }),
     });
     const res = await POST(req);
-    console.log(res);
     expect(res.status).toBe(400);
     const body = await res.json();
     expect(body).toHaveProperty("error");
     expect(body).toHaveProperty("runId");
   });
 
-  it("returns 400 when ran with empty url", async () => {
-      const { POST } = await import("../route");
-    const req = new NextRequest("http://localhost:3000/api/vps/analyze-pricing", {
+  it("returns 400 when input is missing", async () => {
+    const { POST } = await import("../route");
+    const req = new NextRequest("http://localhost:3000/api/vps/analyze", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        url: "",
         personas: [mockPersona],
       }),
     });
     const res = await POST(req);
-    console.log(res);
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body).toHaveProperty("error");
+    expect(body).toHaveProperty("runId");
+  });
+
+  it("returns 400 when URL type has empty url", async () => {
+    const { POST } = await import("../route");
+    const req = new NextRequest("http://localhost:3000/api/vps/analyze", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        input: { type: "url", url: "" },
+        personas: [mockPersona],
+      }),
+    });
+    const res = await POST(req);
     expect(res.status).toBe(400);
     const body = await res.json();
     expect(body).toHaveProperty("error");

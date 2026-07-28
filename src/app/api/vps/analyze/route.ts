@@ -14,6 +14,7 @@ import { RateLimiterMemory } from "rate-limiter-flexible";
 import { AnalyzeArtifactUseCase } from "@/application/usecases/AnalyzeArtifactUseCase";
 import { RemotePlaywrightAdapter } from "@/infrastructure/adapters/RemotePlaywrightAdapter";
 import { Persona } from "@/domain/entities/Persona";
+import type { ArtifactInput } from "@/infrastructure/adapters/ArtifactIntakeAdapter";
 import { LlmServiceImpl } from "@/infrastructure/adapters/LlmServiceImpl";
 import { cancellationManager } from "@/infrastructure/RequestCancellationManager";
 import { AnalysisLogger } from "@/infrastructure/AnalysisLogger";
@@ -58,6 +59,20 @@ export async function POST(req: NextRequest) {
         }, { status: 400 });
     }
 
+    if (input.type === "url" && !input.url?.trim()) {
+        return NextResponse.json({
+            error: "URL input provided but URL is empty.",
+            runId: id,
+        }, { status: 400 });
+    }
+
+    if (input.type === "screenshot" && !input.imageBase64) {
+        return NextResponse.json({
+            error: "Screenshot input provided but image data is missing.",
+            runId: id,
+        }, { status: 400 });
+    }
+
     const clientIP =
         req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
         req.headers.get("x-real-ip") ||
@@ -93,7 +108,7 @@ export async function POST(req: NextRequest) {
 
 async function runAnalysis(
     id: string,
-    input: any,
+    input: ArtifactInput,
     personas: Persona[],
     businessGoal?: string,
     researchQuestion?: string,
