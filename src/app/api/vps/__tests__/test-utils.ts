@@ -4,7 +4,7 @@ import type { PricingAnalysis } from "@/domain/entities/PricingAnalysis";
 import type { TestingSession } from "@/domain/entities/TestingSession";
 import type { InteractionStep } from "@/domain/entities/InteractionStep";
 import type { CriticEvaluation } from "@/domain/entities/CriticEvaluation";
-import type { GazePoint } from "@/domain/entities/PricingAnalysis";
+import type { GazePoint } from "@/domain/entities/GazePoint";
 
 // ── Mock data ───────────────────────────────────────────────────────────────
 

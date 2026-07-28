@@ -2,11 +2,16 @@ import { z } from "zod";
 import type { PersonaProfile } from "./PersonaProfile";
 
 export interface GazePoint {
-    x: number; // 0-100 percentage
-    y: number; // 0-100 percentage
+    x: number;
+    y: number;
     focusLabel: string;
 }
 
+/**
+ * @deprecated Use PersonaResponse instead. This type is preserved for backward
+ * compatibility during the transition to artifact-agnostic analysis.
+ * It will be removed in a later phase.
+ */
 export interface PricingAnalysis {
     id: string;
     url: string;
@@ -28,8 +33,8 @@ export interface PricingAnalysis {
     };
     risks: string[];
     recommendations: string[];
-    aiSuggestion: string;  // Persona-specific actionable insight — LLM-generated, NOT boilerplate
-    summary?: string[];  // 3-5 bullet points summarizing key findings
+    aiSuggestion: string;
+    summary?: string[];
     gazePoints?: GazePoint[];
     gutReaction?: string;
     rawAnalysis?: string;
@@ -55,25 +60,17 @@ export const PricingAnalysisSchema = z.object({
         buyIntentReason: z.string().describe("1-2 sentences explaining purchase intent."),
     }),
     risks: z.array(z.string()).describe("3 concrete risks stated in first person from the persona's perspective."),
-    recommendations: z.array(z.string()).describe("2-3 imperative action items directed AT THE COMPANY starting with action verbs (e.g. 'Add', 'Offer', 'Reframe'). No advice to the user."),
-    aiSuggestion: z.string().describe("ONE imperative sentence directed AT THE COMPANY stating the single most critical change to win this persona over. Starts with an action verb. No pronouns (no 'I', 'my', 'you', or persona names)."),
+    recommendations: z.array(z.string()).describe("2-3 imperative action items directed AT THE COMPANY starting with action verbs."),
+    aiSuggestion: z.string().describe("ONE imperative sentence directed AT THE COMPANY stating the single most critical change to win this persona over."),
     summary: z.array(z.string()).optional().describe("3-5 concise bullet points summarizing key findings."),
 });
 
 export function validatePricingAnalysis(entity: PricingAnalysis): boolean {
     if (!entity || typeof entity !== "object") return false;
-
     if (!entity.id || typeof entity.id !== "string") return false;
-    if (!entity.url || typeof entity.url !== "string") return false;
-    if (entity.url !== "Screenshot Upload" && !entity.url.startsWith("uploaded://")) {
-        try { new URL(entity.url); } catch (e) { return false; }
-    }
-    if (!entity.screenshotBase64 || typeof entity.screenshotBase64 !== "string") return false;
     if (!entity.thoughts || typeof entity.thoughts !== "string") return false;
-
     const scores = entity.scores as any;
     if (!scores || typeof scores !== "object") return false;
-
     const requiredScoreKeys = [
         "clarity", "clarityReason",
         "valuePerception", "valuePerceptionReason",
@@ -82,32 +79,18 @@ export function validatePricingAnalysis(entity: PricingAnalysis): boolean {
         "analysisIntent", "analysisIntentReason",
         "buyIntent", "buyIntentReason",
     ];
-
     for (const key of requiredScoreKeys) {
         const val = scores[key];
         if (typeof val === "number") {
             if (!Number.isFinite(val) || val < 1 || val > 10) return false;
         } else if (typeof val === "string") {
             if (val.trim().length === 0) return false;
-        } else {
-            return false;
-        }
+        } else { return false; }
     }
-
     if (!Array.isArray(entity.risks)) return false;
     for (const r of entity.risks) { if (typeof r !== "string") return false; }
-
     if (!Array.isArray(entity.recommendations)) return false;
     for (const r of entity.recommendations) { if (typeof r !== "string") return false; }
-
     if (!entity.aiSuggestion || typeof entity.aiSuggestion !== "string" || entity.aiSuggestion.trim().length === 0) return false;
-
-    if (entity.gazePoints !== undefined) {
-        if (!Array.isArray(entity.gazePoints)) return false;
-        for (const gp of entity.gazePoints) {
-            if (typeof gp.x !== "number" || typeof gp.y !== "number" || typeof gp.focusLabel !== "string") return false;
-        }
-    }
-
     return true;
 }

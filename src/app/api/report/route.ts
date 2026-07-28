@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { ParsePricingPageUseCase } from "@/application/usecases/ParsePricingPageUseCase";
+import { AnalyzeArtifactUseCase } from "@/application/usecases/AnalyzeArtifactUseCase";
 import { RemotePlaywrightAdapter } from "@/infrastructure/adapters/RemotePlaywrightAdapter";
 import { Persona } from "@/domain/entities/Persona";
 import { LlmServiceImpl } from "@/infrastructure/adapters/LlmServiceImpl";
@@ -79,30 +79,36 @@ export async function POST(req: Request) {
         console.log(`[REPORT API] Instantiating dependencies...`);
         const browserService = RemotePlaywrightAdapter.createFromEnv();
         const llmService = LlmServiceImpl.createFromEnv("openrouter");
-        const useCase = new ParsePricingPageUseCase(browserService, llmService);
+        const { ArtifactIntakeAdapter } = await import("@/infrastructure/adapters/ArtifactIntakeAdapter");
+        const intakeAdapter = new ArtifactIntakeAdapter(browserService, llmService);
+        const useCase = new AnalyzeArtifactUseCase(intakeAdapter, llmService);
 
         const executeStart = Date.now();
         console.log(`[REPORT API] Calling useCase.execute()...`);
 
-        const analyses = await useCase.execute(
-            url,
+        const input = imageBase64
+            ? { type: "screenshot" as const, imageBase64, url }
+            : { type: "url" as const, url };
+        const responses = await useCase.execute(
+            input,
             personas as Persona[],
+            "",
+            "",
             undefined,
             undefined,
-            { imageBase64, runId: id }
+            { runId: id }
         );
 
         const executeDuration = Date.now() - executeStart;
-        console.log(`[REPORT API] useCase.execute() completed in ${executeDuration}ms with ${analyses.length} analyses`);
+        console.log(`[REPORT API] useCase.execute() completed in ${executeDuration}ms with ${responses.length} responses`);
 
-        // Log each analysis summary
-        analyses.forEach((a, i) => {
-            console.log(`[REPORT API] Analysis[${i}]: id=${a.id}, scores={clarity:${a.scores?.clarity}, trust:${a.scores?.trust}, buy:${a.scores?.buyIntent}}, risks=${a.risks?.length}, recs=${a.recommendations?.length}`);
+        responses.forEach((r, i) => {
+            console.log(`[REPORT API] Response[${i}]: id=${r.id}, stages=${r.customerJourney.length}, findings=${r.majorFindings.length}`);
         });
 
         log.info("ReportAPI", "Report generation complete", {
             executeDurationMs: executeDuration,
-            analysisCount: analyses.length,
+            responseCount: responses.length,
             totalDurationMs: Date.now() - requestStart,
         });
         await log.close();
@@ -114,7 +120,7 @@ export async function POST(req: Request) {
             requestId: id,
             url,
             personaCount: personas.length,
-            analyses,
+            analyses: responses,
         });
     } catch (error) {
         const errMsg = (error as Error).message;

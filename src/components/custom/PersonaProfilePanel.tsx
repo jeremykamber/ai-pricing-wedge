@@ -65,8 +65,8 @@ export function PersonaProfilePanel({ persona, onChatClick, onCreateVariant, onD
             <p className="text-sm font-medium text-muted-foreground uppercase tracking-widest truncate">{persona.occupation}</p>
             {persona.variantOf && (
               <div className="flex items-center gap-1.5 mt-1">
-                <GitForkIcon className="w-3 h-3 text-muted-foreground/60 shrink-0" />
-                <span className="text-xs font-medium text-muted-foreground/70 truncate">
+                <GitForkIcon className="w-3 h-3 text-muted-foreground/80 shrink-0" />
+                <span className="text-xs font-medium text-muted-foreground/80 truncate">
                   Variant of {persona.variantOf.name}
                 </span>
               </div>
@@ -87,7 +87,7 @@ export function PersonaProfilePanel({ persona, onChatClick, onCreateVariant, onD
               <div className="h-1.5 w-full bg-muted rounded-sm overflow-hidden">
                 <div className="h-full bg-primary rounded-sm" style={{ width: `${persona.conscientiousness}%` }} />
               </div>
-              <div className="flex justify-between text-[11px] text-muted-foreground/60 font-medium uppercase">
+              <div className="flex justify-between text-[11px] text-muted-foreground/80 font-medium uppercase">
                 <span>Chaotic</span>
                 <span>Meticulous</span>
               </div>
@@ -101,7 +101,7 @@ export function PersonaProfilePanel({ persona, onChatClick, onCreateVariant, onD
               <div className="h-1.5 w-full bg-muted rounded-sm overflow-hidden">
                 <div className="h-full bg-primary rounded-sm" style={{ width: `${persona.neuroticism}%` }} />
               </div>
-              <div className="flex justify-between text-[11px] text-muted-foreground/60 font-medium uppercase">
+              <div className="flex justify-between text-[11px] text-muted-foreground/80 font-medium uppercase">
                 <span>Stable</span>
                 <span>Anxious</span>
               </div>

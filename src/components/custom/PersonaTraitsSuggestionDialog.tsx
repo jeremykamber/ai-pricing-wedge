@@ -48,7 +48,7 @@ function DiffToggle({ selected, onSelect, label }: { selected: boolean; onSelect
         "text-xs font-medium px-2 py-0.5 rounded-sm transition-all duration-150",
         selected
           ? "bg-primary/10 text-primary"
-          : "bg-transparent text-muted-foreground/60 hover:text-foreground hover:bg-muted/30",
+          : "bg-transparent text-muted-foreground/80 hover:text-foreground hover:bg-muted/30",
       )}
     >
       {label}
@@ -67,7 +67,7 @@ function DiffRow({ label, suggested, original, apply, onToggle }: {
   if (!isDifferent) {
     return (
       <div className="flex items-center justify-between py-1.5 px-2 rounded-sm hover:bg-muted/20 transition-colors">
-        <span className="text-xs text-muted-foreground">{label}</span>
+          <span className="text-xs text-muted-foreground/80">{label}</span>
         <span className="text-xs text-foreground">{suggested}</span>
       </div>
     )
@@ -75,7 +75,7 @@ function DiffRow({ label, suggested, original, apply, onToggle }: {
 
   return (
     <div className="flex items-center justify-between py-1.5 px-2 rounded-sm hover:bg-muted/20 transition-colors group">
-      <span className="text-xs text-muted-foreground min-w-[100px]">{label}</span>
+      <span className="text-xs text-muted-foreground/80 min-w-[100px]">{label}</span>
       <div className="flex items-center gap-3 flex-1 justify-end">
         <div className="flex flex-col items-end gap-0.5 min-w-0">
           <span className={cn(
@@ -166,7 +166,7 @@ export function PersonaTraitsSuggestionDialog({
           </div>
           <div className="p-10 flex flex-col items-center gap-4">
             <LoaderIcon className="w-8 h-8 text-primary animate-spin" />
-            <p className="text-sm text-muted-foreground">Inferring personality traits from the updated backstory...</p>
+            <p className="text-sm text-muted-foreground/80">Inferring personality traits from the updated backstory...</p>
           </div>
         </DialogContent>
       </Dialog>
@@ -214,14 +214,14 @@ export function PersonaTraitsSuggestionDialog({
             <button
               type="button"
               onClick={() => setAll(false)}
-              className="text-xs font-medium text-muted-foreground/60 hover:text-foreground transition-colors px-2 py-1"
+              className="text-xs font-medium text-muted-foreground/80 hover:text-foreground transition-colors px-2 py-1"
             >
               Reject all
             </button>
             <button
               type="button"
               onClick={() => setAll(true)}
-              className="text-xs font-medium text-muted-foreground/60 hover:text-foreground transition-colors px-2 py-1"
+              className="text-xs font-medium text-muted-foreground/80 hover:text-foreground transition-colors px-2 py-1"
             >
               Accept all
             </button>

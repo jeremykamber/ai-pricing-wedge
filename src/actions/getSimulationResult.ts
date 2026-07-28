@@ -6,7 +6,7 @@ import { shouldRunLocally, VPS_BACKEND_URL, getVpsAuthToken } from "@/infrastruc
 
 export async function getSimulationResultAction(runId: string): Promise<{
   found: boolean;
-  analyses?: import('@/domain/entities/PricingAnalysis').PricingAnalysis[];
+  analyses?: import('@/domain/entities/PersonaResponse').PersonaResponse[];
   error?: string;
   completedAt?: string;
 }> {

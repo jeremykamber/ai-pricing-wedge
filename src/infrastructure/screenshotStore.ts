@@ -1,5 +1,5 @@
 /**
- * Shared in-memory screenshot store for VPS pricing analysis.
+ * Shared in-memory screenshot store for VPS analysis.
  * Screenshots are large base64 strings delivered via a side-channel store
  * rather than the initial response body.
  * Separated from getScreenshot.ts (a "use server" file) so that VPS API routes

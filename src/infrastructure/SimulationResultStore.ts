@@ -1,7 +1,7 @@
-import { PricingAnalysis } from '@/domain/entities/PricingAnalysis'
+import type { PersonaResponse } from '@/domain/entities/PersonaResponse'
 
 interface StoredSimulation {
-  analyses: PricingAnalysis[]
+  analyses: PersonaResponse[]
   completedAt: string
   error?: string
 }
@@ -30,7 +30,7 @@ class SimulationResultStore {
   private get results() { return getGlobalMap<string, StoredSimulation>(GLOBAL_KEY); }
   private get cleanups() { return getGlobalMap<string, ReturnType<typeof setTimeout>>(GLOBAL_CLEANUP_KEY); }
 
-  save(runId: string, analyses: PricingAnalysis[]): void {
+  save(runId: string, analyses: PersonaResponse[]): void {
     console.log(`[RESULT_STORE] Saving ${analyses.length} analyses for ${runId}`);
     this.results.set(runId, {
       analyses,

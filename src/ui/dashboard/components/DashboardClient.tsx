@@ -298,9 +298,11 @@ export function DashboardClient() {
                                 </button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end" className="w-52">
-                                <DropdownMenuItem onClick={() => { setActiveBatch(null); setShowSetup(true) }}>
-                                    <PenIcon className="h-4 w-4 mr-2" />
-                                    From ICP description
+                                <DropdownMenuItem asChild>
+                                    <Link href="/dashboard/new">
+                                        <PenIcon className="h-4 w-4 mr-2" />
+                                        From ICP description
+                                    </Link>
                                 </DropdownMenuItem>
                                 <DropdownMenuItem asChild>
                                     <Link href="/dashboard/interviews">
@@ -347,7 +349,7 @@ export function DashboardClient() {
                                             <span className="text-sm text-muted-foreground">
                                                 {batch.personas.length} personas ·{' '}
                                                 {batch.source === 'interviews'
-                                                    ? `${batch.transcriptCount} transcripts`
+                                                    ? 'from interviews'
                                                     : 'from description'}
                                             </span>
                                         </div>
@@ -395,7 +397,7 @@ export function DashboardClient() {
                                     <p className="text-sm text-muted-foreground">
                                         {activeBatch.personas.length} personas ·{' '}
                                         {activeBatch.source === 'interviews'
-                                            ? `${activeBatch.transcriptCount} interview transcripts`
+                                            ? 'from interviews'
                                             : 'Generated from description'}
                                         · {new Date(activeBatch.createdAt).toLocaleString()}
                                     </p>

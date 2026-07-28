@@ -1,17 +1,17 @@
 'use client'
 
-import { useEffect, useMemo, useState, useCallback, useRef } from 'react'
+import { useEffect, useState, useCallback, useRef } from 'react'
 import { useSimulationStore } from '@/ui/stores/simulationStore'
 import { usePersonaStore } from '@/ui/stores/personaStore'
 import { useAnalysisFlow } from '@/ui/hooks/useAnalysisFlow'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { ClockIcon, GlobeIcon, UsersIcon, CheckCircleIcon, XCircleIcon, AlertCircleIcon, XIcon, PlusIcon, UploadIcon, ImageIcon, LinkIcon } from 'lucide-react'
-import { computeRunAverages } from '@/ui/dashboard/utils/computeBenchmarks'
+import { ClockIcon, GlobeIcon, UsersIcon, CheckCircleIcon, XCircleIcon, AlertCircleIcon, XIcon, PlusIcon, UploadIcon, ImageIcon, LinkIcon, TargetIcon, HelpCircleIcon } from 'lucide-react'
 import { Persona } from '@/domain/entities/Persona'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
+import { Textarea } from '@/components/ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 
 function SimulationCard({ simulation }: { simulation: import('@/domain/entities/Simulation').Simulation }) {
@@ -26,13 +26,6 @@ function SimulationCard({ simulation }: { simulation: import('@/domain/entities/
   }[simulation.status]
 
   const StatusIcon = statusConfig.icon
-
-  const runAverages = useMemo(() => {
-    if (simulation.status === 'COMPLETED' && simulation.analyses && simulation.analyses.length > 0) {
-      return computeRunAverages(simulation.analyses)
-    }
-    return null
-  }, [simulation.analyses, simulation.status])
 
   return (
     <div className="relative group">
@@ -65,28 +58,10 @@ function SimulationCard({ simulation }: { simulation: import('@/domain/entities/
             {simulation.batchName && (
               <p className="text-xs text-muted-foreground/70">Batch: {simulation.batchName}</p>
             )}
-            {simulation.status === 'COMPLETED' && runAverages && (
-              <div className="flex items-center gap-2 mt-1">
-                {[
-                  { key: 'clarity', label: 'Clarity' },
-                  { key: 'trust', label: 'Trust' },
-                  { key: 'buyIntent', label: 'Buy' },
-                ].map(({ key, label }) => {
-                  const val = (runAverages as any)[key] ?? 0;
-                  const pct = (val / 10) * 100;
-                  const bgColor = val >= 7 ? 'rgba(34,197,94,0.12)' : val >= 4 ? 'rgba(234,179,8,0.12)' : 'rgba(239,68,68,0.12)';
-                  const borderColor = val >= 7 ? 'border-green-500/25' : val >= 4 ? 'border-amber-500/25' : 'border-red-500/25';
-                  return (
-                    <div key={key} className={`relative rounded-md border ${borderColor} overflow-hidden min-w-[56px]`}>
-                      <div className="absolute inset-y-0 left-0 transition-all" style={{ width: `${pct}%`, backgroundColor: bgColor }} />
-                      <div className="relative p-1.5 flex flex-col items-center z-10">
-                        <span className="text-sm font-bold tabular-nums leading-tight">{val.toFixed(1)}</span>
-                        <span className="text-[9px] uppercase tracking-wider text-muted-foreground/60">{label}</span>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
+            {simulation.status === 'COMPLETED' && (
+              <p className="text-xs text-muted-foreground mt-1">
+                {simulation.completedAt && `Completed ${new Date(simulation.completedAt).toLocaleDateString()}`}
+              </p>
             )}
           </div>
           <div className="text-right shrink-0">
@@ -137,10 +112,12 @@ function SimulationCard({ simulation }: { simulation: import('@/domain/entities/
   )
 }
 
-function NewSimulationForm({ onRun }: { onRun: (url: string, personas: Persona[], imageBase64?: string) => void }) {
+function NewSimulationForm({ onRun }: { onRun: (url: string, personas: Persona[], imageBase64?: string, businessGoal?: string, researchQuestion?: string) => void }) {
   const batches = usePersonaStore((s) => s.batches)
   const [selectedBatchId, setSelectedBatchId] = useState<string>('')
   const [url, setUrl] = useState('')
+  const [businessGoal, setBusinessGoal] = useState('')
+  const [researchQuestion, setResearchQuestion] = useState('')
 
   // Sync selected batch when batches hydrate or change
   useEffect(() => {
@@ -226,10 +203,10 @@ function NewSimulationForm({ onRun }: { onRun: (url: string, personas: Persona[]
 
     if (inputMode === 'url') {
       if (!url.trim()) return
-      onRun(url, selectedBatch.personas)
+      onRun(url, selectedBatch.personas, undefined, businessGoal, researchQuestion)
     } else {
       if (!imageBase64Ref.current) return
-      onRun('Screenshot Upload', selectedBatch.personas, imageBase64Ref.current)
+      onRun('Screenshot Upload', selectedBatch.personas, imageBase64Ref.current, businessGoal, researchQuestion)
     }
   }
 
@@ -237,7 +214,7 @@ function NewSimulationForm({ onRun }: { onRun: (url: string, personas: Persona[]
     return (
       <Card>
         <CardContent className="flex flex-col gap-3 text-sm text-muted-foreground">
-          <p>Create a persona batch first, then come back to run a simulation.</p>
+          <p>Create a persona batch first, then come back to run an analysis.</p>
           <Button asChild variant="default" size="sm" className="w-fit">
             <Link href="/dashboard">Go to Dashboard</Link>
           </Button>
@@ -296,11 +273,11 @@ function NewSimulationForm({ onRun }: { onRun: (url: string, personas: Persona[]
           {inputMode === 'url' ? (
             /* ── URL mode ──────────────────────────────────────── */
             <div className="flex flex-col gap-2">
-              <label htmlFor="pricing-url" className="text-sm font-medium">Pricing Page URL</label>
+              <label htmlFor="artifact-url" className="text-sm font-medium">Artifact URL</label>
               <Input
-                id="pricing-url"
+                id="artifact-url"
                 type="url"
-                placeholder="https://your-startup.com/pricing"
+                placeholder="https://example.com"
                 value={url}
                 onChange={(e) => setUrl(e.target.value)}
               />
@@ -308,7 +285,7 @@ function NewSimulationForm({ onRun }: { onRun: (url: string, personas: Persona[]
           ) : (
             /* ── Screenshot mode ──────────────────────────────── */
             <div className="flex flex-col gap-2">
-              <label className="text-sm font-medium">Pricing Page Screenshot</label>
+              <label className="text-sm font-medium">Artifact Screenshot</label>
               {!screenshotFile ? (
                 <button
                   type="button"
@@ -362,6 +339,35 @@ function NewSimulationForm({ onRun }: { onRun: (url: string, personas: Persona[]
             </div>
           )}
         </div>
+
+        <div className="flex flex-col gap-2">
+          <label htmlFor="business-goal" className="text-sm font-medium flex items-center gap-1.5">
+            <TargetIcon className="h-3.5 w-3.5 text-muted-foreground" />
+            Business Goal
+          </label>
+          <Textarea
+            id="business-goal"
+            placeholder="What is this artifact trying to accomplish? e.g. Convince visitors to book a demo, explain product value, encourage signup"
+            value={businessGoal}
+            onChange={(e) => setBusinessGoal(e.target.value)}
+            className="min-h-[60px] text-sm"
+          />
+        </div>
+
+        <div className="flex flex-col gap-2">
+          <label htmlFor="research-question" className="text-sm font-medium flex items-center gap-1.5">
+            <HelpCircleIcon className="h-3.5 w-3.5 text-muted-foreground" />
+            Research Question
+          </label>
+          <Textarea
+            id="research-question"
+            placeholder="What do you want to learn? e.g. Why would users leave? What creates trust? How would enterprise buyers react?"
+            value={researchQuestion}
+            onChange={(e) => setResearchQuestion(e.target.value)}
+            className="min-h-[60px] text-sm"
+          />
+        </div>
+
         <Button
           disabled={
             inputMode === 'url'
@@ -370,7 +376,7 @@ function NewSimulationForm({ onRun }: { onRun: (url: string, personas: Persona[]
           }
           onClick={handleSubmit}
         >
-          Run Simulation
+          Run Analysis
         </Button>
       </CardContent>
     </Card>
@@ -385,12 +391,15 @@ export default function SimulationsPage() {
   const inProgress = simulations.filter((s) => s.status === 'IN_PROGRESS')
   const completed = simulations.filter((s) => s.status !== 'IN_PROGRESS')
 
-  const handleRunSimulation = (url: string, personas: Persona[], imageBase64?: string) => {
-    if (imageBase64) {
-      analysisFlow.setPricingImageBase64(imageBase64)
-    }
-    analysisFlow.setPricingUrl(url)
-    analysisFlow.handleAnalyzePricing(personas, url, imageBase64)
+  const handleRunSimulation = (url: string, personas: Persona[], imageBase64?: string, businessGoal?: string, researchQuestion?: string) => {
+    const input = imageBase64
+      ? { type: 'screenshot' as const, imageBase64, url }
+      : { type: 'url' as const, url }
+    analysisFlow.setArtifactUrl(url)
+    if (imageBase64) analysisFlow.setArtifactImageBase64(imageBase64)
+    if (businessGoal) analysisFlow.setBusinessGoal(businessGoal)
+    if (researchQuestion) analysisFlow.setResearchQuestion(researchQuestion)
+    analysisFlow.handleAnalyzeArtifact(personas, input, businessGoal, researchQuestion)
     setShowNewForm(false)
   }
 
@@ -398,10 +407,10 @@ export default function SimulationsPage() {
     <div className="flex flex-col gap-8 w-full h-full animate-in fade-in duration-500">
       <div className="flex items-start justify-between">
         <div className="flex flex-col gap-2">
-          <h1 className="text-2xl font-bold tracking-tight">Simulations</h1>
+          <h1 className="text-2xl font-bold tracking-tight">Analyses</h1>
           <p className="text-sm text-muted-foreground">
             {simulations.length === 0
-              ? 'No simulations yet. Run your first simulation to get started.'
+              ? 'No analyses yet. Run your first analysis to get started.'
               : `${completed.length} completed · ${inProgress.length} in progress`}
           </p>
         </div>
@@ -410,7 +419,7 @@ export default function SimulationsPage() {
           size="sm"
         >
           <PlusIcon className="h-3.5 w-3.5" />
-          Run New Simulation
+          Run New Analysis
         </Button>
       </div>
 
@@ -421,7 +430,7 @@ export default function SimulationsPage() {
       {analysisFlow.isPending && (
         <div className="rounded-lg border border-blue-500/20 bg-blue-500/5 p-4 text-sm text-blue-600 flex items-center gap-2">
           <span className="h-2 w-2 rounded-full bg-blue-500 animate-pulse" />
-          Simulation is running…
+          Analysis is running…
           <Link
             href="/dashboard/simulations"
             className="ml-auto text-xs font-medium text-blue-600 hover:underline"
@@ -464,7 +473,7 @@ export default function SimulationsPage() {
             <ClockIcon className="h-6 w-6 text-muted-foreground" />
           </div>
           <p className="text-muted-foreground text-sm max-w-sm">
-            No simulations yet. Click "Run New Simulation" above to get started.
+            No analyses yet. Click "Run New Analysis" above to get started.
           </p>
         </div>
       )}

@@ -6,19 +6,21 @@ import { useRouter } from 'next/navigation'
 import { getSimulationResultAction } from '@/actions/getSimulationResult'
 import { getProgressAction } from '@/actions/getProgress'
 import { StepIndicator } from '@/components/custom/StepIndicator'
-import { ArrowLeftIcon, ClockIcon, CheckCircleIcon, XCircleIcon, ThumbsUpIcon, ThumbsDownIcon, AlertTriangleIcon } from 'lucide-react'
-import { computeRunAverages, computeScoresWithBenchmarks, logDivergenceMetrics } from '@/ui/dashboard/utils/computeBenchmarks'
+import { ArrowLeftIcon, ClockIcon, CheckCircleIcon, XCircleIcon, ThumbsUpIcon, ThumbsDownIcon, AlertTriangleIcon, ChevronDownIcon, ChevronRightIcon, UsersIcon } from 'lucide-react'
+import type { PersonaResponse } from '@/domain/entities/PersonaResponse'
+import type { MajorFinding } from '@/domain/entities/MajorFinding'
+import { computeSynthesis } from '@/ui/dashboard/utils/computeSynthesis'
 
-const SIMULATION_STEPS = [
-  { title: 'Initialization', description: 'Loading target experience' },
-  { title: 'Visual Capture', description: 'Scanning pricing structure' },
-  { title: 'Cognitive Analysis', description: 'Simulating persona thoughts and reactions' },
+const ANALYSIS_STEPS = [
+  { title: 'Starting', description: 'Initializing analysis' },
+  { title: 'Capturing', description: 'Loading the artifact' },
+  { title: 'Analyzing', description: 'Simulating persona responses' },
 ]
 
 function getCurrentStep(step?: string): number {
-  if (!step || step === 'STARTING' || step === 'OPENING_PAGE') return 0
-  if (step === 'FINDING_PRICING') return 1
-  if (step === 'THINKING') return 2
+  if (!step || step === 'STARTING') return 0
+  if (step === 'INTAKE') return 1
+  if (step === 'ANALYZING') return 2
   return 0
 }
 
@@ -49,7 +51,7 @@ export default function SimulationDetailPage({ params }: { params: Promise<{ id:
 
     let active = true
     let attempts = 0
-    const MAX_ATTEMPTS = 300 // 5 minutes at 1s intervals
+    const MAX_ATTEMPTS = 600 // 10 minutes at 1s intervals (6-persona analysis takes ~15 min)
 
     const poll = async () => {
       while (active && attempts < MAX_ATTEMPTS) {
@@ -234,16 +236,15 @@ function InProgressView({
   return (
     <div className="flex flex-col md:flex-row gap-12 py-4">
       <div className="flex-shrink-0 w-full md:w-56 border-r-0 md:border-r border-border/40 pr-0 md:pr-8">
-        <StepIndicator steps={SIMULATION_STEPS} currentStep={currentStep} />
+        <StepIndicator steps={ANALYSIS_STEPS} currentStep={currentStep} />
       </div>
 
       <div className="flex-1 min-h-[300px] flex flex-col items-center justify-center">
         <div className="flex flex-col items-center justify-center space-y-4 w-full max-w-lg">
           <p className="text-sm font-medium text-muted-foreground animate-pulse">
-            {simulation.currentStep === 'OPENING_PAGE' && 'Loading pricing page...'}
-            {simulation.currentStep === 'FINDING_PRICING' && 'Capturing visual layout...'}
-            {simulation.currentStep === 'THINKING' &&
-              `Gathering feedback (${simulation.completedAnalyses ?? 0}/${simulation.totalAnalyses ?? simulation.personaCount})`}
+            {simulation.currentStep === 'INTAKE' && 'Loading artifact...'}
+            {simulation.currentStep === 'ANALYZING' &&
+              `Gathering responses (${simulation.completedAnalyses ?? 0}/${simulation.totalAnalyses ?? simulation.personaCount})`}
             {(!simulation.currentStep || simulation.currentStep === 'STARTING') && 'Initializing...'}
           </p>
 
@@ -307,15 +308,8 @@ function PersonaIdentityCard({
       content: <span className="text-xs text-foreground/80 uppercase">{profile.communicationStyle}</span>,
     },
     {
-      label: 'Price Sensitivity (0=cheapest, 10=premium)',
-      content: (
-        <div className="flex items-center gap-2">
-          <div className="flex-1 h-1.5 bg-secondary rounded-full overflow-hidden">
-            <div className="h-full bg-amber-500 rounded-full transition-all" style={{ width: `${profile.pricingSensitivity}%` }} />
-          </div>
-          <span className="text-xs text-muted-foreground tabular-nums">{Math.round(profile.pricingSensitivity / 10)}/10</span>
-        </div>
-      ),
+      label: 'Decision Style',
+      content: <span className="text-xs text-foreground/80 uppercase">{profile.decisionStyle}</span>,
     },
   ];
 
@@ -376,25 +370,27 @@ function CompletedView({
   simulation: import('@/domain/entities/Simulation').Simulation
   onRemove: () => void
 }) {
-  const analyses = simulation.analyses
+  const analyses = simulation.analyses as PersonaResponse[] | undefined
+  const [expandedPersonas, setExpandedPersonas] = useState<Set<number>>(new Set())
 
-  const benchmarksData = useMemo(
-    () => computeScoresWithBenchmarks(analyses ?? []),
-    [analyses]
-  );
+  const synthesis = useMemo(
+    () => {
+      if (simulation.synthesis) return simulation.synthesis
+      if (!analyses) return null
+      // Fall back to computed synthesis when LLM-generated one isn't available
+      return computeSynthesis(analyses)
+    },
+    [analyses, simulation.synthesis]
+  )
 
-  const runAverages = useMemo(
-    () => computeRunAverages(analyses ?? []),
-    [analyses]
-  );
-
-  const [scoreDetail, setScoreDetail] = useState<{ analysisIndex: number; scoreKey: string } | null>(null);
-
-  useEffect(() => {
-    if (analyses && analyses.length > 0) {
-      logDivergenceMetrics(analyses);
-    }
-  }, [analyses]);
+  const togglePersona = (index: number) => {
+    setExpandedPersonas(prev => {
+      const next = new Set(prev)
+      if (next.has(index)) next.delete(index)
+      else next.add(index)
+      return next
+    })
+  }
 
   if (!analyses || analyses.length === 0) {
     return (
@@ -406,208 +402,208 @@ function CompletedView({
 
   return (
     <div className="flex flex-col gap-8">
-      {/* Average Scores Cards */}
-      <div className="flex flex-col gap-4">
-        <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Average Scores</h2>
-        <div className="grid grid-cols-3 gap-4">
-          {[
-            { key: 'clarity', label: 'Clarity' },
-            { key: 'valuePerception', label: 'Value Perception' },
-            { key: 'trust', label: 'Trust' },
-          ].map(({ key, label }) => {
-            const val = runAverages[key as keyof typeof runAverages] ?? 0;
-            const pct = (val / 10) * 100;
-            const bgColor = val >= 7 ? 'rgba(34,197,94,0.12)' : val >= 4 ? 'rgba(234,179,8,0.12)' : 'rgba(239,68,68,0.12)';
-            const borderColor = val >= 7 ? 'border-green-500/20' : val >= 4 ? 'border-amber-500/20' : 'border-red-500/20';
-            return (
-              <div key={key} className={`relative rounded-lg border ${borderColor} overflow-hidden`}>
-                <div className="absolute inset-y-0 left-0 transition-all duration-500 rounded-l-lg" style={{ width: `${pct}%`, backgroundColor: bgColor }} />
-                <div className="relative p-4 flex flex-col gap-1 z-10">
-                  <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">{label}</span>
-                  <span className="text-3xl font-bold tabular-nums">{val.toFixed(1)}</span>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-        <div className="grid grid-cols-3 gap-4">
-          {[
-            { key: 'explorationIntent', label: 'Exploration Intent' },
-            { key: 'analysisIntent', label: 'Analysis Intent' },
-            { key: 'buyIntent', label: 'Buy Intent' },
-          ].map(({ key, label }) => {
-            const val = runAverages[key as keyof typeof runAverages] ?? 0;
-            const pct = (val / 10) * 100;
-            const bgColor = val >= 7 ? 'rgba(34,197,94,0.12)' : val >= 4 ? 'rgba(234,179,8,0.12)' : 'rgba(239,68,68,0.12)';
-            const borderColor = val >= 7 ? 'border-green-500/20' : val >= 4 ? 'border-amber-500/20' : 'border-red-500/20';
-            return (
-              <div key={key} className={`relative rounded-lg border ${borderColor} overflow-hidden`}>
-                <div className="absolute inset-y-0 left-0 transition-all duration-500 rounded-l-lg" style={{ width: `${pct}%`, backgroundColor: bgColor }} />
-                <div className="relative p-4 flex flex-col gap-1 z-10">
-                  <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">{label}</span>
-                  <span className="text-3xl font-bold tabular-nums">{val.toFixed(1)}</span>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      </div>
-
-      <div className="grid gap-6">
-        {analyses.map((analysis, index) => {
-          const personaName = analysis.personaProfile?.name ?? (() => {
-            const idPart = analysis.id.split('-')[0]
-            if (!idPart || /^p\d+$/.test(idPart)) return `Persona ${index + 1}`
-            return idPart
-          })() ?? `Persona ${index + 1}`
-
-          return (
-          <div
-            key={analysis.id}
-            className="rounded-lg border border-border bg-card p-6 flex flex-col gap-4"
-          >
-            <div className="flex items-start justify-between gap-4">
-              <div className="flex flex-col gap-1">
-                <h3 className="font-semibold">{personaName}</h3>
-                {analysis.personaProfile && (
-                  <p className="text-sm text-muted-foreground">
-                    {analysis.personaProfile.name} · {analysis.personaProfile.occupation}
-                  </p>
-                )}
-                {analysis.gutReaction && (
-                  <p className="text-sm text-muted-foreground italic">&ldquo;{analysis.gutReaction}&rdquo;</p>
-                )}
-              </div>
-            </div>
-
-            {analysis.personaProfile && <PersonaIdentityCard profile={analysis.personaProfile} />}
-
-            {!analysis.personaProfile && (
-              <p className="text-xs text-muted-foreground italic">Legacy data</p>
-            )}
-
-            {analysis.thoughts && (() => {
-              const structured = parseStructuredThoughts(analysis.thoughts);
-              const hasMarkers = structured.good || structured.bad || structured.dealbreaker;
-
-              if (hasMarkers) {
-                return (
-                  <div className="flex flex-col gap-4">
-                    {structured.good && (
-                      <div className="rounded-lg border border-green-500/20 bg-green-500/5 p-3">
-                        <div className="flex items-center gap-2 mb-1">
-                          <ThumbsUpIcon className="h-4 w-4 text-green-500" />
-                          <span className="text-xs font-semibold text-green-600 dark:text-green-400 uppercase tracking-wider">The Good</span>
-                        </div>
-                        <p className="text-sm text-foreground/80">{structured.good}</p>
-                      </div>
-                    )}
-                    {structured.bad && (
-                      <div className="rounded-lg border border-red-500/20 bg-red-500/5 p-3">
-                        <div className="flex items-center gap-2 mb-1">
-                          <ThumbsDownIcon className="h-4 w-4 text-red-500" />
-                          <span className="text-xs font-semibold text-red-600 dark:text-red-400 uppercase tracking-wider">The Bad</span>
-                        </div>
-                        <p className="text-sm text-foreground/80">{structured.bad}</p>
-                      </div>
-                    )}
-                    {structured.dealbreaker && (
-                      <div className="rounded-lg border border-amber-500/20 bg-amber-500/5 p-3">
-                        <div className="flex items-center gap-2 mb-1">
-                          <AlertTriangleIcon className="h-4 w-4 text-amber-500" />
-                          <span className="text-xs font-semibold text-amber-600 dark:text-amber-400 uppercase tracking-wider">The Dealbreaker</span>
-                        </div>
-                        <p className="text-sm text-foreground/80">{structured.dealbreaker}</p>
-                      </div>
-                    )}
-                    {structured.remaining && (
-                      <div className="rounded-lg border border-border bg-muted/20 p-3">
-                        <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1 block">Additional Thoughts</span>
-                        <p className="text-sm text-foreground/80 whitespace-pre-wrap">{structured.remaining}</p>
-                      </div>
-                    )}
-                  </div>
-                );
-              }
-
-              return (
-                <div className="text-sm text-foreground/80 leading-relaxed whitespace-pre-wrap max-h-32 overflow-y-auto">
-                  {analysis.thoughts}
-                </div>
-              );
-            })()}
-
-            {(() => {
-              const benchmark = benchmarksData[index];
-              const DELTA_COLORS = {
-                positive: 'text-green-500',
-                negative: 'text-red-500',
-                zero: 'text-muted-foreground',
-              };
-              return (
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                  {Object.entries(analysis.scores).filter(([k]) => !k.endsWith('Reason')).map(([key, val]) => {
-                    const bm = benchmark?.scores[key as keyof typeof benchmark.scores];
-                    return (
-                      <div key={key} className="flex flex-col gap-0.5 bg-secondary/30 rounded p-2.5">
-                        <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
-                          {key.replace(/([A-Z])/g, ' $1').trim()}
-                        </span>
-                        <span className="inline-flex items-center gap-1 text-lg font-bold">
-                          {val}/10
-                          <button
-                            onClick={() => setScoreDetail({ analysisIndex: index, scoreKey: key })}
-                            className="h-4 w-4 rounded-full bg-muted text-[10px] font-bold flex items-center justify-center hover:bg-muted-foreground/20"
-                            title="See rationale"
-                          >
-                            i
-                          </button>
-                        </span>
-                        {bm?.delta != null && (
-                          <span className={`text-xs font-medium tabular-nums ${bm.delta > 0 ? DELTA_COLORS.positive : bm.delta < 0 ? DELTA_COLORS.negative : DELTA_COLORS.zero}`}>
-                            {bm.delta > 0 ? '+' : ''}{bm.delta.toFixed(1)} vs Run Avg
-                          </span>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-              );
-            })()}
-
-            <hr className="border-border/40 my-2" />
-
-            {analysis.recommendations.length > 0 && (
-              <div className="flex flex-col gap-1">
-                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Recommendations</p>
-                <ul className="list-disc list-inside text-sm text-foreground/80">
-                  {analysis.recommendations.map((r, i) => <li key={i}>{r}</li>)}
-                </ul>
-              </div>
-            )}
-
-            <hr className="border-border/40 my-2" />
-
-            {analysis.risks.length > 0 && (
-              <div className="flex flex-col gap-1">
-                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Risks</p>
-                <ul className="list-disc list-inside text-sm text-foreground/80">
-                  {analysis.risks.map((r, i) => <li key={i}>{r}</li>)}
-                </ul>
-              </div>
-            )}
-
-            <hr className="border-border/40 my-2" />
-
-            {analysis.aiSuggestion && (
-              <div className="bg-primary/5 border border-primary/10 rounded p-3">
-                <p className="text-xs font-semibold text-primary uppercase tracking-wider mb-1">Suggestion</p>
-                <p className="text-sm text-foreground/80">{analysis.aiSuggestion}</p>
-              </div>
+      {/* ── Executive Synthesis ─────────────────────────────── */}
+      {synthesis && (
+        <div className="flex flex-col gap-6">
+          {/* Persona completion status */}
+          <div className="flex items-center gap-4 text-sm text-muted-foreground">
+            <span>Completed: {synthesis.completedCount}/{synthesis.totalPersonaCount}</span>
+            {synthesis.failedCount > 0 && (
+              <span className="text-destructive">Failed: {synthesis.failedCount}</span>
             )}
           </div>
-          )
-        })}
+
+          {/* Research Question Answer */}
+          {synthesis.researchQuestionAnswer && (
+            <div className="rounded-lg border border-primary/10 bg-primary/5 p-5">
+              <span className="text-xs font-semibold text-primary uppercase tracking-wider mb-2 block">Research Question</span>
+              <p className="text-sm text-foreground/90 leading-relaxed">{synthesis.researchQuestionAnswer}</p>
+            </div>
+          )}
+
+          {/* Top Findings with Observed Counts */}
+          {synthesis.topFindings.length > 0 && (
+            <div className="flex flex-col gap-3">
+              <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
+                Top Findings
+              </h3>
+              {synthesis.topFindings.slice(0, 5).map((finding, i) => (
+                <div key={i} className="rounded-lg border border-border bg-card p-4 flex flex-col gap-2">
+                  <div className="flex items-start justify-between gap-2">
+                    <p className="text-sm font-medium text-foreground">{finding.observation}</p>
+                    <span className={`shrink-0 text-xs font-medium px-2 py-0.5 rounded-full ${
+                      finding.confidence === 'High' ? 'bg-green-500/10 text-green-600 border border-green-500/20' :
+                      finding.confidence === 'Medium' ? 'bg-amber-500/10 text-amber-600 border border-amber-500/20' :
+                      'bg-red-500/10 text-red-600 border border-red-500/20'
+                    }`}>
+                      {finding.confidence}
+                    </span>
+                  </div>
+                  <p className="text-xs text-muted-foreground"><span className="font-medium">Evidence:</span> {finding.evidence}</p>
+                  <p className="text-xs text-muted-foreground"><span className="font-medium">Impact:</span> {finding.impact}</p>
+                  <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                    <UsersIcon className="h-3 w-3" />
+                    <span>Observed in {finding.affectedPersonaCount}/{finding.totalPersonaCount} personas</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Disagreements */}
+          {synthesis.disagreements.length > 0 && (
+            <div className="flex flex-col gap-3">
+              <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
+                Disagreements — Where Personas Split
+              </h3>
+              {synthesis.disagreements.map((d, i) => (
+                <div key={i} className="rounded-lg border border-amber-500/20 bg-amber-500/5 p-4 flex flex-col gap-2">
+                  <p className="text-sm font-medium text-foreground">{d.topic}</p>
+                  <div className="flex flex-col gap-1.5">
+                    {d.split.map((side, j) => (
+                      <div key={j} className="text-xs text-muted-foreground">
+                        <span className="font-medium">{side.view}:</span> {side.personaCount} {side.personaCount === 1 ? 'persona' : 'personas'}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Biggest Frictions */}
+          {synthesis.biggestFrictions.length > 0 && (
+            <div className="flex flex-col gap-2">
+              <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
+                Biggest Friction Points
+              </h3>
+              <ul className="list-disc list-inside text-sm text-foreground/80 space-y-1">
+                {synthesis.biggestFrictions.slice(0, 3).map((f, i) => <li key={i}>{f}</li>)}
+              </ul>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ── Per-Persona Drill-Down ──────────────────────────── */}
+      <div className="border-t border-border/40 pt-6">
+        <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground mb-4">
+          Individual Persona Reports
+        </h3>
+        <div className="grid gap-3">
+          {analyses.map((analysis, index) => {
+            const personaName = analysis.personaProfile?.name ?? `Persona ${index + 1}`
+            const isExpanded = expandedPersonas.has(index)
+
+            return (
+            <div
+              key={analysis.id}
+              className="rounded-lg border border-border bg-card overflow-hidden"
+            >
+              <button
+                onClick={() => togglePersona(index)}
+                className="w-full flex items-center justify-between p-4 hover:bg-muted/30 transition-colors text-left"
+              >
+                <div className="flex flex-col gap-0.5">
+                  <h4 className="font-semibold text-sm">{personaName}</h4>
+                  {analysis.personaProfile && (
+                    <p className="text-xs text-muted-foreground">
+                      {analysis.personaProfile.occupation} · {analysis.personaProfile.communicationStyle}
+                    </p>
+                  )}
+                </div>
+                <div className="flex items-center gap-2">
+                  {analysis.customerJourney && (
+                    <div className="flex gap-1">
+                      {analysis.customerJourney.map((s) => (
+                        <span key={s.stage} className={`h-2 w-2 rounded-full ${
+                          s.outcome === 'succeeded' ? 'bg-green-500' : s.outcome === 'blocked' ? 'bg-amber-500' : 'bg-red-500'
+                        }`} title={s.stage} />
+                      ))}
+                    </div>
+                  )}
+                  {isExpanded ? <ChevronDownIcon className="h-4 w-4 text-muted-foreground" /> : <ChevronRightIcon className="h-4 w-4 text-muted-foreground" />}
+                </div>
+              </button>
+
+              {isExpanded && (
+                <div className="px-4 pb-4 flex flex-col gap-4">
+                  {analysis.personaProfile && <PersonaIdentityCard profile={analysis.personaProfile} />}
+
+                  {analysis.overview && (
+                    <div className="rounded-lg border border-border bg-muted/20 p-3">
+                      <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1 block">Overview</span>
+                      <p className="text-sm text-foreground/80 leading-relaxed">{analysis.overview}</p>
+                    </div>
+                  )}
+
+                  {analysis.customerJourney?.length > 0 && (
+                    <div className="flex flex-col gap-2">
+                      <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Journey</p>
+                      <div className="flex flex-col gap-1.5">
+                        {analysis.customerJourney.map((stage) => (
+                          <div key={stage.stage} className="rounded-lg border border-border bg-card/50 p-2.5">
+                            <div className="flex items-center gap-2 mb-0.5">
+                              <span className={`h-2 w-2 rounded-full ${
+                                stage.outcome === 'succeeded' ? 'bg-green-500' : stage.outcome === 'blocked' ? 'bg-amber-500' : 'bg-red-500'
+                              }`} />
+                              <span className="text-xs font-semibold uppercase tracking-wider">
+                                {stage.stage}
+                              </span>
+                              {stage.sentiment === 'positive' && <ThumbsUpIcon className="h-3 w-3 text-green-500" />}
+                              {stage.sentiment === 'negative' && <ThumbsDownIcon className="h-3 w-3 text-red-500" />}
+                            </div>
+                            <p className="text-xs text-foreground/80">{stage.description}</p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {analysis.researchQuestionAnswer && (
+                    <div className="rounded-lg border border-primary/10 bg-primary/5 p-3">
+                      <span className="text-xs font-semibold text-primary uppercase tracking-wider mb-1 block">Research Question</span>
+                      <p className="text-sm text-foreground/80">{analysis.researchQuestionAnswer}</p>
+                    </div>
+                  )}
+
+                  {analysis.majorFindings.length > 0 && (
+                    <div className="flex flex-col gap-2">
+                      <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Findings</p>
+                      {analysis.majorFindings.map((finding: MajorFinding, i: number) => (
+                        <div key={i} className="rounded-lg border border-border bg-card/50 p-3 flex flex-col gap-1.5">
+                          <div className="flex items-start justify-between gap-2">
+                            <p className="text-xs font-medium text-foreground">{finding.observation}</p>
+                          </div>
+                          <p className="text-xs text-muted-foreground"><span className="font-medium">Evidence:</span> {finding.evidence}</p>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {analysis.pointsOfFriction.length > 0 && (
+                    <div className="flex flex-col gap-1">
+                      <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Friction</p>
+                      <ul className="list-disc list-inside text-xs text-foreground/80">
+                        {analysis.pointsOfFriction.map((f: string, i: number) => <li key={i}>{f}</li>)}
+                      </ul>
+                    </div>
+                  )}
+
+                  {analysis.unansweredQuestions.length > 0 && (
+                    <div className="flex flex-col gap-1">
+                      <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Questions</p>
+                      <ul className="list-disc list-inside text-xs text-foreground/80">
+                        {analysis.unansweredQuestions.map((q: string, i: number) => <li key={i}>{q}</li>)}
+                      </ul>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+            )
+          })}
+        </div>
       </div>
 
       {simulation.screenshot && (
@@ -618,16 +614,6 @@ function CompletedView({
             alt="Captured page"
             className="w-full"
           />
-        </div>
-      )}
-
-      {scoreDetail && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={() => setScoreDetail(null)}>
-          <div className="rounded-lg bg-card p-6 max-w-md mx-4" onClick={e => e.stopPropagation()}>
-            <h3 className="font-semibold mb-2 capitalize">{scoreDetail.scoreKey.replace(/([A-Z])/g, ' $1').trim()}</h3>
-            <p className="text-sm text-foreground/80">{analyses[scoreDetail.analysisIndex].scores[`${scoreDetail.scoreKey}Reason` as keyof typeof analyses[number]['scores']]}</p>
-            <button onClick={() => setScoreDetail(null)} className="mt-4 text-sm text-primary">Close</button>
-          </div>
         </div>
       )}
     </div>

@@ -1,5 +1,5 @@
 // ─── GET /api/vps/analyze-screenshot ────────────────────────────────────────
-// Poll the latest screenshot from a running pricing page analysis.
+// Poll the latest screenshot from a running artifact analysis.
 // Screenshots are large base64 strings delivered via a side-channel store
 // rather than the initial response body.
 // ─────────────────────────────────────────────────────────────────────────────

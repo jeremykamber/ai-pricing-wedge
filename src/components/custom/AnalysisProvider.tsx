@@ -3,23 +3,26 @@
 import { createContext, useContext, type Dispatch, type SetStateAction } from 'react'
 import { useAnalysisFlow } from '@/ui/hooks/useAnalysisFlow'
 import type { AnalysisProgress } from '@/ui/hooks/useAnalysisFlow'
-import type { PricingAnalysis } from '@/domain/entities/PricingAnalysis'
+import type { PersonaResponse } from '@/domain/entities/PersonaResponse'
 import type { Persona } from '@/domain/entities/Persona'
+import type { ArtifactInput } from '@/infrastructure/adapters/ArtifactIntakeAdapter'
 
 interface AnalysisContextValue {
-  pricingUrl: string
-  setPricingUrl: Dispatch<SetStateAction<string>>
-  pricingImageBase64: string | null
-  setPricingImageBase64: Dispatch<SetStateAction<string | null>>
-  analyses: PricingAnalysis[] | null
-  setAnalyses: Dispatch<SetStateAction<PricingAnalysis[] | null>>
+  artifactUrl: string
+  setArtifactUrl: Dispatch<SetStateAction<string>>
+  artifactImageBase64: string | null
+  setArtifactImageBase64: Dispatch<SetStateAction<string | null>>
+  businessGoal: string
+  setBusinessGoal: Dispatch<SetStateAction<string>>
+  researchQuestion: string
+  setResearchQuestion: Dispatch<SetStateAction<string>>
+  analyses: PersonaResponse[] | null
+  setAnalyses: Dispatch<SetStateAction<PersonaResponse[] | null>>
   error: string | null
   setError: Dispatch<SetStateAction<string | null>>
   isPending: boolean
   analysisProgress: AnalysisProgress | null
-  predictingGazeId: string | null
-  handleAnalyzePricing: (personas: Persona[]) => void
-  handlePredictGaze: (analysis: PricingAnalysis, persona: Persona) => void
+  handleAnalyzeArtifact: (personas: Persona[], input?: ArtifactInput, businessGoal?: string, researchQuestion?: string) => void
   handleCancel: () => Promise<void>
 }
 
@@ -29,7 +32,7 @@ export function AnalysisProvider({ children }: { children: React.ReactNode }) {
   const analysisFlow = useAnalysisFlow()
 
   return (
-    <AnalysisContext.Provider value={analysisFlow}>
+    <AnalysisContext.Provider value={analysisFlow as any}>
       {children}
     </AnalysisContext.Provider>
   )

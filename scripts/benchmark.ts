@@ -13,13 +13,13 @@ console.log("API Key check:", {
 });
 
 import { GeneratePersonasUseCase } from "@/application/usecases/GeneratePersonasUseCase";
-import { ParsePricingPageUseCase } from "@/application/usecases/ParsePricingPageUseCase";
+import { AnalyzeArtifactUseCase } from "@/application/usecases/AnalyzeArtifactUseCase";
 import { LlmServiceImpl } from "@/infrastructure/adapters/LlmServiceImpl";
 import { RemotePlaywrightAdapter } from "@/infrastructure/adapters/RemotePlaywrightAdapter";
 import { Persona } from "@/domain/entities/Persona";
 
 const DEFAULT_URL = "https://linear.app/pricing";
-const DEFAULT_PERSONA_DESCRIPTION = "B2B SaaS pricing page users";
+const DEFAULT_PERSONA_DESCRIPTION = "B2B SaaS product users";
 
 export interface BenchmarkFlags {
   personasOnly: boolean;
@@ -135,17 +135,19 @@ async function runBenchmark() {
       return;
     }
 
-    console.log("[2/2] Analyzing pricing page...");
+    console.log("[2/2] Analyzing artifact...");
     const startAnalysis = Date.now();
 
     const browserService = RemotePlaywrightAdapter.createFromEnv();
-    const analysisUseCase = new ParsePricingPageUseCase(browserService, llmService);
+    const { ArtifactIntakeAdapter } = await import("@/infrastructure/adapters/ArtifactIntakeAdapter");
+    const intakeAdapter = new ArtifactIntakeAdapter(browserService, llmService);
+    const analysisUseCase = new AnalyzeArtifactUseCase(intakeAdapter, llmService);
     
     let analysisTime = 0;
     try {
-      await analysisUseCase.execute(flags.url, personas);
+      await analysisUseCase.execute({ type: "url", url: flags.url }, personas, "", "");
       analysisTime = Date.now() - startAnalysis;
-      results.push({ phase: "pricing_analysis", timeMs: analysisTime });
+      results.push({ phase: "artifact_analysis", timeMs: analysisTime });
       console.log(`      Done: ${formatTime(analysisTime)}\n`);
     } catch (error: any) {
       analysisTime = Date.now() - startAnalysis;
@@ -156,22 +158,24 @@ async function runBenchmark() {
 
     console.log("=== Results ===");
     console.log(`Persona Generation: ${formatTime(personasTime)}`);
-    console.log(`Pricing Analysis:   ${formatTime(analysisTime)}`);
+    console.log(`Artifact Analysis:   ${formatTime(analysisTime)}`);
     console.log(`Total:               ${formatTime(personasTime + analysisTime)}`);
   } else {
-    console.log("[1/1] Analyzing pricing page with mock personas...");
+    console.log("[1/1] Analyzing artifact with mock personas...");
     const startAnalysis = Date.now();
 
     const personas = createMockPersonas();
     const browserService = RemotePlaywrightAdapter.createFromEnv();
     const llmService = LlmServiceImpl.createFromEnv("openrouter");
-    const analysisUseCase = new ParsePricingPageUseCase(browserService, llmService);
+    const { ArtifactIntakeAdapter } = await import("@/infrastructure/adapters/ArtifactIntakeAdapter");
+    const intakeAdapter = new ArtifactIntakeAdapter(browserService, llmService);
+    const analysisUseCase = new AnalyzeArtifactUseCase(intakeAdapter, llmService);
     
     let analysisTime = 0;
     try {
-      await analysisUseCase.execute(flags.url, personas);
+      await analysisUseCase.execute({ type: "url", url: flags.url }, personas, "", "");
       analysisTime = Date.now() - startAnalysis;
-      results.push({ phase: "pricing_analysis_mock", timeMs: analysisTime });
+      results.push({ phase: "artifact_analysis_mock", timeMs: analysisTime });
       console.log(`      Done: ${formatTime(analysisTime)}\n`);
     } catch (error: any) {
       analysisTime = Date.now() - startAnalysis;
@@ -181,7 +185,7 @@ async function runBenchmark() {
     await browserService.close();
 
     console.log("=== Results ===");
-    console.log(`Pricing Analysis (mock): ${formatTime(analysisTime)}`);
+    console.log(`Artifact Analysis (mock): ${formatTime(analysisTime)}`);
   }
 
   console.log("");

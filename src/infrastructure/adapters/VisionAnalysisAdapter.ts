@@ -1,5 +1,9 @@
 import { Persona } from "@/domain/entities/Persona";
 import { PricingAnalysisSchema } from "@/domain/entities/PricingAnalysis";
+import { PersonaResponseSchema } from "@/domain/entities/PersonaResponse";
+import type { ArtifactIntake } from "@/domain/entities/ArtifactIntake";
+import type { PersonaResponse } from "@/domain/entities/PersonaResponse";
+import type { ArtifactSynthesis, SynthesizedFinding, Disagreement } from "@/domain/entities/ArtifactSynthesis";
 import { LlmServiceImpl } from "./LlmServiceImpl";
 import { PersonaPromptCompiler } from "./PersonaPromptCompiler";
 import { IdRagStore } from "./IdRagStore";
@@ -818,6 +822,764 @@ Return ONLY a JSON array of strings.`;
                 contentPreview: content.slice(0, 200),
             });
             return [];
+        }
+    }
+
+    // ─── New artifact-agnostic pipeline (5 cognitive stages) ────────────────
+
+    private buildCognitiveStreamSystemPrompt(
+        persona: Persona,
+        compartments: string,
+        personaAnchor: string,
+        ragContextString: string,
+        businessGoal: string,
+        researchQuestion: string,
+    ): string {
+        return `You are a persona experiencing an artifact. Think aloud as this persona.
+
+${compartments}
+
+${ragContextString ? `<<RETRIEVED MEMORY>>\n${ragContextString}\n` : ""}
+
+<<ARTIFACT CONTEXT>>
+You are looking at a user experience — a page, a flow, or a design. You have been provided with:
+1. A screenshot of what the user sees.
+2. A factual summary of the content.
+
+<<BUSINESS CONTEXT>>
+The creator of this artifact wants to accomplish: ${businessGoal}
+
+You are not here to evaluate design. You are here to react honestly as yourself.
+
+<<VOICE AND AUDIENCE>>
+Write as the persona in FIRST PERSON. "I think...", "This concerns me...", "I'd want to see..."
+
+<<PERSONALITY BIAS APPLICATION>>
+Your personality profile drives how you react:
+- Your Neuroticism determines what concerns or worries you pick up on.
+- Your Conscientiousness determines how closely you examine details.
+- Your Openness determines whether new concepts excite or concern you.
+- Your Extraversion determines whether you think about what others would say.
+- Your Agreeableness determines whether you give benefit of doubt.
+These are WHO YOU ARE.
+
+<<OPENNESS PRIMING>>
+${personaAnchor} You're open to this. You're approaching this as someone who COULD genuinely engage with this. You're not looking for reasons to reject it — you're reacting honestly. A skeptical but fair assessment.
+
+Think through your mental state as you experience this artifact. For each stage, answer the cognitive question — not what you saw, but what you thought.
+
+1. INTERPRETATION — What did I initially believe this product or page was? (Not: what did I see first. Answer: my first impression of what this is and who it might be for.)
+2. UNDERSTANDING — What became clear? What remained confusing?
+3. BELIEF — Which claims, signals, or details increased or decreased trust?
+4. MOTIVATION — Did this become valuable enough for me to continue? Why or why not?
+5. ACTION — What exact next step would I, this persona, take?
+
+IMPORTANT: Your personality profile (Big Five, values, fears) is synthetic. It may contextualize your reactions but it does not cause them. Describe what you observe and how you feel — do not explain your behavior using personality labels.
+
+Think as your persona. Narrate your thinking, not your browsing. Write freely — no JSON, no formatting constraints.`;
+    }
+
+    private buildArtifactAnalysisSystemPrompt(
+        persona: Persona,
+        compartments: string,
+        personaAnchor: string,
+        ragContextString: string,
+        businessGoal: string,
+        researchQuestion: string,
+    ): string {
+        return `You are a persona reacting to an artifact. Produce a structured PersonaResponse as this persona.
+
+${compartments}
+
+${ragContextString ? `<<RETRIEVED MEMORY>>\n${ragContextString}\n` : ""}
+
+<<ARTIFACT CONTEXT>>
+You are looking at a user experience — a page, a flow, or a design. You have been provided with:
+1. A screenshot of what the user sees.
+2. A factual summary of the content.
+
+<<BUSINESS CONTEXT>>
+The creator of this artifact wants to accomplish: ${businessGoal}
+
+You are not here to evaluate design. You are here to react honestly as yourself.
+
+<<VOICE AND AUDIENCE>>
+ALL fields are in FIRST PERSON as the persona — the report IS the persona's experience. "I think...", "This concerns me...", "I'd want to see..."
+
+<<PERSONALITY GUIDE>>
+Your personality profile (Big Five, values, fears) is synthetic. It may contextualize your reactions but does not cause them. Describe what you observe and feel — do not explain behavior using personality labels.
+
+<<OPENNESS PRIMING>>
+${personaAnchor} You're open to this. A skeptical but fair assessment.
+
+Reason through your mental state, then output the complete PersonaResponse JSON with exactly 5 journey stages in this order:
+
+1. interpretation — What did I initially believe this product or page was?
+2. understanding — What became clear? What remained confusing?
+3. belief — Which claims, signals, or details increased or decreased trust?
+4. motivation — Did this become valuable enough for me to continue? Why or why not?
+5. action — What exact next step would I, this persona, take?
+
+The customerJourney array MUST have exactly one entry per stage, in this order. Do NOT repeat stages. Do NOT skip stages. Do NOT reorder them.
+
+RESEARCH QUESTION: ${researchQuestion}
+
+Your task is to output a valid structured JSON object matching the PersonaResponse schema.
+Do NOT produce any text outside the JSON object.`;
+    }
+
+    private buildPersonaResponseFormatterSystemPrompt(
+        persona: Persona,
+        compartments: string,
+        businessGoal: string,
+        researchQuestion: string,
+    ): string {
+        return `Extract the persona's raw reasoning into a structured PersonaResponse object.
+
+${compartments}
+
+Business Goal: ${businessGoal}
+Research Question: ${researchQuestion}
+
+CRITICAL RULES — Follow these exactly:
+
+1. ALL fields are in FIRST PERSON as the persona — the report IS the persona's experience.
+2. The customerJourney array MUST have exactly 5 entries, one per cognitive stage, IN THIS EXACT ORDER: interpretation, understanding, belief, motivation, action. Do NOT repeat stages. Do NOT skip stages. Do NOT put them out of order.
+3. For each stage: describe the persona's mental state — what they thought, felt, and believed at that stage. Do NOT describe what they saw chronologically.
+4. For each stage's outcome: use "succeeded" if the persona could fully process this stage and move forward; "blocked" if something specific stopped progression but the journey continued; "stopped" if they abandoned at this stage. The outcome must match the description content — if the persona found something confusing or couldn't progress, the outcome should NOT be "succeeded".
+5. For each stage's sentiment: use "positive" if the persona felt good/encouraged, "neutral" if ambivalent, "negative" if frustrated/concerned. Sentiment and outcome are independent — a persona can succeed at a stage with negative feelings, or stop with positive feelings.
+6. majorFindings: extract 2-4 specific observations. Each must have: observation (what happened), evidence (what the persona said or did), impact (why it matters). Do NOT include confidence — it is computed from agreement across personas. The evidence must be a direct quote or paraphrase of what the persona thought — do NOT reference any persona name.
+7. Do NOT use persona traits (Big Five, values, fears) as causal explanations. Persona attributes may contextualize behavior but cannot explain it. Do NOT reference the persona's own name or traits as evidence. The persona profile is synthetic; using it as causal evidence is circular.
+8. researchQuestionAnswer: describe what evidence was observed from THIS persona only, not what the company should do. Write in first person as the persona.
+9. overview: one paragraph capturing the single most important takeaway from THIS persona's experience.
+10. Do NOT use any persona name (neither this persona's name nor any other persona's name) anywhere in the output. The report is automatically associated with the correct persona by the system.
+
+Follow these rules strictly. Findings describe observed behavior, not inferred psychology.`;
+    }
+
+    async generateCognitiveStream(
+        persona: Persona,
+        context: ArtifactIntake,
+        businessGoal: string,
+        researchQuestion: string,
+        options: { tokenLimit?: number; runId?: string } = {},
+    ) {
+        const log = options.runId ? AnalysisLogger.forRun(options.runId) : null;
+        const tokenLimit = options.tokenLimit ?? 2000;
+        const TIMEOUT_MS = 120_000;
+        const MAX_RETRIES = 2;
+        const RETRY_DELAY_MS = 3_000;
+
+        log?.info("VisionAnalysisAdapter", `generateCognitiveStream START for "${persona.name}"`, { tokenLimit });
+
+        this.ensureIngested(persona, options.runId);
+
+        const ragStart = Date.now();
+        const query = context.summary ? `Artifact about ${context.summary.slice(0, 200)}` : "Experiencing an artifact";
+        const ragContext = this.ragService.retrieveContext(persona, query, 3);
+        log?.info("VisionAnalysisAdapter", `ID-RAG retrieval for "${persona.name}"`, {
+            chunkCount: ragContext.chunkCount,
+            durationMs: Date.now() - ragStart,
+        });
+
+        const compartments = this.promptCompiler.compileSystemPrompt(persona);
+        const personaAnchor = this.promptCompiler.generateAnchor(persona);
+
+        const system = this.buildCognitiveStreamSystemPrompt(
+            persona, compartments, personaAnchor, ragContext.contextString, businessGoal, researchQuestion,
+        );
+
+        const prompt = `Experience this artifact. Think aloud as ${persona.name}.${context.summary ? `\n\nPAGE FACT SUMMARY:\n"""\n${context.summary}\n"""` : ""}`;
+
+        log?.info("VisionAnalysisAdapter", `Calling LLM for cognitive stream for "${persona.name}"...`, {
+            model: this.llmService.visionModel,
+            systemPromptLength: system.length,
+        });
+
+        let lastError: Error | null = null;
+
+        for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+            if (attempt > 0) {
+                log?.warn("VisionAnalysisAdapter", `generateCognitiveStream retry ${attempt}/${MAX_RETRIES} for "${persona.name}"`);
+                await new Promise((resolve) => setTimeout(resolve, RETRY_DELAY_MS));
+            }
+
+            try {
+                const text = await Promise.race([
+                    this.llmService.createChatCompletion(
+                        [
+                            {
+                                role: "user",
+                                content: [
+                                    { type: "text", text: prompt },
+                                    { type: "image_url", image_url: { url: `data:image/jpeg;base64,${context.screenshotBase64}` } },
+                                ] as any,
+                            },
+                        ],
+                        {
+                            temperature: 0.4,
+                            max_tokens: tokenLimit,
+                            model: this.llmService.visionModel,
+                            purpose: `Cognitive Stream — ${persona.name}`,
+                            runId: options.runId,
+                        }
+                    ),
+                    new Promise<string>((_, reject) =>
+                        setTimeout(() => reject(new Error(`Cognitive stream timed out after ${TIMEOUT_MS}ms`)), TIMEOUT_MS)
+                    ),
+                ]);
+
+                log?.info("VisionAnalysisAdapter", `generateCognitiveStream completed for "${persona.name}"`, {
+                    durationMs: Date.now() - ragStart,
+                    textLength: text.length,
+                });
+
+                return {
+                    text,
+                    personaId: persona.id,
+                    personaName: persona.name,
+                };
+            } catch (e) {
+                lastError = e as Error;
+                log?.warn("VisionAnalysisAdapter", `generateCognitiveStream attempt ${attempt + 1} failed for "${persona.name}"`, {
+                    error: String(e),
+                });
+                if (attempt === MAX_RETRIES) throw lastError;
+            }
+        }
+
+        throw lastError || new Error("generateCognitiveStream failed after all retries");
+    }
+
+    async formatPersonaResponse(
+        persona: Persona,
+        stream: { text: string; personaId: string; personaName: string },
+        businessGoal: string,
+        researchQuestion: string,
+        options: { tokenLimit?: number; runId?: string } = {},
+    ) {
+        const log = options.runId ? AnalysisLogger.forRun(options.runId) : null;
+        const tokenLimit = options.tokenLimit ?? 2000;
+        const TIMEOUT_MS = 90_000;
+        const MAX_RETRIES = 2;
+        const RETRY_DELAY_MS = 2_000;
+
+        log?.info("VisionAnalysisAdapter", `formatPersonaResponse START for "${persona.name}"`, {
+            streamLength: stream.text.length,
+        });
+
+        const compartments = this.promptCompiler.compileSystemPrompt(persona);
+        const system = this.buildPersonaResponseFormatterSystemPrompt(persona, compartments, businessGoal, researchQuestion);
+
+        const prompt = `Here is the raw cognitive stream from ${persona.name}:
+
+---
+${stream.text}
+---
+
+Convert this into a structured PersonaResponse JSON object. Return ONLY the JSON.`;
+
+        let responseObj: any = null;
+
+        for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+            if (attempt > 0) {
+                log?.info("VisionAnalysisAdapter", `formatPersonaResponse retry ${attempt}/${MAX_RETRIES} for "${persona.name}"`);
+                await new Promise((resolve) => setTimeout(resolve, RETRY_DELAY_MS));
+            }
+
+            try {
+                const streamResult = streamObject({
+                    model: this.llmService.provider(this.llmService.textModel),
+                    schema: PersonaResponseSchema,
+                    schemaName: "PersonaResponse",
+                    schemaDescription: "A persona's structured response to an artifact based on five cognitive stages.",
+                    system,
+                    messages: [{ role: "user", content: prompt }],
+                    temperature: 0.1,
+                    maxTokens: tokenLimit,
+                } as any);
+
+                const drainAndResolve = (async () => {
+                    for await (const _ of streamResult.partialObjectStream) {
+                        // discard
+                    }
+                    return streamResult.object;
+                })().catch(() => null);
+
+                responseObj = await Promise.race([
+                    drainAndResolve,
+                    new Promise<any>((_, reject) =>
+                        setTimeout(() => reject(new Error(`Formatter timed out after ${TIMEOUT_MS}ms`)), TIMEOUT_MS)
+                    ),
+                ]);
+
+                if (responseObj) break;
+            } catch (e) {
+                log?.warn("VisionAnalysisAdapter", `formatPersonaResponse attempt ${attempt + 1} failed for "${persona.name}"`, {
+                    error: String(e),
+                });
+                if (attempt === MAX_RETRIES) throw e;
+            }
+        }
+
+        if (!responseObj) {
+            throw new Error(`formatPersonaResponse returned null for "${persona.name}"`);
+        }
+
+        log?.info("VisionAnalysisAdapter", `formatPersonaResponse completed for "${persona.name}"`, {
+            durationMs: Date.now() - (options.runId ? 0 : 0),
+        });
+
+        return responseObj as PersonaResponse;
+    }
+
+    async deriveResponseSignals(
+        persona: Persona,
+        stream: { text: string; personaId: string; personaName: string },
+        options: { runId?: string } = {},
+    ) {
+        const log = options.runId ? AnalysisLogger.forRun(options.runId) : null;
+        const TIMEOUT_MS = 60_000;
+
+        log?.info("VisionAnalysisAdapter", `deriveResponseSignals START for "${persona.name}"`);
+
+        const system = `You are a signal extractor. Given a persona's cognitive stream about an artifact, extract key signals.
+
+Each signal should be one concise sentence capturing what happened.
+
+Return ONLY a JSON object:
+{
+  "highestStageReached": "interpretation" | "understanding" | "belief" | "motivation" | "action",
+  "finalAction": "What the persona would actually do next — one sentence in first person",
+  "keySignals": ["Signal 1", "Signal 2", "Signal 3"]
+}`;
+
+        const prompt = `Extract signals from this cognitive stream by ${persona.name}:
+
+---
+${stream.text}
+---
+
+Return ONLY the JSON object.`;
+
+        const content = await Promise.race([
+            this.llmService.createChatCompletion(
+                [{ role: "user", content: prompt }],
+                {
+                    temperature: 0.1,
+                    model: this.llmService.smallTextModel,
+                    response_format: { type: "json_object" },
+                    purpose: `Derive signals — ${persona.name}`,
+                    runId: options.runId,
+                }
+            ),
+            new Promise<string>((_, reject) =>
+                setTimeout(() => reject(new Error(`Signal derivation timed out after ${TIMEOUT_MS}ms`)), TIMEOUT_MS)
+            ),
+        ]);
+
+        try {
+            const parsed = JSON.parse(content);
+            log?.info("VisionAnalysisAdapter", `deriveResponseSignals completed for "${persona.name}"`, {
+                highestStageReached: parsed.highestStageReached,
+                finalAction: parsed.finalAction?.slice(0, 100),
+                signalCount: parsed.keySignals?.length,
+            });
+            return {
+                highestStageReached: parsed.highestStageReached || "unknown",
+                finalAction: parsed.finalAction || "",
+                keySignals: Array.isArray(parsed.keySignals) ? parsed.keySignals : [],
+            };
+        } catch {
+            log?.warn("VisionAnalysisAdapter", `deriveResponseSignals parse failed for "${persona.name}"`, {
+                contentPreview: content.slice(0, 200),
+            });
+            return {
+                highestStageReached: "unknown",
+                finalAction: "",
+                keySignals: [],
+            };
+        }
+    }
+
+    async analyzeArtifactStream(
+        persona: Persona,
+        context: ArtifactIntake,
+        businessGoal: string,
+        researchQuestion: string,
+        options: { tokenLimit?: number; runId?: string } = {},
+    ) {
+        const log = options.runId ? AnalysisLogger.forRun(options.runId) : null;
+        const tokenLimit = options.tokenLimit ?? 2000;
+
+        log?.info("VisionAnalysisAdapter", `analyzeArtifactStream START for "${persona.name}"`, { tokenLimit });
+
+        this.ensureIngested(persona, options.runId);
+
+        const ragStart = Date.now();
+        const query = context.summary
+            ? `Artifact about ${context.summary.slice(0, 200)}`
+            : "Experiencing an artifact";
+        const ragContext = this.ragService.retrieveContext(persona, query, 3);
+        const ragDuration = Date.now() - ragStart;
+        log?.info("VisionAnalysisAdapter", `ID-RAG retrieval for "${persona.name}"`, {
+            chunkCount: ragContext.chunkCount,
+            contextStringLength: ragContext.contextString.length,
+            durationMs: ragDuration,
+        });
+
+        const compartments = this.promptCompiler.compileSystemPrompt(persona);
+        const personaAnchor = this.promptCompiler.generateAnchor(persona);
+
+        const system = this.buildArtifactAnalysisSystemPrompt(
+            persona, compartments, personaAnchor, ragContext.contextString, businessGoal, researchQuestion,
+        );
+
+        const prompt = `Experience this artifact. Return ONLY the JSON object.${
+            context.summary ? `\n\nPAGE FACT SUMMARY:\n"""\n${context.summary}\n"""` : ""
+        }`;
+
+        log?.info("VisionAnalysisAdapter", `Calling streamObject for artifact stream for "${persona.name}"...`, {
+            model: this.llmService.visionModel,
+            systemPromptLength: system.length,
+            promptLength: prompt.length,
+            maxTokens: tokenLimit,
+        });
+
+        const streamObjResult = streamObject({
+            model: this.llmService.provider(this.llmService.visionModel),
+            schema: PersonaResponseSchema,
+            schemaName: "PersonaResponse",
+            schemaDescription: "A persona's structured response to an artifact based on five cognitive stages.",
+            system,
+            messages: [
+                {
+                    role: "user",
+                    content: [
+                        { type: "text", text: prompt },
+                        { type: "image", image: context.screenshotBase64 },
+                    ],
+                },
+            ],
+            temperature: 0.4,
+            maxTokens: tokenLimit,
+        } as any);
+
+        streamObjResult.object
+            .then((fullObject: any) => {
+                console.log(
+                    `[TRACE] [AnalysisComplete] persona=${persona.name}, stages=${fullObject.customerJourney?.length ?? 0}, findings=${fullObject.majorFindings?.length ?? 0}`
+                );
+            })
+            .catch(() => {});
+
+        return streamObjResult;
+    }
+
+    async analyzeArtifactCompletion(
+        persona: Persona,
+        context: ArtifactIntake,
+        businessGoal: string,
+        researchQuestion: string,
+        options: { tokenLimit?: number; runId?: string } = {},
+    ) {
+        const log = options.runId ? AnalysisLogger.forRun(options.runId) : null;
+        const tokenLimit = options.tokenLimit ?? 2000;
+        const methodStart = Date.now();
+
+        log?.info("VisionAnalysisAdapter", `analyzeArtifactCompletion START for "${persona.name}"`, { tokenLimit });
+
+        this.ensureIngested(persona, options.runId);
+
+        const ragStart = Date.now();
+        const query = context.summary
+            ? `Artifact about ${context.summary.slice(0, 200)}`
+            : "Experiencing an artifact";
+        const ragContext = this.ragService.retrieveContext(persona, query, 3);
+        const ragDuration = Date.now() - ragStart;
+        log?.info("VisionAnalysisAdapter", `ID-RAG retrieval for "${persona.name}"`, {
+            chunkCount: ragContext.chunkCount,
+            durationMs: ragDuration,
+        });
+
+        const compartments = this.promptCompiler.compileSystemPrompt(persona);
+        const personaAnchor = this.promptCompiler.generateAnchor(persona);
+
+        const system = this.buildArtifactAnalysisSystemPrompt(
+            persona, compartments, personaAnchor, ragContext.contextString, businessGoal, researchQuestion,
+        );
+
+        const prompt = `Experience this artifact.${
+            context.summary ? `\n\nPAGE FACT SUMMARY:\n"""\n${context.summary}\n"""` : ""
+        }`;
+
+        try {
+            const MAX_RETRIES = 2;
+            const RETRY_DELAY_MS = 2_000;
+            const ANALYSIS_TIMEOUT_MS = 180_000;
+
+            let responseObj: any = null;
+
+            for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+                if (attempt > 0) {
+                    log?.info("VisionAnalysisAdapter", `analyzeArtifactCompletion retry ${attempt}/${MAX_RETRIES} for "${persona.name}"`);
+                    await new Promise((resolve) => setTimeout(resolve, RETRY_DELAY_MS));
+                }
+
+                const streamResult = streamObject({
+                    model: this.llmService.provider(this.llmService.visionModel),
+                    schema: PersonaResponseSchema,
+                    schemaName: "PersonaResponse",
+                    schemaDescription: "A persona's structured response to an artifact based on five cognitive stages.",
+                    system,
+                    messages: [
+                        {
+                            role: "user",
+                            content: [
+                                { type: "text", text: prompt },
+                                { type: "image", image: context.screenshotBase64 },
+                            ],
+                        },
+                    ],
+                    temperature: 0.1,
+                    maxTokens: tokenLimit,
+                } as any);
+
+                const drainAndResolve = (async () => {
+                    for await (const _ of streamResult.partialObjectStream) {
+                        // discard
+                    }
+                    return streamResult.object;
+                })().catch(() => null);
+
+                responseObj = await Promise.race([
+                    drainAndResolve,
+                    new Promise<any>((_, reject) =>
+                        setTimeout(() => reject(new Error(`Analysis timed out after ${ANALYSIS_TIMEOUT_MS}ms`)), ANALYSIS_TIMEOUT_MS)
+                    ),
+                ]);
+
+                if (responseObj) break;
+            }
+
+            const completionDuration = Date.now() - methodStart;
+            log?.info("VisionAnalysisAdapter", `analyzeArtifactCompletion completed for "${persona.name}"`, {
+                durationMs: completionDuration,
+                stages: responseObj?.customerJourney?.length,
+                findings: responseObj?.majorFindings?.length,
+            });
+            return responseObj as PersonaResponse;
+        } catch (e) {
+            log?.error("VisionAnalysisAdapter", `analyzeArtifactCompletion error for "${persona.name}"`, {
+                error: String(e),
+                totalDurationMs: Date.now() - methodStart,
+            });
+            throw e;
+        }
+    }
+
+    private buildPersonaSummaries(responses: PersonaResponse[]): string {
+        return responses.map((r, i) => {
+            return `=== Persona ${i + 1} ===
+Overview: ${r.overview || "(none)"}
+Journey: ${(r.customerJourney || []).map(s => `${s.stage}: ${s.outcome} (${s.sentiment})`).join(" | ") || "(none)"}
+Findings: ${(r.majorFindings || []).map(f => `- ${f.observation}: ${f.evidence}`).join("\n") || "(none)"}
+Friction: ${(r.pointsOfFriction || []).join("; ") || "(none)"}
+Questions: ${(r.unansweredQuestions || []).join("; ") || "(none)"}
+`;
+        }).join("\n\n");
+    }
+
+    private async callLLM(
+        system: string,
+        prompt: string,
+        purpose: string,
+        timeoutMs: number,
+        options?: { runId?: string },
+    ): Promise<string> {
+        return Promise.race([
+            this.llmService.createChatCompletion(
+                [{ role: "user", content: prompt }],
+                {
+                    temperature: 0.3,
+                    model: this.llmService.textModel,
+                    response_format: { type: "json_object" },
+                    purpose,
+                    runId: options?.runId,
+                }
+            ),
+            new Promise<string>((_, reject) =>
+                setTimeout(() => reject(new Error(`${purpose} timed out after ${timeoutMs}ms`)), timeoutMs)
+            ),
+        ]);
+    }
+
+    async generateTopFindings(
+        responses: PersonaResponse[],
+        businessGoal: string,
+        researchQuestion: string,
+        options?: { runId?: string },
+    ): Promise<SynthesizedFinding[]> {
+        const log = options?.runId ? AnalysisLogger.forRun(options?.runId) : null;
+        const summaries = this.buildPersonaSummaries(responses);
+
+        const system = `You are analyzing simulated customer research. You have responses from ${responses.length} simulated personas.
+
+Business Goal: ${businessGoal}
+Research Question: ${researchQuestion}
+
+Your job: Identify the top 3-5 patterns that MULTIPLE personas experienced. Each finding must describe a cross-persona pattern.
+
+CRITICAL RULES:
+1. Do NOT reference individual persona names. Use group language: "Most personas...", "Several personas...", "A majority...", "All personas..."
+2. Evidence should cite what multiple personas said, not just one.
+3. Do NOT assign confidence (computed externally).
+4. Do NOT make recommendations.
+5. Do NOT use persona traits as causal explanations.
+
+Return a JSON array of { observation: string, evidence: string, impact: string }`;
+
+        const prompt = `${summaries}\n\nIdentify the top patterns across these personas. Return ONLY valid JSON.`;
+
+        const content = await this.callLLM(system, prompt, "Top Findings", 90_000, options);
+
+        try {
+            const parsed = JSON.parse(content);
+            const findings = Array.isArray(parsed) ? parsed : parsed.topFindings || parsed.findings || [];
+            return findings.map((f: any) => ({
+                observation: f.observation || "",
+                evidence: f.evidence || "",
+                impact: f.impact || "",
+                confidence: "Medium" as const,
+                affectedPersonaCount: 0,
+                totalPersonaCount: responses.length,
+            }));
+        } catch (e) {
+            log?.error("generateTopFindings", "Parse failed", { error: String(e), preview: content.slice(0, 200) });
+            return [];
+        }
+    }
+
+    async generateDisagreements(
+        responses: PersonaResponse[],
+        options?: { runId?: string },
+    ): Promise<Disagreement[]> {
+        const log = options?.runId ? AnalysisLogger.forRun(options?.runId) : null;
+        const summaries = this.buildPersonaSummaries(responses);
+
+        const system = `You are analyzing simulated customer research. You have responses from ${responses.length} simulated personas.
+
+Your job: Identify where personas had OPPOSING reactions to the same thing. A disagreement exists when some personas reacted positively and others reacted negatively to the same feature, claim, or aspect.
+
+If most personas agreed on everything, return an empty array.
+
+CRITICAL: Do NOT reference individual persona names. Use group language.
+
+Return a JSON array of { topic: string, split: [{ view: string, personaCount: number }], significance: "High" | "Medium" | "Low" }`;
+
+        const prompt = `${summaries}\n\nIdentify disagreements across these personas. Return ONLY valid JSON.`;
+
+        const content = await this.callLLM(system, prompt, "Disagreements", 60_000, options);
+
+        try {
+            const parsed = JSON.parse(content);
+            const items = Array.isArray(parsed) ? parsed : parsed.disagreements || [];
+            return items.map((d: any) => ({
+                topic: d.topic || "",
+                split: (d.split || []).map((s: any) => ({ view: s.view || "", personaCount: s.personaCount || 0 })),
+                significance: d.significance || "Medium",
+            }));
+        } catch (e) {
+            log?.error("generateDisagreements", "Parse failed", { error: String(e), preview: content.slice(0, 200) });
+            return [];
+        }
+    }
+
+    async generateFrictions(
+        responses: PersonaResponse[],
+        options?: { runId?: string },
+    ): Promise<string[]> {
+        const log = options?.runId ? AnalysisLogger.forRun(options?.runId) : null;
+        const summaries = this.buildPersonaSummaries(responses);
+
+        const system = `You are analyzing simulated customer research. You have responses from ${responses.length} simulated personas.
+
+Your job: Identify the 2-3 biggest friction points that MULTIPLE personas experienced. A friction point is something that confused, frustrated, or stopped personas.
+
+CRITICAL: Do NOT reference individual persona names. Use group language.
+
+Return a JSON array of strings.`;
+
+        const prompt = `${summaries}\n\nIdentify the biggest friction points across these personas. Return ONLY valid JSON.`;
+
+        const content = await this.callLLM(system, prompt, "Frictions", 60_000, options);
+
+        try {
+            const parsed = JSON.parse(content);
+            return Array.isArray(parsed) ? parsed : parsed.frictions || parsed.biggestFrictions || [];
+        } catch (e) {
+            log?.error("generateFrictions", "Parse failed", { error: String(e), preview: content.slice(0, 200) });
+            return [];
+        }
+    }
+
+    async generateSynthesisOverview(
+        responses: PersonaResponse[],
+        businessGoal: string,
+        researchQuestion: string,
+        topFindings: SynthesizedFinding[],
+        disagreements: Disagreement[],
+        frictions: string[],
+        options?: { runId?: string },
+    ): Promise<{ overview: string; researchQuestionAnswer: string }> {
+        const log = options?.runId ? AnalysisLogger.forRun(options?.runId) : null;
+
+        const findingsText = topFindings.map(f => `- ${f.observation}`).join("\n");
+        const disagreementsText = disagreements.map(d => `- ${d.topic}`).join("\n");
+        const frictionsText = frictions.map(f => `- ${f}`).join("\n");
+
+        const system = `You are synthesizing customer research findings into a final report.
+
+Business Goal: ${businessGoal}
+Research Question: ${researchQuestion}
+
+You have been given the top findings, disagreements, and friction points identified across simulated personas.
+
+Your job: Produce two short summaries.
+
+1. overview: One paragraph describing what the GROUP of personas collectively experienced. Focus on the most important pattern.
+2. researchQuestionAnswer: One paragraph that directly answers the research question using evidence from the findings.
+
+CRITICAL:
+- Do NOT reference individual persona names. Use group language: "Most personas...", "Several personas..."
+- Do NOT make recommendations.
+- Do NOT use persona traits as causal explanations.
+- Keep each paragraph concise (3-5 sentences).
+
+Return a JSON object with { overview: string, researchQuestionAnswer: string }`;
+
+        const prompt = `Top Findings:
+${findingsText || "(none found)"}
+
+Disagreements:
+${disagreementsText || "(none found)"}
+
+Friction Points:
+${frictionsText || "(none found)"}
+
+Synthesize these into an overview and research question answer. Return ONLY valid JSON.`;
+
+        const content = await this.callLLM(system, prompt, "Synthesis Overview", 60_000, options);
+
+        try {
+            const parsed = JSON.parse(content);
+            return {
+                overview: parsed.overview || "",
+                researchQuestionAnswer: parsed.researchQuestionAnswer || "",
+            };
+        } catch (e) {
+            log?.error("generateSynthesisOverview", "Parse failed", { error: String(e), preview: content.slice(0, 200) });
+            return { overview: "", researchQuestionAnswer: "" };
         }
     }
 }

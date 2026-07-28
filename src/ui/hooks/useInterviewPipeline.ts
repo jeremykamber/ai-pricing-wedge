@@ -180,7 +180,6 @@ export function useInterviewPipeline(onSuccess?: (personas: Persona[]) => void) 
         setIsPending(false) // core action returned — release loading state
 
         if (id) {
-          // Register for background toast tracking
           usePersonaStore.getState().addActiveGeneration(id)
         }
 

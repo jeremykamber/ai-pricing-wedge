@@ -10,6 +10,8 @@ import { InterviewSignalExtractor } from "./InterviewSignalExtractor";
 import { PsychographicRationalizer } from "./PsychographicRationalizer";
 import { Persona } from "@/domain/entities/Persona";
 import { PricingAnalysis } from "@/domain/entities/PricingAnalysis";
+import type { PersonaResponse } from "@/domain/entities/PersonaResponse";
+import type { ArtifactIntake } from "@/domain/entities/ArtifactIntake";
 import { StreamOfConsciousness } from "@/domain/entities/StreamOfConsciousness";
 import { ExtractedInterviewSignals } from "@/application/interviewPipeline/types";
 import { AnalysisLogger } from "@/infrastructure/AnalysisLogger";
@@ -396,6 +398,121 @@ export class LlmServiceImpl implements LlmServicePort {
 
   async summarizeHtml(html: string, runId?: string): Promise<string> {
     return this.htmlSummarizer.summarizeHtml(html, runId);
+  }
+
+  // ─── New artifact-agnostic analysis pipeline ──────────────────
+
+  async analyzeArtifactStream(
+    persona: Persona,
+    context: ArtifactIntake,
+    businessGoal: string,
+    researchQuestion: string,
+    options?: { tokenLimit?: number; runId?: string }
+  ): Promise<any> {
+    return this.visionAdapter.analyzeArtifactStream(
+      persona,
+      context,
+      businessGoal,
+      researchQuestion,
+      options,
+    );
+  }
+
+  async analyzeArtifactCompletion(
+    persona: Persona,
+    context: ArtifactIntake,
+    businessGoal: string,
+    researchQuestion: string,
+    options?: { tokenLimit?: number; runId?: string }
+  ): Promise<any> {
+    return this.visionAdapter.analyzeArtifactCompletion(
+      persona,
+      context,
+      businessGoal,
+      researchQuestion,
+      options,
+    );
+  }
+
+  async generateCognitiveStream(
+    persona: Persona,
+    context: ArtifactIntake,
+    businessGoal: string,
+    researchQuestion: string,
+    options?: { tokenLimit?: number; runId?: string }
+  ): Promise<StreamOfConsciousness> {
+    return this.visionAdapter.generateCognitiveStream(
+      persona,
+      context,
+      businessGoal,
+      researchQuestion,
+      options,
+    );
+  }
+
+  async formatPersonaResponse(
+    persona: Persona,
+    stream: StreamOfConsciousness,
+    businessGoal: string,
+    researchQuestion: string,
+    options?: { tokenLimit?: number; runId?: string }
+  ): Promise<PersonaResponse> {
+    return this.visionAdapter.formatPersonaResponse(
+      persona,
+      stream,
+      businessGoal,
+      researchQuestion,
+      options,
+    );
+  }
+
+  async deriveResponseSignals(
+    persona: Persona,
+    stream: StreamOfConsciousness,
+    options?: { runId?: string }
+  ): Promise<{ highestStageReached: string; finalAction: string; keySignals: string[] }> {
+    return this.visionAdapter.deriveResponseSignals(
+      persona,
+      stream,
+      options,
+    );
+  }
+
+  async generateTopFindings(
+    responses: import("@/domain/entities/PersonaResponse").PersonaResponse[],
+    businessGoal: string,
+    researchQuestion: string,
+    options?: { runId?: string }
+  ): Promise<import("@/domain/entities/ArtifactSynthesis").SynthesizedFinding[]> {
+    return this.visionAdapter.generateTopFindings(responses, businessGoal, researchQuestion, options);
+  }
+
+  async generateDisagreements(
+    responses: import("@/domain/entities/PersonaResponse").PersonaResponse[],
+    options?: { runId?: string }
+  ): Promise<import("@/domain/entities/ArtifactSynthesis").Disagreement[]> {
+    return this.visionAdapter.generateDisagreements(responses, options);
+  }
+
+  async generateFrictions(
+    responses: import("@/domain/entities/PersonaResponse").PersonaResponse[],
+    options?: { runId?: string }
+  ): Promise<string[]> {
+    return this.visionAdapter.generateFrictions(responses, options);
+  }
+
+  async generateSynthesisOverview(
+    responses: import("@/domain/entities/PersonaResponse").PersonaResponse[],
+    businessGoal: string,
+    researchQuestion: string,
+    topFindings: import("@/domain/entities/ArtifactSynthesis").SynthesizedFinding[],
+    disagreements: import("@/domain/entities/ArtifactSynthesis").Disagreement[],
+    frictions: string[],
+    options?: { runId?: string }
+  ): Promise<{ overview: string; researchQuestionAnswer: string }> {
+    return this.visionAdapter.generateSynthesisOverview(
+      responses, businessGoal, researchQuestion, topFindings, disagreements, frictions, options,
+    );
   }
 
   // --- Domain Gateways (Delegating to Adapters) ---
