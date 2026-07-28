@@ -51,7 +51,7 @@ export default function SimulationDetailPage({ params }: { params: Promise<{ id:
 
     let active = true
     let attempts = 0
-    const MAX_ATTEMPTS = 300 // 5 minutes at 1s intervals
+    const MAX_ATTEMPTS = 600 // 10 minutes at 1s intervals (6-persona analysis takes ~15 min)
 
     const poll = async () => {
       while (active && attempts < MAX_ATTEMPTS) {

@@ -127,28 +127,21 @@ export class AnalyzeArtifactUseCase {
 
             if (abortSignal?.aborted) throw new Error("Request cancelled during formatting");
 
-            // Stage 2a + 2b: Format response and derive signals in parallel
-            const [response, signals] = await Promise.all([
-              this.llmService.formatPersonaResponse(
-                persona,
-                stream,
-                businessGoal,
-                researchQuestion,
-                { tokenLimit, runId },
-              ),
-              this.llmService.deriveResponseSignals(
-                persona,
-                stream,
-                { runId },
-              ),
-            ]);
+            const response = await this.llmService.formatPersonaResponse(
+              persona,
+              stream,
+              businessGoal,
+              researchQuestion,
+              { tokenLimit, runId },
+            );
 
             const pipelineDuration = Date.now() - pipelineStart;
+            const highestStage = response.customerJourney.findLast(s => s.outcome === "succeeded")?.stage || response.customerJourney[0]?.stage;
             log.info("AnalyzeArtifactUseCase", `${personaLog} Pipeline completed`, {
               durationMs: pipelineDuration,
               stagesCount: response.customerJourney.length,
               findingsCount: response.majorFindings.length,
-              highestStage: signals.highestStageReached,
+              highestStage,
             });
 
             if (abortSignal?.aborted) throw new Error("Request cancelled during persona analysis");

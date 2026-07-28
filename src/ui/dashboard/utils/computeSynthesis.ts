@@ -37,26 +37,30 @@ function groupSimilarFindings(responses: PersonaResponse[]): SynthesizedFinding[
     if (assigned.has(i)) continue
     assigned.add(i)
 
-    const group = {
-      observation: allFindings[i].observation,
-      evidence: allFindings[i].evidence,
-      impact: allFindings[i].impact,
-      personaIndices: new Set([allFindings[i].personaIndex]),
-    }
+    let bestObservation = allFindings[i].observation
+    let bestEvidence = allFindings[i].evidence
+    let bestImpact = allFindings[i].impact
+    const personaIndices = new Set([allFindings[i].personaIndex])
 
     for (let j = i + 1; j < allFindings.length; j++) {
       if (assigned.has(j)) continue
       if (wordOverlap(allFindings[i].observation, allFindings[j].observation) > 0.3) {
         assigned.add(j)
-        group.personaIndices.add(allFindings[j].personaIndex)
-        if (allFindings[j].observation.length > group.observation.length) {
-          group.observation = allFindings[j].observation
+        personaIndices.add(allFindings[j].personaIndex)
+        if (allFindings[j].observation.length > bestObservation.length) {
+          bestObservation = allFindings[j].observation
+          bestEvidence = allFindings[j].evidence
+          bestImpact = allFindings[j].impact
         }
-        group.evidence += ` ${allFindings[j].evidence}`
       }
     }
 
-    groups.push(group)
+    groups.push({
+      observation: bestObservation,
+      evidence: bestEvidence,
+      impact: bestImpact,
+      personaIndices,
+    })
   }
 
   const totalCount = responses.length
@@ -136,9 +140,12 @@ export function computeSynthesis(responses: PersonaResponse[]): ArtifactSynthesi
   }
   frictionGroups.sort((a, b) => b.count - a.count)
 
+  const overview = pickMostRepresentative(responses.map(r => r.overview).filter(Boolean))
+  const rqa = pickMostRepresentative(responses.map(r => r.researchQuestionAnswer).filter(Boolean))
+
   return {
-    overview: responses[0]?.overview || '',
-    researchQuestionAnswer: responses[0]?.researchQuestionAnswer || '',
+    overview,
+    researchQuestionAnswer: rqa,
     topFindings,
     disagreements: findDisagreements(responses),
     biggestFrictions: frictionGroups.map(f => f.text),
@@ -146,4 +153,19 @@ export function computeSynthesis(responses: PersonaResponse[]): ArtifactSynthesi
     failedCount: 0,
     totalPersonaCount: responses.length,
   }
+}
+
+function pickMostRepresentative(strings: string[]): string {
+  if (strings.length === 0) return ''
+  if (strings.length === 1) return strings[0]
+  const scores = strings.map((s, i) => {
+    let score = 0
+    for (let j = 0; j < strings.length; j++) {
+      if (i === j) continue
+      score += wordOverlap(s, strings[j])
+    }
+    return { text: s, score }
+  })
+  scores.sort((a, b) => b.score - a.score)
+  return scores[0].text
 }

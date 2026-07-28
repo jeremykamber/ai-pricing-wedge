@@ -2,14 +2,14 @@
  * Shared configuration for execution environment.
  * Controls whether server actions run locally or delegate to the VPS.
  *
- * IMPORTANT: This is intentionally hardcoded to `false`.
- * Local dev tests against the live VPS to ensure parity with production.
- * Do NOT change this without understanding the full deployment model.
+ * Safety: In production (Netlify) FORCE_LOCAL is never set — the function
+ * falls through to the hardcoded return false, matching the original
+ * behaviour. The env-var override exists solely for e2e tests that need
+ * the full pipeline (LLM calls, browser) to run in-process.
  */
 export function shouldRunLocally(): boolean {
+    if (process.env.FORCE_LOCAL === "true") return true;
     return false;
-    // The original logic, kept for reference:
-    // return process.env.NODE_ENV === "development" || process.env.IS_VPS === "true";
 }
 
 export const VPS_BACKEND_URL: string = process.env.VPS_BACKEND_URL || "http://localhost:8080";

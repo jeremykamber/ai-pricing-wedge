@@ -946,10 +946,13 @@ CRITICAL RULES — Follow these exactly:
 1. ALL fields are in FIRST PERSON as the persona — the report IS the persona's experience.
 2. The customerJourney array MUST have exactly 5 entries, one per cognitive stage, IN THIS EXACT ORDER: interpretation, understanding, belief, motivation, action. Do NOT repeat stages. Do NOT skip stages. Do NOT put them out of order.
 3. For each stage: describe the persona's mental state — what they thought, felt, and believed at that stage. Do NOT describe what they saw chronologically.
-4. majorFindings: extract 2-4 specific observations. Each must have: observation (what happened), evidence (what the persona said or did), impact (why it matters). Do NOT include confidence — it is computed from agreement across personas.
-5. Do NOT use persona traits (Big Five, values, fears) as causal explanations. Persona attributes may contextualize behavior but cannot explain it. Say "Jeremy, a student persona, paused at pricing uncertainty" — NOT "Jeremy's neuroticism caused him to distrust pricing." The persona profile itself is synthetic; using it as causal evidence is circular.
-6. researchQuestionAnswer: describe what evidence was observed, not what the company should do. Say "Jeremy showed interest but had insufficient pricing information to evaluate value" — NOT "They should add a pricing tier."
-7. overview: one paragraph capturing the single most important takeaway.
+4. For each stage's outcome: use "succeeded" if the persona could fully process this stage and move forward; "blocked" if something specific stopped progression but the journey continued; "stopped" if they abandoned at this stage. The outcome must match the description content — if the persona found something confusing or couldn't progress, the outcome should NOT be "succeeded".
+5. For each stage's sentiment: use "positive" if the persona felt good/encouraged, "neutral" if ambivalent, "negative" if frustrated/concerned. Sentiment and outcome are independent — a persona can succeed at a stage with negative feelings, or stop with positive feelings.
+6. majorFindings: extract 2-4 specific observations. Each must have: observation (what happened), evidence (what the persona said or did), impact (why it matters). Do NOT include confidence — it is computed from agreement across personas. The evidence must be a direct quote or paraphrase of what the persona thought — do NOT reference any persona name.
+7. Do NOT use persona traits (Big Five, values, fears) as causal explanations. Persona attributes may contextualize behavior but cannot explain it. Do NOT reference the persona's own name or traits as evidence. The persona profile is synthetic; using it as causal evidence is circular.
+8. researchQuestionAnswer: describe what evidence was observed from THIS persona only, not what the company should do. Write in first person as the persona.
+9. overview: one paragraph capturing the single most important takeaway from THIS persona's experience.
+10. Do NOT use any persona name (neither this persona's name nor any other persona's name) anywhere in the output. The report is automatically associated with the correct persona by the system.
 
 Follow these rules strictly. Findings describe observed behavior, not inferred psychology.`;
     }
@@ -1377,8 +1380,7 @@ Return ONLY the JSON object.`;
 
     private buildPersonaSummaries(responses: PersonaResponse[]): string {
         return responses.map((r, i) => {
-            const name = r.personaProfile?.name || `Persona ${i + 1}`;
-            return `=== ${name} ===
+            return `=== Persona ${i + 1} ===
 Overview: ${r.overview || "(none)"}
 Journey: ${(r.customerJourney || []).map(s => `${s.stage}: ${s.outcome} (${s.sentiment})`).join(" | ") || "(none)"}
 Findings: ${(r.majorFindings || []).map(f => `- ${f.observation}: ${f.evidence}`).join("\n") || "(none)"}

@@ -15,6 +15,7 @@ import { AnalysisLogger } from "@/infrastructure/AnalysisLogger";
 import { simulationResultStore } from "@/infrastructure/SimulationResultStore";
 import { storeProgress, storeCompleted } from "./getProgress";
 import { shouldRunLocally, VPS_BACKEND_URL, getVpsAuthToken } from "@/infrastructure/config";
+import { computeSynthesis } from "@/ui/dashboard/utils/computeSynthesis";
 
 const AUDIT_RATE_LIMIT_MAX = parseInt(process.env.AUDIT_RATE_LIMIT_MAX || '5');
 const AUDIT_RATE_LIMIT_WINDOW_MS = parseInt(process.env.AUDIT_RATE_LIMIT_WINDOW_MS || '60000');
@@ -145,49 +146,9 @@ async function runLocally(
                     if (completedResponses.length === 0) {
                         log.warn("analyzeArtifactAction", "No completed responses — skipping synthesis");
                     } else {
-                        // Phase 1: Parallel focused calls
-                        const [rawFindings, rawDisagreements, rawFrictions] = await Promise.all([
-                            llmService.generateTopFindings(completedResponses, businessGoal, researchQuestion, { runId: id }),
-                            llmService.generateDisagreements(completedResponses, { runId: id }),
-                            llmService.generateFrictions(completedResponses, { runId: id }),
-                        ]);
-
-                        // Compute confidence from agreement for each finding
-                        for (const finding of rawFindings) {
-                            let matchCount = 0;
-                            for (const response of completedResponses) {
-                                const hasMatch = response.majorFindings.some(f =>
-                                    f.observation.toLowerCase().includes(finding.observation.slice(0, 20).toLowerCase())
-                                );
-                                if (hasMatch) matchCount++;
-                            }
-                            finding.affectedPersonaCount = Math.max(matchCount, 1);
-                            finding.totalPersonaCount = completedResponses.length;
-                            const ratio = matchCount / completedResponses.length;
-                            finding.confidence = ratio >= 0.6 ? 'High' : ratio >= 0.3 ? 'Medium' : 'Low';
-                        }
-
-                        // Phase 2: Overview and research question answer (informed by Phase 1)
-                        const overviewResult = await llmService.generateSynthesisOverview(
-                            completedResponses,
-                            businessGoal,
-                            researchQuestion,
-                            rawFindings,
-                            rawDisagreements,
-                            rawFrictions,
-                            { runId: id },
-                        );
-
-                        synthesis = {
-                            overview: overviewResult.overview,
-                            researchQuestionAnswer: overviewResult.researchQuestionAnswer,
-                            topFindings: rawFindings,
-                            disagreements: rawDisagreements,
-                            biggestFrictions: rawFrictions,
-                            completedCount: completedResponses.length,
-                            failedCount,
-                            totalPersonaCount: responses.length,
-                        };
+                        synthesis = computeSynthesis(completedResponses);
+                        synthesis.failedCount = failedCount;
+                        synthesis.totalPersonaCount = responses.length;
                     }
                 } catch (synthErr) {
                     log.warn("analyzeArtifactAction", "Synthesis generation failed, proceeding without", {
