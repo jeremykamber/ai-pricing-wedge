@@ -7,11 +7,7 @@ export type ArtifactInput =
   | { type: "url"; url: string }
   | { type: "screenshot"; imageBase64: string; url?: string };
 
-export type IntakeProgress =
-  | { step: "NAVIGATING" }
-  | { step: "CAPTURING" }
-  | { step: "PROCESSING" }
-  | { step: "COMPLETE" };
+export type IntakeProgress = "NAVIGATING" | "CAPTURING" | "PROCESSING" | "COMPLETE";
 
 export type IntakeProgressCallback = (progress: IntakeProgress) => void;
 
@@ -31,8 +27,17 @@ export class ArtifactIntakeAdapter {
     log?.info("ArtifactIntakeAdapter", "Starting intake", { inputType: input.type });
 
     if (input.type === "url") {
+      if (!input.url.trim()) {
+        throw new Error("Cannot intake: URL is empty");
+      }
       return this.urlIntake(input.url, onProgress, runId);
     }
+
+    if (!input.imageBase64) {
+      throw new Error("Cannot intake: screenshot data is missing");
+    }
+
+    onProgress?.("COMPLETE");
 
     return {
       screenshotBase64: input.imageBase64,
@@ -47,41 +52,49 @@ export class ArtifactIntakeAdapter {
   ): Promise<ArtifactIntake> {
     const log = runId ? AnalysisLogger.forRun(runId) : null;
 
-    try {
-      onProgress?.({ step: "NAVIGATING" });
+    onProgress?.("NAVIGATING");
 
+    try {
       await this.browserService.navigateTo(url, (status) => {
         log?.trace("ArtifactIntakeAdapter", "Navigation status", { status });
       });
 
-      onProgress?.({ step: "CAPTURING" });
+      onProgress?.("CAPTURING");
 
       const [screenshotBase64, cleanedHtml] = await Promise.all([
         this.browserService.captureViewport(),
         this.browserService.getCleanedHtml(),
       ]);
 
-      let pageHtml: string | undefined;
-      if (cleanedHtml) {
-        onProgress?.({ step: "PROCESSING" });
-
-        log?.info("ArtifactIntakeAdapter", "Summarizing HTML", {
-          htmlLength: cleanedHtml.length,
-        });
-
-        pageHtml = await this.llmService.summarizeHtml(cleanedHtml);
+      if (!cleanedHtml) {
+        onProgress?.("COMPLETE");
+        return { screenshotBase64, url };
       }
 
-      onProgress?.({ step: "COMPLETE" });
+      onProgress?.("PROCESSING");
+
+      log?.info("ArtifactIntakeAdapter", "Summarizing HTML", {
+        htmlLength: cleanedHtml.length,
+      });
+
+      const summarizedHtml = await this.llmService.summarizeHtml(cleanedHtml);
+
+      onProgress?.("COMPLETE");
 
       return {
         screenshotBase64,
-        pageHtml,
+        pageHtml: cleanedHtml,
         url,
-        summary: pageHtml,
+        summary: summarizedHtml,
       };
     } finally {
-      await this.browserService.close();
+      try {
+        await this.browserService.close();
+      } catch (closeErr) {
+        log?.warn("ArtifactIntakeAdapter", "Error closing browser", {
+          error: String(closeErr),
+        });
+      }
     }
   }
 }
