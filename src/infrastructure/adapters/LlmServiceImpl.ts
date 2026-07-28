@@ -478,17 +478,40 @@ export class LlmServiceImpl implements LlmServicePort {
     );
   }
 
-  async generateArtifactSynthesis(
+  async generateTopFindings(
     responses: import("@/domain/entities/PersonaResponse").PersonaResponse[],
     businessGoal: string,
     researchQuestion: string,
     options?: { runId?: string }
-  ): Promise<import("@/domain/entities/ArtifactSynthesis").ArtifactSynthesis> {
-    return this.visionAdapter.generateArtifactSynthesis(
-      responses,
-      businessGoal,
-      researchQuestion,
-      options,
+  ): Promise<import("@/domain/entities/ArtifactSynthesis").SynthesizedFinding[]> {
+    return this.visionAdapter.generateTopFindings(responses, businessGoal, researchQuestion, options);
+  }
+
+  async generateDisagreements(
+    responses: import("@/domain/entities/PersonaResponse").PersonaResponse[],
+    options?: { runId?: string }
+  ): Promise<import("@/domain/entities/ArtifactSynthesis").Disagreement[]> {
+    return this.visionAdapter.generateDisagreements(responses, options);
+  }
+
+  async generateFrictions(
+    responses: import("@/domain/entities/PersonaResponse").PersonaResponse[],
+    options?: { runId?: string }
+  ): Promise<string[]> {
+    return this.visionAdapter.generateFrictions(responses, options);
+  }
+
+  async generateSynthesisOverview(
+    responses: import("@/domain/entities/PersonaResponse").PersonaResponse[],
+    businessGoal: string,
+    researchQuestion: string,
+    topFindings: import("@/domain/entities/ArtifactSynthesis").SynthesizedFinding[],
+    disagreements: import("@/domain/entities/ArtifactSynthesis").Disagreement[],
+    frictions: string[],
+    options?: { runId?: string }
+  ): Promise<{ overview: string; researchQuestionAnswer: string }> {
+    return this.visionAdapter.generateSynthesisOverview(
+      responses, businessGoal, researchQuestion, topFindings, disagreements, frictions, options,
     );
   }
 

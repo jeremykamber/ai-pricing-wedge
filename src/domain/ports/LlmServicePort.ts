@@ -250,19 +250,48 @@ export interface LlmServicePort {
         keySignals: string[];
     }>;
 
-    // --- End new pipeline ---
+    // --- Cross-persona synthesis (focused calls, run in phases) ---
 
     /**
-     * Cross-persona synthesis: takes all persona responses and produces
-     * a structured synthesis with top findings, disagreements, and frictions.
-     * Confidence is computed from agreement (code post-processes LLM output).
+     * Phase 1a: Identify top 3-5 patterns across all personas.
+     * Must use group language — no individual persona names.
      */
-    generateArtifactSynthesis(
+    generateTopFindings(
         responses: PersonaResponse[],
         businessGoal: string,
         researchQuestion: string,
         options?: { runId?: string }
-    ): Promise<import("../entities/ArtifactSynthesis").ArtifactSynthesis>;
+    ): Promise<import("../entities/ArtifactSynthesis").SynthesizedFinding[]>;
+
+    /**
+     * Phase 1b: Identify where personas had opposing reactions.
+     */
+    generateDisagreements(
+        responses: PersonaResponse[],
+        options?: { runId?: string }
+    ): Promise<import("../entities/ArtifactSynthesis").Disagreement[]>;
+
+    /**
+     * Phase 1c: Identify 2-3 biggest friction points that multiple personas experienced.
+     */
+    generateFrictions(
+        responses: PersonaResponse[],
+        options?: { runId?: string }
+    ): Promise<string[]>;
+
+    /**
+     * Phase 2: Generate overview and research question answer, informed by
+     * the top findings, disagreements, and frictions from Phase 1.
+     */
+    generateSynthesisOverview(
+        responses: PersonaResponse[],
+        businessGoal: string,
+        researchQuestion: string,
+        topFindings: import("../entities/ArtifactSynthesis").SynthesizedFinding[],
+        disagreements: import("../entities/ArtifactSynthesis").Disagreement[],
+        frictions: string[],
+        options?: { runId?: string }
+    ): Promise<{ overview: string; researchQuestionAnswer: string }>;
 
     /**
      * Validates if a user's prompt is within the persona's expected domain.

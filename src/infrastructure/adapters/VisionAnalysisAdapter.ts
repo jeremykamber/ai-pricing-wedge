@@ -3,7 +3,7 @@ import { PricingAnalysisSchema } from "@/domain/entities/PricingAnalysis";
 import { PersonaResponseSchema } from "@/domain/entities/PersonaResponse";
 import type { ArtifactIntake } from "@/domain/entities/ArtifactIntake";
 import type { PersonaResponse } from "@/domain/entities/PersonaResponse";
-import type { ArtifactSynthesis } from "@/domain/entities/ArtifactSynthesis";
+import type { ArtifactSynthesis, SynthesizedFinding, Disagreement } from "@/domain/entities/ArtifactSynthesis";
 import { LlmServiceImpl } from "./LlmServiceImpl";
 import { PersonaPromptCompiler } from "./PersonaPromptCompiler";
 import { IdRagStore } from "./IdRagStore";
@@ -1375,131 +1375,209 @@ Return ONLY the JSON object.`;
         }
     }
 
-    async generateArtifactSynthesis(
-        responses: PersonaResponse[],
-        businessGoal: string,
-        researchQuestion: string,
-        options: { runId?: string } = {},
-    ): Promise<ArtifactSynthesis> {
-        const log = options.runId ? AnalysisLogger.forRun(options.runId) : null;
-        const TIMEOUT_MS = 120_000;
-
-        log?.info("VisionAnalysisAdapter", `generateArtifactSynthesis START for ${responses.length} responses`);
-
-        const summaries = responses.map((r, i) => {
+    private buildPersonaSummaries(responses: PersonaResponse[]): string {
+        return responses.map((r, i) => {
             const name = r.personaProfile?.name || `Persona ${i + 1}`;
             return `=== ${name} ===
 Overview: ${r.overview || "(none)"}
 Journey: ${(r.customerJourney || []).map(s => `${s.stage}: ${s.outcome} (${s.sentiment})`).join(" | ") || "(none)"}
-Findings: ${(r.majorFindings || []).map(f => `- ${f.observation}: ${f.evidence} (impact: ${f.impact})`).join("\n") || "(none)"}
+Findings: ${(r.majorFindings || []).map(f => `- ${f.observation}: ${f.evidence}`).join("\n") || "(none)"}
 Friction: ${(r.pointsOfFriction || []).join("; ") || "(none)"}
 Questions: ${(r.unansweredQuestions || []).join("; ") || "(none)"}
 `;
         }).join("\n\n");
+    }
 
-        const system = `You are analyzing simulated customer research. You have responses from ${responses.length} simulated personas who experienced an artifact.
-
-Business Goal: ${businessGoal}
-Research Question: ${researchQuestion}
-
-Your job: Synthesize patterns ACROSS all personas. This is the most important instruction — findings must describe what the GROUP experienced, not any individual.
-
-CRITICAL RULES — Follow without exception:
-
-1. Do NOT reference individual persona names anywhere in your output. Not in findings, not in the research question answer, not in the overview. The reader does not know these people.
-
-2. Use group language consistently:
-   - "Most personas..." / "Several personas..." / "A majority..."
-   - "Some personas..." / "A few personas..."
-   - "All personas..."
-   - NOT "Priya was..." or "Jeremy said..." or "Alex found..."
-
-3. If multiple personas had the same reaction, describe it as a group pattern:
-   - CORRECT: "Several personas were skeptical of the bold claims and wanted source verification."
-   - WRONG: "Priya was skeptical of the bold claims and wanted source verification."
-
-4. The research question answer must describe the collective experience, not one persona's journey:
-   - CORRECT: "Most personas showed initial interest but were held back by missing pricing information and unverified claims. Several were willing to try a free version but needed more transparency."
-   - WRONG: "Jeremy showed interest but was unable to evaluate..."
-
-5. Do NOT assign confidence (computed externally).
-6. Do NOT use persona traits as causal explanations.
-7. Do NOT make recommendations.
-
-Return a JSON object with:
-- overview: string — One paragraph synthesizing what the GROUP of personas collectively experienced
-- researchQuestionAnswer: string — The collective answer, grounded in cross-persona evidence, using group language
-- topFindings: array of { observation: string, evidence: string, impact: string } — Each finding describes a pattern observed across MULTIPLE personas. Evidence should cite what multiple personas said or did, not one individual.
-- disagreements: array of { topic: string, split: array of { view: string, personaCount: number }, significance: "High" | "Medium" | "Low" }
-- biggestFrictions: array of string — 2-3 friction points that MULTIPLE personas experienced`;
-
-        const prompt = `Here are the responses from ${responses.length} simulated personas. Read all of them, then identify what the GROUP collectively experienced.
-
-${summaries}
-
-Produce a structured JSON synthesis. Remember: no individual persona names, no single-persona stories — only cross-persona patterns. Return ONLY valid JSON.`;
-
-        const content = await Promise.race([
+    private async callLLM(
+        system: string,
+        prompt: string,
+        purpose: string,
+        timeoutMs: number,
+        options?: { runId?: string },
+    ): Promise<string> {
+        return Promise.race([
             this.llmService.createChatCompletion(
                 [{ role: "user", content: prompt }],
                 {
                     temperature: 0.3,
                     model: this.llmService.textModel,
                     response_format: { type: "json_object" },
-                    purpose: "Artifact Synthesis",
-                    runId: options.runId,
+                    purpose,
+                    runId: options?.runId,
                 }
             ),
             new Promise<string>((_, reject) =>
-                setTimeout(() => reject(new Error(`Synthesis timed out after ${TIMEOUT_MS}ms`)), TIMEOUT_MS)
+                setTimeout(() => reject(new Error(`${purpose} timed out after ${timeoutMs}ms`)), timeoutMs)
             ),
         ]);
+    }
+
+    async generateTopFindings(
+        responses: PersonaResponse[],
+        businessGoal: string,
+        researchQuestion: string,
+        options?: { runId?: string },
+    ): Promise<SynthesizedFinding[]> {
+        const log = options?.runId ? AnalysisLogger.forRun(options?.runId) : null;
+        const summaries = this.buildPersonaSummaries(responses);
+
+        const system = `You are analyzing simulated customer research. You have responses from ${responses.length} simulated personas.
+
+Business Goal: ${businessGoal}
+Research Question: ${researchQuestion}
+
+Your job: Identify the top 3-5 patterns that MULTIPLE personas experienced. Each finding must describe a cross-persona pattern.
+
+CRITICAL RULES:
+1. Do NOT reference individual persona names. Use group language: "Most personas...", "Several personas...", "A majority...", "All personas..."
+2. Evidence should cite what multiple personas said, not just one.
+3. Do NOT assign confidence (computed externally).
+4. Do NOT make recommendations.
+5. Do NOT use persona traits as causal explanations.
+
+Return a JSON array of { observation: string, evidence: string, impact: string }`;
+
+        const prompt = `${summaries}\n\nIdentify the top patterns across these personas. Return ONLY valid JSON.`;
+
+        const content = await this.callLLM(system, prompt, "Top Findings", 90_000, options);
 
         try {
             const parsed = JSON.parse(content);
-            const synthesis: ArtifactSynthesis = {
+            const findings = Array.isArray(parsed) ? parsed : parsed.topFindings || parsed.findings || [];
+            return findings.map((f: any) => ({
+                observation: f.observation || "",
+                evidence: f.evidence || "",
+                impact: f.impact || "",
+                confidence: "Medium" as const,
+                affectedPersonaCount: 0,
+                totalPersonaCount: responses.length,
+            }));
+        } catch (e) {
+            log?.error("generateTopFindings", "Parse failed", { error: String(e), preview: content.slice(0, 200) });
+            return [];
+        }
+    }
+
+    async generateDisagreements(
+        responses: PersonaResponse[],
+        options?: { runId?: string },
+    ): Promise<Disagreement[]> {
+        const log = options?.runId ? AnalysisLogger.forRun(options?.runId) : null;
+        const summaries = this.buildPersonaSummaries(responses);
+
+        const system = `You are analyzing simulated customer research. You have responses from ${responses.length} simulated personas.
+
+Your job: Identify where personas had OPPOSING reactions to the same thing. A disagreement exists when some personas reacted positively and others reacted negatively to the same feature, claim, or aspect.
+
+If most personas agreed on everything, return an empty array.
+
+CRITICAL: Do NOT reference individual persona names. Use group language.
+
+Return a JSON array of { topic: string, split: [{ view: string, personaCount: number }], significance: "High" | "Medium" | "Low" }`;
+
+        const prompt = `${summaries}\n\nIdentify disagreements across these personas. Return ONLY valid JSON.`;
+
+        const content = await this.callLLM(system, prompt, "Disagreements", 60_000, options);
+
+        try {
+            const parsed = JSON.parse(content);
+            const items = Array.isArray(parsed) ? parsed : parsed.disagreements || [];
+            return items.map((d: any) => ({
+                topic: d.topic || "",
+                split: (d.split || []).map((s: any) => ({ view: s.view || "", personaCount: s.personaCount || 0 })),
+                significance: d.significance || "Medium",
+            }));
+        } catch (e) {
+            log?.error("generateDisagreements", "Parse failed", { error: String(e), preview: content.slice(0, 200) });
+            return [];
+        }
+    }
+
+    async generateFrictions(
+        responses: PersonaResponse[],
+        options?: { runId?: string },
+    ): Promise<string[]> {
+        const log = options?.runId ? AnalysisLogger.forRun(options?.runId) : null;
+        const summaries = this.buildPersonaSummaries(responses);
+
+        const system = `You are analyzing simulated customer research. You have responses from ${responses.length} simulated personas.
+
+Your job: Identify the 2-3 biggest friction points that MULTIPLE personas experienced. A friction point is something that confused, frustrated, or stopped personas.
+
+CRITICAL: Do NOT reference individual persona names. Use group language.
+
+Return a JSON array of strings.`;
+
+        const prompt = `${summaries}\n\nIdentify the biggest friction points across these personas. Return ONLY valid JSON.`;
+
+        const content = await this.callLLM(system, prompt, "Frictions", 60_000, options);
+
+        try {
+            const parsed = JSON.parse(content);
+            return Array.isArray(parsed) ? parsed : parsed.frictions || parsed.biggestFrictions || [];
+        } catch (e) {
+            log?.error("generateFrictions", "Parse failed", { error: String(e), preview: content.slice(0, 200) });
+            return [];
+        }
+    }
+
+    async generateSynthesisOverview(
+        responses: PersonaResponse[],
+        businessGoal: string,
+        researchQuestion: string,
+        topFindings: SynthesizedFinding[],
+        disagreements: Disagreement[],
+        frictions: string[],
+        options?: { runId?: string },
+    ): Promise<{ overview: string; researchQuestionAnswer: string }> {
+        const log = options?.runId ? AnalysisLogger.forRun(options?.runId) : null;
+
+        const findingsText = topFindings.map(f => `- ${f.observation}`).join("\n");
+        const disagreementsText = disagreements.map(d => `- ${d.topic}`).join("\n");
+        const frictionsText = frictions.map(f => `- ${f}`).join("\n");
+
+        const system = `You are synthesizing customer research findings into a final report.
+
+Business Goal: ${businessGoal}
+Research Question: ${researchQuestion}
+
+You have been given the top findings, disagreements, and friction points identified across simulated personas.
+
+Your job: Produce two short summaries.
+
+1. overview: One paragraph describing what the GROUP of personas collectively experienced. Focus on the most important pattern.
+2. researchQuestionAnswer: One paragraph that directly answers the research question using evidence from the findings.
+
+CRITICAL:
+- Do NOT reference individual persona names. Use group language: "Most personas...", "Several personas..."
+- Do NOT make recommendations.
+- Do NOT use persona traits as causal explanations.
+- Keep each paragraph concise (3-5 sentences).
+
+Return a JSON object with { overview: string, researchQuestionAnswer: string }`;
+
+        const prompt = `Top Findings:
+${findingsText || "(none found)"}
+
+Disagreements:
+${disagreementsText || "(none found)"}
+
+Friction Points:
+${frictionsText || "(none found)"}
+
+Synthesize these into an overview and research question answer. Return ONLY valid JSON.`;
+
+        const content = await this.callLLM(system, prompt, "Synthesis Overview", 60_000, options);
+
+        try {
+            const parsed = JSON.parse(content);
+            return {
                 overview: parsed.overview || "",
                 researchQuestionAnswer: parsed.researchQuestionAnswer || "",
-                topFindings: (parsed.topFindings || []).map((f: any) => ({
-                    observation: f.observation || "",
-                    evidence: f.evidence || "",
-                    impact: f.impact || "",
-                    confidence: "Medium" as const,
-                    affectedPersonaCount: 0,
-                    totalPersonaCount: responses.length,
-                })),
-                disagreements: (parsed.disagreements || []).map((d: any) => ({
-                    topic: d.topic || "",
-                    split: (d.split || []).map((s: any) => ({ view: s.view || "", personaCount: s.personaCount || 0 })),
-                    significance: d.significance || "Medium",
-                })),
-                biggestFrictions: parsed.biggestFrictions || [],
-                completedCount: responses.length,
-                failedCount: 0,
-                totalPersonaCount: responses.length,
             };
-
-            log?.info("VisionAnalysisAdapter", `generateArtifactSynthesis completed`, {
-                findingsCount: synthesis.topFindings.length,
-                disagreementsCount: synthesis.disagreements.length,
-            });
-
-            return synthesis;
         } catch (e) {
-            log?.error("VisionAnalysisAdapter", `generateArtifactSynthesis parse failed`, {
-                error: String(e),
-                contentPreview: content.slice(0, 300),
-            });
-            return {
-                overview: "",
-                researchQuestionAnswer: "",
-                topFindings: [],
-                disagreements: [],
-                biggestFrictions: [],
-                completedCount: responses.length,
-                failedCount: 0,
-                totalPersonaCount: responses.length,
-            };
+            log?.error("generateSynthesisOverview", "Parse failed", { error: String(e), preview: content.slice(0, 200) });
+            return { overview: "", researchQuestionAnswer: "" };
         }
     }
 }

@@ -145,55 +145,49 @@ async function runLocally(
                     if (completedResponses.length === 0) {
                         log.warn("analyzeArtifactAction", "No completed responses — skipping synthesis");
                     } else {
-                        const rawSynthesis = await llmService.generateArtifactSynthesis(
+                        // Phase 1: Parallel focused calls
+                        const [rawFindings, rawDisagreements, rawFrictions] = await Promise.all([
+                            llmService.generateTopFindings(completedResponses, businessGoal, researchQuestion, { runId: id }),
+                            llmService.generateDisagreements(completedResponses, { runId: id }),
+                            llmService.generateFrictions(completedResponses, { runId: id }),
+                        ]);
+
+                        // Compute confidence from agreement for each finding
+                        for (const finding of rawFindings) {
+                            let matchCount = 0;
+                            for (const response of completedResponses) {
+                                const hasMatch = response.majorFindings.some(f =>
+                                    f.observation.toLowerCase().includes(finding.observation.slice(0, 20).toLowerCase())
+                                );
+                                if (hasMatch) matchCount++;
+                            }
+                            finding.affectedPersonaCount = Math.max(matchCount, 1);
+                            finding.totalPersonaCount = completedResponses.length;
+                            const ratio = matchCount / completedResponses.length;
+                            finding.confidence = ratio >= 0.6 ? 'High' : ratio >= 0.3 ? 'Medium' : 'Low';
+                        }
+
+                        // Phase 2: Overview and research question answer (informed by Phase 1)
+                        const overviewResult = await llmService.generateSynthesisOverview(
                             completedResponses,
                             businessGoal,
                             researchQuestion,
+                            rawFindings,
+                            rawDisagreements,
+                            rawFrictions,
                             { runId: id },
                         );
 
-                        if (rawSynthesis && rawSynthesis.topFindings.length > 0) {
-                            // Collect persona names to sanitize LLM output
-                            const personaNames = new Set(completedResponses.map(r => r.personaProfile?.name?.split(' ')[0]).filter(Boolean));
-
-                            // Compute confidence from agreement — never use LLM-assigned confidence
-                            for (const finding of rawSynthesis.topFindings) {
-                                // Sanitize finding observation: replace persona first names with group language
-                                let obs = finding.observation;
-                                for (const name of personaNames) {
-                                    const regex = new RegExp(`\\b${name}\\b`, 'gi');
-                                    if (regex.test(obs)) {
-                                        obs = obs.replace(regex, '');
-                                        obs = 'Several personas ' + obs.replace(/^(?:was|were|is|are|said|noted|felt|found|expressed)\s+/i, '');
-                                        break;
-                                    }
-                                }
-                                finding.observation = obs;
-
-                                let matchCount = 0;
-                                for (const response of completedResponses) {
-                                    const hasMatch = response.majorFindings.some(f =>
-                                        f.observation.toLowerCase().includes(finding.observation.slice(0, 20).toLowerCase())
-                                    );
-                                    if (hasMatch) matchCount++;
-                                }
-                                finding.affectedPersonaCount = Math.max(matchCount, 1);
-                                finding.totalPersonaCount = completedResponses.length;
-                                const ratio = matchCount / completedResponses.length;
-                                finding.confidence = ratio >= 0.6 ? 'High' : ratio >= 0.3 ? 'Medium' : 'Low';
-                            }
-
-                            // Also sanitize research question answer
-                            for (const name of personaNames) {
-                                const regex = new RegExp(`\\b${name}\\b`, 'gi');
-                                rawSynthesis.researchQuestionAnswer = rawSynthesis.researchQuestionAnswer.replace(regex, 'Several personas');
-                            }
-
-                            rawSynthesis.completedCount = completedResponses.length;
-                            rawSynthesis.failedCount = failedCount;
-                            rawSynthesis.totalPersonaCount = responses.length;
-                            synthesis = rawSynthesis;
-                        }
+                        synthesis = {
+                            overview: overviewResult.overview,
+                            researchQuestionAnswer: overviewResult.researchQuestionAnswer,
+                            topFindings: rawFindings,
+                            disagreements: rawDisagreements,
+                            biggestFrictions: rawFrictions,
+                            completedCount: completedResponses.length,
+                            failedCount,
+                            totalPersonaCount: responses.length,
+                        };
                     }
                 } catch (synthErr) {
                     log.warn("analyzeArtifactAction", "Synthesis generation failed, proceeding without", {
