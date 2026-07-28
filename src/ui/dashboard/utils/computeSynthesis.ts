@@ -30,7 +30,7 @@ function groupSimilarFindings(responses: PersonaResponse[]): SynthesizedFinding[
     }
   }
 
-  const groups: { observation: string; evidence: string; impact: string; personaIndices: Set<number> }[] = []
+  const groups: { observation: string; evidence: string; impact: string; personaIndices: Set<number>; bestPersonaIndex: number }[] = []
   const assigned = new Set<number>()
 
   for (let i = 0; i < allFindings.length; i++) {
@@ -40,6 +40,7 @@ function groupSimilarFindings(responses: PersonaResponse[]): SynthesizedFinding[
     let bestObservation = allFindings[i].observation
     let bestEvidence = allFindings[i].evidence
     let bestImpact = allFindings[i].impact
+    let bestPersonaIndex = allFindings[i].personaIndex
     const personaIndices = new Set([allFindings[i].personaIndex])
 
     for (let j = i + 1; j < allFindings.length; j++) {
@@ -51,6 +52,7 @@ function groupSimilarFindings(responses: PersonaResponse[]): SynthesizedFinding[
           bestObservation = allFindings[j].observation
           bestEvidence = allFindings[j].evidence
           bestImpact = allFindings[j].impact
+          bestPersonaIndex = allFindings[j].personaIndex
         }
       }
     }
@@ -60,19 +62,24 @@ function groupSimilarFindings(responses: PersonaResponse[]): SynthesizedFinding[
       evidence: bestEvidence,
       impact: bestImpact,
       personaIndices,
+      bestPersonaIndex,
     })
   }
 
   const totalCount = responses.length
   return groups
-    .map(g => ({
-      observation: g.observation,
-      evidence: g.evidence,
-      impact: g.impact,
-      confidence: g.personaIndices.size >= Math.ceil(totalCount * 0.6) ? 'High' as const : g.personaIndices.size >= Math.ceil(totalCount * 0.3) ? 'Medium' as const : 'Low' as const,
-      affectedPersonaCount: g.personaIndices.size,
-      totalPersonaCount: totalCount,
-    }))
+    .filter(g => g.personaIndices.size > 0 && g.evidence.trim().length > 0)
+    .map(g => {
+      const name = responses[g.bestPersonaIndex]?.personaProfile?.name ?? `Persona ${g.bestPersonaIndex + 1}`
+      return {
+        observation: g.observation,
+        evidence: `${name}: "${g.evidence}"`,
+        impact: g.impact,
+        confidence: g.personaIndices.size >= Math.ceil(totalCount * 0.8) ? 'High' as const : g.personaIndices.size >= Math.ceil(totalCount * 0.4) ? 'Medium' as const : 'Low' as const,
+        affectedPersonaCount: g.personaIndices.size,
+        totalPersonaCount: totalCount,
+      }
+    })
     .sort((a, b) => b.affectedPersonaCount - a.affectedPersonaCount)
 }
 
@@ -108,6 +115,61 @@ function findDisagreements(responses: PersonaResponse[]): Disagreement[] {
   return disagreements
 }
 
+function pickMostRepresentative(strings: string[]): string {
+  if (strings.length === 0) return ''
+  if (strings.length === 1) return strings[0]
+  const scores = strings.map((s, i) => {
+    let score = 0
+    for (let j = 0; j < strings.length; j++) {
+      if (i === j) continue
+      score += wordOverlap(s, strings[j])
+    }
+    return { text: s, score }
+  })
+  scores.sort((a, b) => b.score - a.score)
+  return scores[0].text
+}
+
+function toAnalystVoice(text: string): string {
+  if (!text) return ''
+  const cleaned = text
+    .replace(/\bI\s+was\b/g, 'Personas were')
+    .replace(/\bI\s+felt\b/g, 'Personas felt')
+    .replace(/\bI\s+thought\b/g, 'Personas thought')
+    .replace(/\bI\s+noticed\b/g, 'Personas noticed')
+    .replace(/\bI\s+saw\b/g, 'Personas saw')
+    .replace(/\bI\s+found\b/g, 'Personas found')
+    .replace(/\bI\s+decided\b/g, 'Personas decided')
+    .replace(/\bI\s+needed\b/g, 'Personas needed')
+    .replace(/\bI\s+wanted\b/g, 'Personas wanted')
+    .replace(/\bI\s+would\b/g, 'Personas would')
+    .replace(/\bI\s+could\b/g, 'Personas could')
+    .replace(/\bI'm\b/g, "Personas are")
+    .replace(/\bI've\b/g, "Personas have")
+    .replace(/\bI'd\b/g, "Personas would")
+    .replace(/\bI'll\b/g, "Personas will")
+    .replace(/\bmy\b/g, 'their')
+    .replace(/\bme\b/g, 'them')
+    .replace(/\bmyself\b/g, 'themselves')
+  return cleaned.charAt(0).toUpperCase() + cleaned.slice(1)
+}
+
+function stripTrailingPeriod(s: string): string {
+  return s.replace(/[.!?]+$/, '')
+}
+
+function synthesizeRQA(topFindings: SynthesizedFinding[]): string {
+  if (topFindings.length === 0) return ''
+  const top = topFindings.slice(0, 3).map(f => stripTrailingPeriod(f.observation.toLowerCase()))
+  if (top.length === 1) {
+    return `Across the personas tested, the primary finding was that ${top[0]}.`
+  }
+  if (top.length === 2) {
+    return `Across the personas tested, personas primarily noted that ${top[0]}, while a secondary concern was ${top[1]}.`
+  }
+  return `Across the personas tested, the most common findings were that ${top[0]}, ${top[1]}, and ${top[2]}.`
+}
+
 export function computeSynthesis(responses: PersonaResponse[]): ArtifactSynthesis {
   if (responses.length === 0) {
     return {
@@ -140,8 +202,8 @@ export function computeSynthesis(responses: PersonaResponse[]): ArtifactSynthesi
   }
   frictionGroups.sort((a, b) => b.count - a.count)
 
-  const overview = pickMostRepresentative(responses.map(r => r.overview).filter(Boolean))
-  const rqa = pickMostRepresentative(responses.map(r => r.researchQuestionAnswer).filter(Boolean))
+  const overview = toAnalystVoice(pickMostRepresentative(responses.map(r => r.overview).filter(Boolean)))
+  const rqa = synthesizeRQA(topFindings)
 
   return {
     overview,
@@ -153,19 +215,4 @@ export function computeSynthesis(responses: PersonaResponse[]): ArtifactSynthesi
     failedCount: 0,
     totalPersonaCount: responses.length,
   }
-}
-
-function pickMostRepresentative(strings: string[]): string {
-  if (strings.length === 0) return ''
-  if (strings.length === 1) return strings[0]
-  const scores = strings.map((s, i) => {
-    let score = 0
-    for (let j = 0; j < strings.length; j++) {
-      if (i === j) continue
-      score += wordOverlap(s, strings[j])
-    }
-    return { text: s, score }
-  })
-  scores.sort((a, b) => b.score - a.score)
-  return scores[0].text
 }
