@@ -36,10 +36,9 @@ const StageJourneySchema = z.object({
 });
 
 const MajorFindingSchema = z.object({
-  observation: z.string().describe("What happened — a specific behavior or reaction observed across personas."),
-  evidence: z.string().describe("What personas experienced that supports this observation. Grounded in the simulation."),
+  observation: z.string().describe("What happened — a specific behavior or reaction observed."),
+  evidence: z.string().describe("What the persona experienced that supports this observation. Grounded in the simulation."),
   impact: z.string().describe("Why this matters — the downstream effect on the persona's experience."),
-  confidence: z.enum(["High", "Medium", "Low"]).describe("Confidence in this finding, derived from inter-persona agreement (never LLM-generated)."),
 });
 
 export const PersonaResponseSchema = z.object({
@@ -73,7 +72,7 @@ export function validatePersonaResponse(response: PersonaResponse): boolean {
   }
 
   for (const finding of response.majorFindings) {
-    if (!finding.observation || !finding.evidence || !finding.impact || !finding.confidence) return false;
+    if (!finding.observation || !finding.evidence || !finding.impact) return false;
   }
 
   return true;

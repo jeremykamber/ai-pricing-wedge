@@ -1,6 +1,5 @@
 import type { PersonaResponse } from '@/domain/entities/PersonaResponse'
-import type { CognitiveStage } from '@/domain/entities/CognitiveStage'
-import type { ArtifactSynthesis, SynthesizedFinding, ConsensusArea, Disagreement } from '@/domain/entities/ArtifactSynthesis'
+import type { ArtifactSynthesis, SynthesizedFinding, Disagreement } from '@/domain/entities/ArtifactSynthesis'
 
 function normalize(text: string): string {
   return text.toLowerCase().replace(/[^a-z0-9\s]/g, '').trim()
@@ -18,117 +17,91 @@ function wordOverlap(a: string, b: string): number {
 }
 
 function groupSimilarFindings(responses: PersonaResponse[]): SynthesizedFinding[] {
-  const allFindings: { finding: SynthesizedFinding; personaName: string }[] = []
+  const allFindings: { observation: string; evidence: string; impact: string; personaIndex: number }[] = []
 
   for (const r of responses) {
     for (const f of r.majorFindings) {
       allFindings.push({
-        finding: {
-          observation: f.observation,
-          evidence: f.evidence,
-          impact: f.impact,
-          confidence: f.confidence,
-          affectedPersonas: [r.personaProfile?.name || 'Unknown'],
-        },
-        personaName: r.personaProfile?.name || 'Unknown',
+        observation: f.observation,
+        evidence: f.evidence,
+        impact: f.impact,
+        personaIndex: responses.indexOf(r),
       })
     }
   }
 
-  const groups: SynthesizedFinding[] = []
+  const groups: { observation: string; evidence: string; impact: string; personaIndices: Set<number> }[] = []
   const assigned = new Set<number>()
 
   for (let i = 0; i < allFindings.length; i++) {
     if (assigned.has(i)) continue
     assigned.add(i)
 
-    const group: SynthesizedFinding = {
-      observation: allFindings[i].finding.observation,
-      evidence: allFindings[i].finding.evidence,
-      impact: allFindings[i].finding.impact,
-      confidence: allFindings[i].finding.confidence,
-      affectedPersonas: [allFindings[i].personaName],
+    const group = {
+      observation: allFindings[i].observation,
+      evidence: allFindings[i].evidence,
+      impact: allFindings[i].impact,
+      personaIndices: new Set([allFindings[i].personaIndex]),
     }
 
     for (let j = i + 1; j < allFindings.length; j++) {
       if (assigned.has(j)) continue
-      const overlap = wordOverlap(
-        allFindings[i].finding.observation,
-        allFindings[j].finding.observation,
-      )
-      if (overlap > 0.3) {
+      if (wordOverlap(allFindings[i].observation, allFindings[j].observation) > 0.3) {
         assigned.add(j)
-        group.affectedPersonas.push(allFindings[j].personaName)
-        if (allFindings[j].finding.observation.length > group.observation.length) {
-          group.observation = allFindings[j].finding.observation
+        group.personaIndices.add(allFindings[j].personaIndex)
+        if (allFindings[j].observation.length > group.observation.length) {
+          group.observation = allFindings[j].observation
         }
-        group.evidence += ` ${allFindings[j].finding.evidence}`
+        group.evidence += ` ${allFindings[j].evidence}`
       }
     }
-
-    // Aggregate confidence based on agreement count
-    const personaCount = group.affectedPersonas.length
-    if (personaCount >= 3) group.confidence = 'High'
-    else if (personaCount >= 2) group.confidence = 'Medium'
-    else group.confidence = 'Low'
 
     groups.push(group)
   }
 
-  // Sort by affected persona count (most consensus first)
-  groups.sort((a, b) => b.affectedPersonas.length - a.affectedPersonas.length)
-
+  const totalCount = responses.length
   return groups
+    .map(g => ({
+      observation: g.observation,
+      evidence: g.evidence,
+      impact: g.impact,
+      confidence: g.personaIndices.size >= Math.ceil(totalCount * 0.6) ? 'High' as const : g.personaIndices.size >= Math.ceil(totalCount * 0.3) ? 'Medium' as const : 'Low' as const,
+      affectedPersonaCount: g.personaIndices.size,
+      totalPersonaCount: totalCount,
+    }))
+    .sort((a, b) => b.affectedPersonaCount - a.affectedPersonaCount)
 }
 
 function findDisagreements(responses: PersonaResponse[]): Disagreement[] {
-  const disagreements: Disagreement[] = []
-
-  // Group personas by their highest stage outcome for disagreement detection
-  const stageOutcomes: Record<string, { personaName: string; outcome: string; stage: string }[]> = {}
+  const stageOutcomes: Record<string, { outcome: string }[]> = {}
 
   for (const r of responses) {
     for (const stage of r.customerJourney) {
       const key = stage.stage
       if (!stageOutcomes[key]) stageOutcomes[key] = []
-      stageOutcomes[key].push({
-        personaName: r.personaProfile?.name || 'Unknown',
-        outcome: stage.outcome,
-        stage: stage.stage,
-      })
+      stageOutcomes[key].push({ outcome: stage.outcome })
     }
   }
 
-  // Find stages where personas split (some succeeded, some blocked)
-  for (const [stage, outcomes] of Object.entries(stageOutcomes)) {
-    const succeeded = outcomes.filter(o => o.outcome === 'succeeded').map(o => o.personaName)
-    const blocked = outcomes.filter(o => o.outcome !== 'succeeded').map(o => o.personaName)
+  const disagreements: Disagreement[] = []
 
-    if (succeeded.length > 0 && blocked.length > 0) {
+  for (const [stage, outcomes] of Object.entries(stageOutcomes)) {
+    const succeeded = outcomes.filter(o => o.outcome === 'succeeded').length
+    const blocked = outcomes.length - succeeded
+
+    if (succeeded > 0 && blocked > 0) {
       disagreements.push({
         topic: `Stage "${stage}" — personas split on progression`,
         split: [
-          { view: 'Progressed successfully', personaNames: succeeded },
-          { view: 'Stopped or blocked', personaNames: blocked },
+          { view: 'Progressed successfully', personaCount: succeeded },
+          { view: 'Stopped or blocked', personaCount: blocked },
         ],
-        significance: blocked.length >= succeeded.length ? 'High' : 'Medium',
+        significance: blocked >= succeeded ? 'High' as const : 'Medium' as const,
       })
     }
   }
 
   return disagreements
-}
-
-function findConsensus(responses: PersonaResponse[]): ConsensusArea[] {
-  const groups = groupSimilarFindings(responses)
-  return groups
-    .filter(g => g.affectedPersonas.length >= Math.ceil(responses.length / 2))
-    .map(g => ({
-      topic: g.observation,
-      agreement: g.evidence.slice(0, 200),
-      personaCount: g.affectedPersonas.length,
-      personaNames: g.affectedPersonas,
-    }))
 }
 
 export function computeSynthesis(responses: PersonaResponse[]): ArtifactSynthesis {
@@ -137,51 +110,40 @@ export function computeSynthesis(responses: PersonaResponse[]): ArtifactSynthesi
       overview: '',
       researchQuestionAnswer: '',
       topFindings: [],
-      consensus: [],
       disagreements: [],
       biggestFrictions: [],
-      personaCount: 0,
+      completedCount: 0,
+      failedCount: 0,
+      totalPersonaCount: 0,
     }
   }
 
   const topFindings = groupSimilarFindings(responses)
-  const disagreements = findDisagreements(responses)
-  const consensus = findConsensus(responses)
 
-  // Collect all friction points
-  const allFrictions = responses.flatMap(r =>
-    r.pointsOfFriction.map(f => ({ text: f, personaName: r.personaProfile?.name || 'Unknown' }))
-  )
-
-  // Group friction by similarity
-  const frictionGroups: { text: string; personas: string[] }[] = []
+  const allFrictions = responses.flatMap(r => r.pointsOfFriction)
+  const frictionGroups: { text: string; count: number }[] = []
   for (const f of allFrictions) {
     let found = false
     for (const g of frictionGroups) {
-      if (wordOverlap(f.text, g.text) > 0.3) {
-        g.personas.push(f.personaName)
-        if (f.text.length > g.text.length) g.text = f.text
+      if (wordOverlap(f, g.text) > 0.3) {
+        g.count++
+        if (f.length > g.text.length) g.text = f
         found = true
         break
       }
     }
-    if (!found) frictionGroups.push({ text: f.text, personas: [f.personaName] })
+    if (!found) frictionGroups.push({ text: f, count: 1 })
   }
-  frictionGroups.sort((a, b) => b.personas.length - a.personas.length)
-
-  // Use first response's researchQuestionAnswer as synthesis-level answer
-  const researchQuestionAnswer = responses[0].researchQuestionAnswer || ''
-
-  // Build overview from first response overview if available
-  const overview = responses[0].overview || ''
+  frictionGroups.sort((a, b) => b.count - a.count)
 
   return {
-    overview,
-    researchQuestionAnswer,
+    overview: responses[0]?.overview || '',
+    researchQuestionAnswer: responses[0]?.researchQuestionAnswer || '',
     topFindings,
-    consensus,
-    disagreements,
+    disagreements: findDisagreements(responses),
     biggestFrictions: frictionGroups.map(f => f.text),
-    personaCount: responses.length,
+    completedCount: responses.length,
+    failedCount: 0,
+    totalPersonaCount: responses.length,
   }
 }

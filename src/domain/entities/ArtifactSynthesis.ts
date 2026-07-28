@@ -1,15 +1,12 @@
-/**
- * Cross-persona synthesis computed from PersonaResponse[].
- * Not LLM-generated — derived from observed agreement patterns across personas.
- */
 export interface ArtifactSynthesis {
   overview: string
   researchQuestionAnswer: string
   topFindings: SynthesizedFinding[]
-  consensus: ConsensusArea[]
   disagreements: Disagreement[]
   biggestFrictions: string[]
-  personaCount: number
+  completedCount: number
+  failedCount: number
+  totalPersonaCount: number
 }
 
 export interface SynthesizedFinding {
@@ -17,18 +14,12 @@ export interface SynthesizedFinding {
   evidence: string
   impact: string
   confidence: 'High' | 'Medium' | 'Low'
-  affectedPersonas: string[]
-}
-
-export interface ConsensusArea {
-  topic: string
-  agreement: string
-  personaCount: number
-  personaNames: string[]
+  affectedPersonaCount: number
+  totalPersonaCount: number
 }
 
 export interface Disagreement {
   topic: string
-  split: { view: string; personaNames: string[] }[]
+  split: { view: string; personaCount: number }[]
   significance: 'High' | 'Medium' | 'Low'
 }

@@ -7,11 +7,12 @@ import { AnalyzeArtifactUseCase } from "@/application/usecases/AnalyzeArtifactUs
 import { ArtifactIntakeAdapter, type ArtifactInput } from "@/infrastructure/adapters/ArtifactIntakeAdapter";
 import { RemotePlaywrightAdapter } from "@/infrastructure/adapters/RemotePlaywrightAdapter";
 import { Persona } from "@/domain/entities/Persona";
+import type { PersonaResponse } from "@/domain/entities/PersonaResponse";
+import type { ArtifactSynthesis } from "@/domain/entities/ArtifactSynthesis";
 import { LlmServiceImpl } from "@/infrastructure/adapters/LlmServiceImpl";
 import { cancellationManager } from "@/infrastructure/RequestCancellationManager";
 import { AnalysisLogger } from "@/infrastructure/AnalysisLogger";
 import { simulationResultStore } from "@/infrastructure/SimulationResultStore";
-import { storeScreenshot } from "./getScreenshot";
 import { storeProgress, storeCompleted } from "./getProgress";
 import { shouldRunLocally, VPS_BACKEND_URL, getVpsAuthToken } from "@/infrastructure/config";
 
@@ -135,9 +136,54 @@ async function runLocally(
             log.info("analyzeArtifactAction", `useCase.execute() completed with ${responses.length} responses`);
 
             if (!abortSignal.aborted) {
+                // Generate cross-persona synthesis
+                let synthesis: ArtifactSynthesis | null = null;
+                const completedResponses = responses.filter(r => r.overview && r.customerJourney.length > 0);
+                const failedCount = responses.length - completedResponses.length;
+
+                try {
+                    const rawSynthesis = await llmService.generateArtifactSynthesis(
+                        completedResponses,
+                        businessGoal,
+                        researchQuestion,
+                        { runId: id },
+                    );
+
+                    if (rawSynthesis && rawSynthesis.topFindings.length > 0) {
+                        // Compute confidence from agreement — never use LLM-assigned confidence
+                        for (const finding of rawSynthesis.topFindings) {
+                            let matchCount = 0;
+                            for (const response of completedResponses) {
+                                const hasMatch = response.majorFindings.some(f =>
+                                    f.observation.toLowerCase().includes(finding.observation.slice(0, 20).toLowerCase())
+                                );
+                                if (hasMatch) matchCount++;
+                            }
+                            finding.affectedPersonaCount = Math.max(matchCount, 1);
+                            finding.totalPersonaCount = completedResponses.length;
+                            const ratio = matchCount / completedResponses.length;
+                            finding.confidence = ratio >= 0.6 ? 'High' : ratio >= 0.3 ? 'Medium' : 'Low';
+                        }
+
+                        rawSynthesis.completedCount = completedResponses.length;
+                        rawSynthesis.failedCount = failedCount;
+                        rawSynthesis.totalPersonaCount = responses.length;
+                        synthesis = rawSynthesis;
+                    }
+                } catch (synthErr) {
+                    log.warn("analyzeArtifactAction", "Synthesis generation failed, proceeding without", {
+                        error: String(synthErr),
+                    });
+                }
+
                 simulationResultStore.save(id, responses);
                 storeCompleted(id);
-                stream.done({ step: "DONE", analyses: responses, requestId: id });
+                stream.done({
+                    step: "DONE",
+                    analyses: responses,
+                    synthesis,
+                    requestId: id,
+                });
             } else {
                 simulationResultStore.saveError(id, 'Request was cancelled');
                 stream.done({ step: "CANCELLED", requestId: id });

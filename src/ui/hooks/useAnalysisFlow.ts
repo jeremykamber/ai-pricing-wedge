@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { Persona } from '@/domain/entities/Persona'
 import type { PersonaResponse } from '@/domain/entities/PersonaResponse'
+import type { ArtifactSynthesis } from '@/domain/entities/ArtifactSynthesis'
 import { analyzeArtifactAction } from '@/actions/analyzeArtifactAction'
 import type { ArtifactInput } from '@/infrastructure/adapters/ArtifactIntakeAdapter'
 import { getSimulationResultAction } from '@/actions/getSimulationResult'
@@ -19,6 +20,7 @@ export interface AnalysisProgress {
   totalCount?: number
   error?: string
   analyses?: PersonaResponse[]
+  synthesis?: ArtifactSynthesis
 }
 
 export function useAnalysisFlow(onSuccess?: (analyses: PersonaResponse[]) => void) {
@@ -27,6 +29,7 @@ export function useAnalysisFlow(onSuccess?: (analyses: PersonaResponse[]) => voi
   const [businessGoal, setBusinessGoal] = useState('')
   const [researchQuestion, setResearchQuestion] = useState('')
   const [analyses, setAnalyses] = useState<PersonaResponse[] | null>(null)
+  const [synthesis, setSynthesis] = useState<ArtifactSynthesis | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [isPending, setIsPending] = useState(false)
   const [analysisProgress, setAnalysisProgress] = useState<AnalysisProgress | null>(null)
@@ -164,9 +167,11 @@ export function useAnalysisFlow(onSuccess?: (analyses: PersonaResponse[]) => voi
             if (update.step === 'DONE') {
               clearScreenshotPoll()
               const results = update.analyses as PersonaResponse[] | undefined
+              const synth = (update as any).synthesis as ArtifactSynthesis | undefined
               useSimulationStore.getState().markComplete(simulationId, results ?? [])
               if (mountedRef.current) {
                 setAnalyses(results ?? null)
+                setSynthesis(synth ?? null)
                 setAnalysisProgress(null)
                 setCurrentRequestId(null)
               }
@@ -266,6 +271,8 @@ export function useAnalysisFlow(onSuccess?: (analyses: PersonaResponse[]) => voi
     setResearchQuestion,
     analyses,
     setAnalyses,
+    synthesis,
+    setSynthesis,
     error,
     setError,
     isPending,

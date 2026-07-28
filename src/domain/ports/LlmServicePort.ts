@@ -253,6 +253,18 @@ export interface LlmServicePort {
     // --- End new pipeline ---
 
     /**
+     * Cross-persona synthesis: takes all persona responses and produces
+     * a structured synthesis with top findings, disagreements, and frictions.
+     * Confidence is computed from agreement (code post-processes LLM output).
+     */
+    generateArtifactSynthesis(
+        responses: PersonaResponse[],
+        businessGoal: string,
+        researchQuestion: string,
+        options?: { tokenLimit?: number; runId?: string }
+    ): Promise<import("../entities/ArtifactSynthesis").ArtifactSynthesis>;
+
+    /**
      * Validates if a user's prompt is within the persona's expected domain.
      * Prevents requests for code, poetry, or other general assistant tasks.
      */

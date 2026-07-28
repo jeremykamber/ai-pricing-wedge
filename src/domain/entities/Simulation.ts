@@ -22,6 +22,7 @@ export interface Simulation {
     screenshot?: string
     streamingTexts?: Record<string, string>
     error?: string
+    synthesis?: import('@/domain/entities/ArtifactSynthesis').ArtifactSynthesis
 }
 
 export function generateSimulationName(url: string, batchName?: string): string {

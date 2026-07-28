@@ -374,8 +374,13 @@ function CompletedView({
   const [expandedPersonas, setExpandedPersonas] = useState<Set<number>>(new Set())
 
   const synthesis = useMemo(
-    () => analyses ? computeSynthesis(analyses) : null,
-    [analyses]
+    () => {
+      if (simulation.synthesis) return simulation.synthesis
+      if (!analyses) return null
+      // Fall back to computed synthesis when LLM-generated one isn't available
+      return computeSynthesis(analyses)
+    },
+    [analyses, simulation.synthesis]
   )
 
   const togglePersona = (index: number) => {
@@ -400,6 +405,14 @@ function CompletedView({
       {/* ── Executive Synthesis ─────────────────────────────── */}
       {synthesis && (
         <div className="flex flex-col gap-6">
+          {/* Persona completion status */}
+          <div className="flex items-center gap-4 text-sm text-muted-foreground">
+            <span>Completed: {synthesis.completedCount}/{synthesis.totalPersonaCount}</span>
+            {synthesis.failedCount > 0 && (
+              <span className="text-destructive">Failed: {synthesis.failedCount}</span>
+            )}
+          </div>
+
           {/* Research Question Answer */}
           {synthesis.researchQuestionAnswer && (
             <div className="rounded-lg border border-primary/10 bg-primary/5 p-5">
@@ -408,11 +421,11 @@ function CompletedView({
             </div>
           )}
 
-          {/* Top Findings with Affected Personas */}
+          {/* Top Findings with Observed Counts */}
           {synthesis.topFindings.length > 0 && (
             <div className="flex flex-col gap-3">
               <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
-                Top Findings ({synthesis.personaCount} personas)
+                Top Findings
               </h3>
               {synthesis.topFindings.slice(0, 5).map((finding, i) => (
                 <div key={i} className="rounded-lg border border-border bg-card p-4 flex flex-col gap-2">
@@ -430,7 +443,7 @@ function CompletedView({
                   <p className="text-xs text-muted-foreground"><span className="font-medium">Impact:</span> {finding.impact}</p>
                   <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
                     <UsersIcon className="h-3 w-3" />
-                    <span>Affected: {finding.affectedPersonas.join(', ')}</span>
+                    <span>Observed in {finding.affectedPersonaCount}/{finding.totalPersonaCount} personas</span>
                   </div>
                 </div>
               ))}
@@ -449,7 +462,7 @@ function CompletedView({
                   <div className="flex flex-col gap-1.5">
                     {d.split.map((side, j) => (
                       <div key={j} className="text-xs text-muted-foreground">
-                        <span className="font-medium">{side.view}:</span> {side.personaNames.join(', ')}
+                        <span className="font-medium">{side.view}:</span> {side.personaCount} {side.personaCount === 1 ? 'persona' : 'personas'}
                       </div>
                     ))}
                   </div>
@@ -561,13 +574,6 @@ function CompletedView({
                         <div key={i} className="rounded-lg border border-border bg-card/50 p-3 flex flex-col gap-1.5">
                           <div className="flex items-start justify-between gap-2">
                             <p className="text-xs font-medium text-foreground">{finding.observation}</p>
-                            <span className={`shrink-0 text-xs font-medium px-1.5 py-0.5 rounded-full ${
-                              finding.confidence === 'High' ? 'bg-green-500/10 text-green-600 border border-green-500/20' :
-                              finding.confidence === 'Medium' ? 'bg-amber-500/10 text-amber-600 border border-amber-500/20' :
-                              'bg-red-500/10 text-red-600 border border-red-500/20'
-                            }`}>
-                              {finding.confidence}
-                            </span>
                           </div>
                           <p className="text-xs text-muted-foreground"><span className="font-medium">Evidence:</span> {finding.evidence}</p>
                         </div>

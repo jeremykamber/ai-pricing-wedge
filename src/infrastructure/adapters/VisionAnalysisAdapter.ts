@@ -3,6 +3,7 @@ import { PricingAnalysisSchema } from "@/domain/entities/PricingAnalysis";
 import { PersonaResponseSchema } from "@/domain/entities/PersonaResponse";
 import type { ArtifactIntake } from "@/domain/entities/ArtifactIntake";
 import type { PersonaResponse } from "@/domain/entities/PersonaResponse";
+import type { ArtifactSynthesis } from "@/domain/entities/ArtifactSynthesis";
 import { LlmServiceImpl } from "./LlmServiceImpl";
 import { PersonaPromptCompiler } from "./PersonaPromptCompiler";
 import { IdRagStore } from "./IdRagStore";
@@ -867,13 +868,15 @@ ${personaAnchor} You're open to this. You're approaching this as someone who COU
 
 Think through your mental state as you experience this artifact. For each stage, answer the cognitive question — not what you saw, but what you thought.
 
-1. INTERPRETATION — What did I initially believe this product or page was? (Not: what did I see first. Not: I scrolled and saw X. Answer: my first impression of what this is and who it might be for.)
-2. UNDERSTANDING — What became clear? What remained confusing? (What did I grasp easily, and what did I not understand?)
-3. BELIEF — Which claims, signals, or details increased or decreased trust? (What made me believe or doubt what I was seeing?)
-4. MOTIVATION — Did this become valuable enough for me to continue? Why or why not? (Not: is this a good design. Answer: did I personally care enough to keep engaging?)
-5. ACTION — What exact next step would I take? (Not: what could someone do. Answer: specifically what I, this persona, would do right now.)
+1. INTERPRETATION — What did I initially believe this product or page was? (Not: what did I see first. Answer: my first impression of what this is and who it might be for.)
+2. UNDERSTANDING — What became clear? What remained confusing?
+3. BELIEF — Which claims, signals, or details increased or decreased trust?
+4. MOTIVATION — Did this become valuable enough for me to continue? Why or why not?
+5. ACTION — What exact next step would I, this persona, take?
 
-Think as your persona. Do NOT narrate your browsing — narrate your thinking. Be honest. Write freely — no JSON, no formatting constraints.`;
+IMPORTANT: Your personality profile (Big Five, values, fears) is synthetic. It may contextualize your reactions but it does not cause them. Describe what you observe and how you feel — do not explain your behavior using personality labels.
+
+Think as your persona. Narrate your thinking, not your browsing. Write freely — no JSON, no formatting constraints.`;
     }
 
     private buildArtifactAnalysisSystemPrompt(
@@ -903,13 +906,8 @@ You are not here to evaluate design. You are here to react honestly as yourself.
 <<VOICE AND AUDIENCE>>
 ALL fields are in FIRST PERSON as the persona — the report IS the persona's experience. "I think...", "This concerns me...", "I'd want to see..."
 
-<<PERSONALITY BIAS APPLICATION>>
-Your personality profile drives how you react:
-- Your Neuroticism determines what concerns or worries you pick up on.
-- Your Conscientiousness determines how closely you examine details.
-- Your Openness determines whether new concepts excite or concern you.
-- Your Extraversion determines whether you think about what others would say.
-- Your Agreeableness determines whether you give benefit of doubt.
+<<PERSONALITY GUIDE>>
+Your personality profile (Big Five, values, fears) is synthetic. It may contextualize your reactions but does not cause them. Describe what you observe and feel — do not explain behavior using personality labels.
 
 <<OPENNESS PRIMING>>
 ${personaAnchor} You're open to this. A skeptical but fair assessment.
@@ -943,17 +941,17 @@ ${compartments}
 Business Goal: ${businessGoal}
 Research Question: ${researchQuestion}
 
-Formatting Rules:
+CRITICAL RULES — Follow these exactly:
+
 1. ALL fields are in FIRST PERSON as the persona — the report IS the persona's experience.
 2. The customerJourney array MUST have exactly 5 entries, one per cognitive stage, IN THIS EXACT ORDER: interpretation, understanding, belief, motivation, action. Do NOT repeat stages. Do NOT skip stages. Do NOT put them out of order.
 3. For each stage: describe the persona's mental state — what they thought, felt, and believed at that stage. Do NOT describe what they saw chronologically.
-4. majorFindings: extract 2-4 specific, non-obvious observations. Each finding must cite concrete evidence from the stream.
-5. pointsOfFriction: identify specific moments where the persona's cognition stalled.
-6. unansweredQuestions: what the persona still wondered about after the experience. Do not repeat what's already in friction.
-7. researchQuestionAnswer: answer the research question directly using evidence from the stream. Keep it concise — one paragraph.
-8. overview: one paragraph that captures the single most important takeaway from this persona's journey.
+4. majorFindings: extract 2-4 specific observations. Each must have: observation (what happened), evidence (what the persona said or did), impact (why it matters). Do NOT include confidence — it is computed from agreement across personas.
+5. Do NOT use persona traits (Big Five, values, fears) as causal explanations. Persona attributes may contextualize behavior but cannot explain it. Say "Jeremy, a student persona, paused at pricing uncertainty" — NOT "Jeremy's neuroticism caused him to distrust pricing." The persona profile itself is synthetic; using it as causal evidence is circular.
+6. researchQuestionAnswer: describe what evidence was observed, not what the company should do. Say "Jeremy showed interest but had insufficient pricing information to evaluate value" — NOT "They should add a pricing tier."
+7. overview: one paragraph capturing the single most important takeaway.
 
-Confidence level: High = the persona was explicit and consistent. Medium = clear but not universal. Low = inferred or speculative. Never fabricate confidence.`;
+Follow these rules strictly. Findings describe observed behavior, not inferred psychology.`;
     }
 
     async generateCognitiveStream(
@@ -1353,6 +1351,119 @@ Return ONLY the JSON object.`;
                 totalDurationMs: Date.now() - methodStart,
             });
             throw e;
+        }
+    }
+
+    async generateArtifactSynthesis(
+        responses: PersonaResponse[],
+        businessGoal: string,
+        researchQuestion: string,
+        options: { tokenLimit?: number; runId?: string } = {},
+    ): Promise<ArtifactSynthesis> {
+        const log = options.runId ? AnalysisLogger.forRun(options.runId) : null;
+        const TIMEOUT_MS = 120_000;
+
+        log?.info("VisionAnalysisAdapter", `generateArtifactSynthesis START for ${responses.length} responses`);
+
+        const summaries = responses.map((r, i) => {
+            const name = r.personaProfile?.name || `Persona ${i + 1}`;
+            return `=== ${name} ===
+Overview: ${r.overview || "(none)"}
+Journey: ${r.customerJourney.map(s => `${s.stage}: ${s.outcome} (${s.sentiment})`).join(" | ")}
+Findings: ${r.majorFindings.map(f => `- ${f.observation}: ${f.evidence} (impact: ${f.impact})`).join("\n")}
+Friction: ${r.pointsOfFriction.join("; ") || "(none)"}
+Questions: ${r.unansweredQuestions.join("; ") || "(none)"}
+`;
+        }).join("\n\n");
+
+        const system = `You are analyzing simulated customer research. You have responses from ${responses.length} simulated personas who experienced an artifact.
+
+Business Goal: ${businessGoal}
+Research Question: ${researchQuestion}
+
+Your job: Identify patterns across personas. Read all responses carefully, then produce a structured synthesis.
+
+RULES:
+1. Do NOT assign confidence — confidence is computed from agreement across personas.
+2. Do NOT use persona traits (Big Five, values, fears) as causal explanations. Persona attributes may contextualize but do not cause behavior.
+3. Do NOT make recommendations. Describe what was observed, not what the company should do.
+4. Identify where personas AGREE and where they SPLIT.
+5. Keep the research question answer concise — one paragraph.
+
+Return a JSON object with these fields:
+- overview: string — One paragraph synthesizing what the personas collectively experienced
+- researchQuestionAnswer: string — Direct answer grounded in cross-persona evidence
+- topFindings: array of { observation: string, evidence: string, impact: string }
+- disagreements: array of { topic: string, split: array of { view: string, personaCount: number }, significance: "High" | "Medium" | "Low" }
+- biggestFrictions: array of string — 2-3 key friction points`;
+
+        const prompt = `Here are the persona responses:
+
+${summaries}
+
+Synthesize these into a structured JSON output. Return ONLY valid JSON.`;
+
+        const content = await Promise.race([
+            this.llmService.createChatCompletion(
+                [{ role: "user", content: prompt }],
+                {
+                    temperature: 0.3,
+                    model: this.llmService.textModel,
+                    response_format: { type: "json_object" },
+                    purpose: "Artifact Synthesis",
+                    runId: options.runId,
+                }
+            ),
+            new Promise<string>((_, reject) =>
+                setTimeout(() => reject(new Error(`Synthesis timed out after ${TIMEOUT_MS}ms`)), TIMEOUT_MS)
+            ),
+        ]);
+
+        try {
+            const parsed = JSON.parse(content);
+            const synthesis: ArtifactSynthesis = {
+                overview: parsed.overview || "",
+                researchQuestionAnswer: parsed.researchQuestionAnswer || "",
+                topFindings: (parsed.topFindings || []).map((f: any) => ({
+                    observation: f.observation || "",
+                    evidence: f.evidence || "",
+                    impact: f.impact || "",
+                    confidence: "Medium" as const,
+                    affectedPersonaCount: 0,
+                    totalPersonaCount: responses.length,
+                })),
+                disagreements: (parsed.disagreements || []).map((d: any) => ({
+                    topic: d.topic || "",
+                    split: (d.split || []).map((s: any) => ({ view: s.view || "", personaCount: s.personaCount || 0 })),
+                    significance: d.significance || "Medium",
+                })),
+                biggestFrictions: parsed.biggestFrictions || [],
+                completedCount: responses.length,
+                failedCount: 0,
+                totalPersonaCount: responses.length,
+            };
+
+            log?.info("VisionAnalysisAdapter", `generateArtifactSynthesis completed`, {
+                findingsCount: synthesis.topFindings.length,
+                disagreementsCount: synthesis.disagreements.length,
+            });
+
+            return synthesis;
+        } catch (e) {
+            log?.error("VisionAnalysisAdapter", `generateArtifactSynthesis parse failed`, {
+                error: String(e),
+                contentPreview: content.slice(0, 300),
+            });
+            return {
+                overview: "",
+                researchQuestionAnswer: "",
+                topFindings: [],
+                disagreements: [],
+                biggestFrictions: [],
+                completedCount: responses.length,
+                failedCount: 0,
+                totalPersonaCount: responses.length,
+            };
         }
     }
 }

@@ -478,6 +478,20 @@ export class LlmServiceImpl implements LlmServicePort {
     );
   }
 
+  async generateArtifactSynthesis(
+    responses: import("@/domain/entities/PersonaResponse").PersonaResponse[],
+    businessGoal: string,
+    researchQuestion: string,
+    options?: { tokenLimit?: number; runId?: string }
+  ): Promise<import("@/domain/entities/ArtifactSynthesis").ArtifactSynthesis> {
+    return this.visionAdapter.generateArtifactSynthesis(
+      responses,
+      businessGoal,
+      researchQuestion,
+      options,
+    );
+  }
+
   // --- Domain Gateways (Delegating to Adapters) ---
 
   async generateInitialPersonas(description: string, count?: number) {
