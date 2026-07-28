@@ -6,9 +6,10 @@ import { useRouter } from 'next/navigation'
 import { getSimulationResultAction } from '@/actions/getSimulationResult'
 import { getProgressAction } from '@/actions/getProgress'
 import { StepIndicator } from '@/components/custom/StepIndicator'
-import { ArrowLeftIcon, ClockIcon, CheckCircleIcon, XCircleIcon, ThumbsUpIcon, ThumbsDownIcon, AlertTriangleIcon } from 'lucide-react'
+import { ArrowLeftIcon, ClockIcon, CheckCircleIcon, XCircleIcon, ThumbsUpIcon, ThumbsDownIcon, AlertTriangleIcon, ChevronDownIcon, ChevronRightIcon, UsersIcon } from 'lucide-react'
 import type { PersonaResponse } from '@/domain/entities/PersonaResponse'
 import type { MajorFinding } from '@/domain/entities/MajorFinding'
+import { computeSynthesis } from '@/ui/dashboard/utils/computeSynthesis'
 
 const ANALYSIS_STEPS = [
   { title: 'Starting', description: 'Initializing analysis' },
@@ -370,6 +371,21 @@ function CompletedView({
   onRemove: () => void
 }) {
   const analyses = simulation.analyses as PersonaResponse[] | undefined
+  const [expandedPersonas, setExpandedPersonas] = useState<Set<number>>(new Set())
+
+  const synthesis = useMemo(
+    () => analyses ? computeSynthesis(analyses) : null,
+    [analyses]
+  )
+
+  const togglePersona = (index: number) => {
+    setExpandedPersonas(prev => {
+      const next = new Set(prev)
+      if (next.has(index)) next.delete(index)
+      else next.add(index)
+      return next
+    })
+  }
 
   if (!analyses || analyses.length === 0) {
     return (
@@ -381,116 +397,207 @@ function CompletedView({
 
   return (
     <div className="flex flex-col gap-8">
-      <div className="grid gap-6">
-        {analyses.map((analysis, index) => {
-          const personaName = analysis.personaProfile?.name ?? `Persona ${index + 1}`
-
-          return (
-          <div
-            key={analysis.id}
-            className="rounded-lg border border-border bg-card p-6 flex flex-col gap-4"
-          >
-            <div className="flex items-start justify-between gap-4">
-              <div className="flex flex-col gap-1">
-                <h3 className="font-semibold">{personaName}</h3>
-                {analysis.personaProfile && (
-                  <p className="text-sm text-muted-foreground">
-                    {analysis.personaProfile.name} · {analysis.personaProfile.occupation}
-                  </p>
-                )}
-              </div>
+      {/* ── Executive Synthesis ─────────────────────────────── */}
+      {synthesis && (
+        <div className="flex flex-col gap-6">
+          {/* Research Question Answer */}
+          {synthesis.researchQuestionAnswer && (
+            <div className="rounded-lg border border-primary/10 bg-primary/5 p-5">
+              <span className="text-xs font-semibold text-primary uppercase tracking-wider mb-2 block">Research Question</span>
+              <p className="text-sm text-foreground/90 leading-relaxed">{synthesis.researchQuestionAnswer}</p>
             </div>
+          )}
 
-            {analysis.personaProfile && <PersonaIdentityCard profile={analysis.personaProfile} />}
-
-            {/* Overview */}
-            {analysis.overview && (
-              <div className="rounded-lg border border-border bg-muted/20 p-3">
-                <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1 block">Overview</span>
-                <p className="text-sm text-foreground/80 leading-relaxed">{analysis.overview}</p>
-              </div>
-            )}
-
-            {/* Customer Journey */}
-            {analysis.customerJourney?.length > 0 && (
-              <div className="flex flex-col gap-3">
-                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Customer Journey</p>
-                <div className="flex flex-col gap-2">
-                  {analysis.customerJourney.map((stage) => (
-                    <div key={stage.stage} className="rounded-lg border border-border bg-card/50 p-3">
-                      <div className="flex items-center gap-2 mb-1">
-                        <span className={`h-2 w-2 rounded-full ${
-                          stage.outcome === 'succeeded' ? 'bg-green-500' : stage.outcome === 'blocked' ? 'bg-amber-500' : 'bg-red-500'
-                        }`} />
-                        <span className="text-xs font-semibold uppercase tracking-wider">
-                          {stage.stage}
-                        </span>
-                        {stage.sentiment === 'positive' && <ThumbsUpIcon className="h-3 w-3 text-green-500" />}
-                        {stage.sentiment === 'negative' && <ThumbsDownIcon className="h-3 w-3 text-red-500" />}
-                      </div>
-                      <p className="text-sm text-foreground/80">{stage.description}</p>
-                      {stage.transition && (
-                        <p className="text-xs text-muted-foreground mt-1 italic">{stage.transition}</p>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Research Question Answer */}
-            {analysis.researchQuestionAnswer && analysis.researchQuestionAnswer.length > 0 && (
-              <div className="rounded-lg border border-primary/10 bg-primary/5 p-3">
-                <span className="text-xs font-semibold text-primary uppercase tracking-wider mb-1 block">Research Question</span>
-                <p className="text-sm text-foreground/80">{analysis.researchQuestionAnswer}</p>
-              </div>
-            )}
-
-            {/* Major Findings */}
-            {analysis.majorFindings.length > 0 && (
-              <div className="flex flex-col gap-3">
-                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Major Findings</p>
-                {analysis.majorFindings.map((finding: MajorFinding, i: number) => (
-                  <div key={i} className="rounded-lg border border-border bg-card/50 p-3 flex flex-col gap-2">
-                    <div className="flex items-start justify-between gap-2">
-                      <p className="text-sm font-medium text-foreground">{finding.observation}</p>
-                      <span className={`shrink-0 text-xs font-medium px-2 py-0.5 rounded-full ${
-                        finding.confidence === 'High' ? 'bg-green-500/10 text-green-600 border border-green-500/20' :
-                        finding.confidence === 'Medium' ? 'bg-amber-500/10 text-amber-600 border border-amber-500/20' :
-                        'bg-red-500/10 text-red-600 border border-red-500/20'
-                      }`}>
-                        {finding.confidence}
-                      </span>
-                    </div>
-                    <p className="text-xs text-muted-foreground"><span className="font-medium">Evidence:</span> {finding.evidence}</p>
-                    <p className="text-xs text-muted-foreground"><span className="font-medium">Impact:</span> {finding.impact}</p>
+          {/* Top Findings with Affected Personas */}
+          {synthesis.topFindings.length > 0 && (
+            <div className="flex flex-col gap-3">
+              <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
+                Top Findings ({synthesis.personaCount} personas)
+              </h3>
+              {synthesis.topFindings.slice(0, 5).map((finding, i) => (
+                <div key={i} className="rounded-lg border border-border bg-card p-4 flex flex-col gap-2">
+                  <div className="flex items-start justify-between gap-2">
+                    <p className="text-sm font-medium text-foreground">{finding.observation}</p>
+                    <span className={`shrink-0 text-xs font-medium px-2 py-0.5 rounded-full ${
+                      finding.confidence === 'High' ? 'bg-green-500/10 text-green-600 border border-green-500/20' :
+                      finding.confidence === 'Medium' ? 'bg-amber-500/10 text-amber-600 border border-amber-500/20' :
+                      'bg-red-500/10 text-red-600 border border-red-500/20'
+                    }`}>
+                      {finding.confidence}
+                    </span>
                   </div>
-                ))}
-              </div>
-            )}
+                  <p className="text-xs text-muted-foreground"><span className="font-medium">Evidence:</span> {finding.evidence}</p>
+                  <p className="text-xs text-muted-foreground"><span className="font-medium">Impact:</span> {finding.impact}</p>
+                  <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                    <UsersIcon className="h-3 w-3" />
+                    <span>Affected: {finding.affectedPersonas.join(', ')}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
 
-            {/* Points of Friction */}
-            {analysis.pointsOfFriction.length > 0 && (
-              <div className="flex flex-col gap-2">
-                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Points of Friction</p>
-                <ul className="list-disc list-inside text-sm text-foreground/80">
-                  {analysis.pointsOfFriction.map((f: string, i: number) => <li key={i}>{f}</li>)}
-                </ul>
-              </div>
-            )}
+          {/* Disagreements */}
+          {synthesis.disagreements.length > 0 && (
+            <div className="flex flex-col gap-3">
+              <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
+                Disagreements — Where Personas Split
+              </h3>
+              {synthesis.disagreements.map((d, i) => (
+                <div key={i} className="rounded-lg border border-amber-500/20 bg-amber-500/5 p-4 flex flex-col gap-2">
+                  <p className="text-sm font-medium text-foreground">{d.topic}</p>
+                  <div className="flex flex-col gap-1.5">
+                    {d.split.map((side, j) => (
+                      <div key={j} className="text-xs text-muted-foreground">
+                        <span className="font-medium">{side.view}:</span> {side.personaNames.join(', ')}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
 
-            {/* Unanswered Questions */}
-            {analysis.unansweredQuestions.length > 0 && (
-              <div className="flex flex-col gap-2">
-                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Unanswered Questions</p>
-                <ul className="list-disc list-inside text-sm text-foreground/80">
-                  {analysis.unansweredQuestions.map((q: string, i: number) => <li key={i}>{q}</li>)}
-                </ul>
-              </div>
-            )}
-          </div>
-          )
-        })}
+          {/* Biggest Frictions */}
+          {synthesis.biggestFrictions.length > 0 && (
+            <div className="flex flex-col gap-2">
+              <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
+                Biggest Friction Points
+              </h3>
+              <ul className="list-disc list-inside text-sm text-foreground/80 space-y-1">
+                {synthesis.biggestFrictions.slice(0, 3).map((f, i) => <li key={i}>{f}</li>)}
+              </ul>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ── Per-Persona Drill-Down ──────────────────────────── */}
+      <div className="border-t border-border/40 pt-6">
+        <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground mb-4">
+          Individual Persona Reports
+        </h3>
+        <div className="grid gap-3">
+          {analyses.map((analysis, index) => {
+            const personaName = analysis.personaProfile?.name ?? `Persona ${index + 1}`
+            const isExpanded = expandedPersonas.has(index)
+
+            return (
+            <div
+              key={analysis.id}
+              className="rounded-lg border border-border bg-card overflow-hidden"
+            >
+              <button
+                onClick={() => togglePersona(index)}
+                className="w-full flex items-center justify-between p-4 hover:bg-muted/30 transition-colors text-left"
+              >
+                <div className="flex flex-col gap-0.5">
+                  <h4 className="font-semibold text-sm">{personaName}</h4>
+                  {analysis.personaProfile && (
+                    <p className="text-xs text-muted-foreground">
+                      {analysis.personaProfile.occupation} · {analysis.personaProfile.communicationStyle}
+                    </p>
+                  )}
+                </div>
+                <div className="flex items-center gap-2">
+                  {analysis.customerJourney && (
+                    <div className="flex gap-1">
+                      {analysis.customerJourney.map((s) => (
+                        <span key={s.stage} className={`h-2 w-2 rounded-full ${
+                          s.outcome === 'succeeded' ? 'bg-green-500' : s.outcome === 'blocked' ? 'bg-amber-500' : 'bg-red-500'
+                        }`} title={s.stage} />
+                      ))}
+                    </div>
+                  )}
+                  {isExpanded ? <ChevronDownIcon className="h-4 w-4 text-muted-foreground" /> : <ChevronRightIcon className="h-4 w-4 text-muted-foreground" />}
+                </div>
+              </button>
+
+              {isExpanded && (
+                <div className="px-4 pb-4 flex flex-col gap-4">
+                  {analysis.personaProfile && <PersonaIdentityCard profile={analysis.personaProfile} />}
+
+                  {analysis.overview && (
+                    <div className="rounded-lg border border-border bg-muted/20 p-3">
+                      <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1 block">Overview</span>
+                      <p className="text-sm text-foreground/80 leading-relaxed">{analysis.overview}</p>
+                    </div>
+                  )}
+
+                  {analysis.customerJourney?.length > 0 && (
+                    <div className="flex flex-col gap-2">
+                      <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Journey</p>
+                      <div className="flex flex-col gap-1.5">
+                        {analysis.customerJourney.map((stage) => (
+                          <div key={stage.stage} className="rounded-lg border border-border bg-card/50 p-2.5">
+                            <div className="flex items-center gap-2 mb-0.5">
+                              <span className={`h-2 w-2 rounded-full ${
+                                stage.outcome === 'succeeded' ? 'bg-green-500' : stage.outcome === 'blocked' ? 'bg-amber-500' : 'bg-red-500'
+                              }`} />
+                              <span className="text-xs font-semibold uppercase tracking-wider">
+                                {stage.stage}
+                              </span>
+                              {stage.sentiment === 'positive' && <ThumbsUpIcon className="h-3 w-3 text-green-500" />}
+                              {stage.sentiment === 'negative' && <ThumbsDownIcon className="h-3 w-3 text-red-500" />}
+                            </div>
+                            <p className="text-xs text-foreground/80">{stage.description}</p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {analysis.researchQuestionAnswer && (
+                    <div className="rounded-lg border border-primary/10 bg-primary/5 p-3">
+                      <span className="text-xs font-semibold text-primary uppercase tracking-wider mb-1 block">Research Question</span>
+                      <p className="text-sm text-foreground/80">{analysis.researchQuestionAnswer}</p>
+                    </div>
+                  )}
+
+                  {analysis.majorFindings.length > 0 && (
+                    <div className="flex flex-col gap-2">
+                      <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Findings</p>
+                      {analysis.majorFindings.map((finding: MajorFinding, i: number) => (
+                        <div key={i} className="rounded-lg border border-border bg-card/50 p-3 flex flex-col gap-1.5">
+                          <div className="flex items-start justify-between gap-2">
+                            <p className="text-xs font-medium text-foreground">{finding.observation}</p>
+                            <span className={`shrink-0 text-xs font-medium px-1.5 py-0.5 rounded-full ${
+                              finding.confidence === 'High' ? 'bg-green-500/10 text-green-600 border border-green-500/20' :
+                              finding.confidence === 'Medium' ? 'bg-amber-500/10 text-amber-600 border border-amber-500/20' :
+                              'bg-red-500/10 text-red-600 border border-red-500/20'
+                            }`}>
+                              {finding.confidence}
+                            </span>
+                          </div>
+                          <p className="text-xs text-muted-foreground"><span className="font-medium">Evidence:</span> {finding.evidence}</p>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {analysis.pointsOfFriction.length > 0 && (
+                    <div className="flex flex-col gap-1">
+                      <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Friction</p>
+                      <ul className="list-disc list-inside text-xs text-foreground/80">
+                        {analysis.pointsOfFriction.map((f: string, i: number) => <li key={i}>{f}</li>)}
+                      </ul>
+                    </div>
+                  )}
+
+                  {analysis.unansweredQuestions.length > 0 && (
+                    <div className="flex flex-col gap-1">
+                      <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Questions</p>
+                      <ul className="list-disc list-inside text-xs text-foreground/80">
+                        {analysis.unansweredQuestions.map((q: string, i: number) => <li key={i}>{q}</li>)}
+                      </ul>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+            )
+          })}
+        </div>
       </div>
 
       {simulation.screenshot && (

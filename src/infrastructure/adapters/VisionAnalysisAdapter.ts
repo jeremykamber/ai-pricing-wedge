@@ -865,15 +865,15 @@ These are WHO YOU ARE.
 <<OPENNESS PRIMING>>
 ${personaAnchor} You're open to this. You're approaching this as someone who COULD genuinely engage with this. You're not looking for reasons to reject it — you're reacting honestly. A skeptical but fair assessment.
 
-Think aloud. Walk through your experience naturally:
+Think through your mental state as you experience this artifact. For each stage, answer the cognitive question — not what you saw, but what you thought.
 
-1. INTERPRETATION — What am I looking at? Who is this for? Is this relevant to me?
-2. UNDERSTANDING — Do I get it? What are they offering? What am I supposed to do?
-3. BELIEF — Do I believe them? Does this feel credible? What makes me trust or doubt this?
-4. MOTIVATION — Is this valuable to me? Is it worth my time? Do I care enough to continue?
-5. ACTION — What would I actually do next? Click, leave, compare, save, ignore?
+1. INTERPRETATION — What did I initially believe this product or page was? (Not: what did I see first. Not: I scrolled and saw X. Answer: my first impression of what this is and who it might be for.)
+2. UNDERSTANDING — What became clear? What remained confusing? (What did I grasp easily, and what did I not understand?)
+3. BELIEF — Which claims, signals, or details increased or decreased trust? (What made me believe or doubt what I was seeing?)
+4. MOTIVATION — Did this become valuable enough for me to continue? Why or why not? (Not: is this a good design. Answer: did I personally care enough to keep engaging?)
+5. ACTION — What exact next step would I take? (Not: what could someone do. Answer: specifically what I, this persona, would do right now.)
 
-Be blunt, honest, and natural. Be your persona. Write freely — no JSON, no formatting constraints.`;
+Think as your persona. Do NOT narrate your browsing — narrate your thinking. Be honest. Write freely — no JSON, no formatting constraints.`;
     }
 
     private buildArtifactAnalysisSystemPrompt(
@@ -914,13 +914,13 @@ Your personality profile drives how you react:
 <<OPENNESS PRIMING>>
 ${personaAnchor} You're open to this. A skeptical but fair assessment.
 
-Reason through your experience, then output the complete PersonaResponse JSON:
+Reason through your mental state, then output the complete PersonaResponse JSON:
 
-1. INTERPRETATION — What am I looking at? Who is this for? Is this relevant to me?
-2. UNDERSTANDING — Do I get it? What are they offering? What am I supposed to do?
-3. BELIEF — Do I believe them? Does this feel credible? What makes me trust or doubt this?
-4. MOTIVATION — Is this valuable to me? Is it worth my time? Do I care enough to continue?
-5. ACTION — What would I actually do next? Click, leave, compare, save, ignore?
+1. INTERPRETATION — What did I initially believe this product or page was?
+2. UNDERSTANDING — What became clear? What remained confusing?
+3. BELIEF — Which claims, signals, or details increased or decreased trust?
+4. MOTIVATION — Did this become valuable enough for me to continue? Why or why not?
+5. ACTION — What exact next step would I, this persona, take?
 
 RESEARCH QUESTION: ${researchQuestion}
 
@@ -944,14 +944,14 @@ Research Question: ${researchQuestion}
 Formatting Rules:
 1. ALL fields are in FIRST PERSON as the persona — the report IS the persona's experience.
 2. The customerJourney must have exactly 5 entries, one per stage in order.
-3. For each stage: describe what the persona experienced, the sentiment, the outcome, and what caused transition.
-4. majorFindings: extract 2-4 key observations with evidence from the stream, impact, and confidence level.
-5. pointsOfFriction: identify where the persona got stuck or stopped.
-6. unansweredQuestions: what the persona still wondered about after the experience.
-7. researchQuestionAnswer: answer the research question directly using evidence from the stream.
-8. overview: a high-level summary that captures the persona's full journey.
+3. For each stage: describe the persona's mental state — what they thought, felt, and believed at that stage. Do NOT describe what they saw chronologically.
+4. majorFindings: extract 2-4 specific, non-obvious observations. Each finding must cite concrete evidence from the stream. Avoid generic statements like "the page was confusing" — instead say what specifically caused confusion and why.
+5. pointsOfFriction: identify specific moments where the persona's cognition stalled — what confused, frustrated, or stopped them.
+6. unansweredQuestions: what the persona still wondered about after the experience. Do not repeat what's already in friction.
+7. researchQuestionAnswer: answer the research question directly using evidence from the stream. Keep it concise — one paragraph. The overview and major findings should not repeat the same insight.
+8. overview: one paragraph that captures the single most important takeaway from this persona's journey. Do NOT summarize every stage.
 
-Confidence in major findings is derived from how clearly the evidence appears in the persona's own words — do NOT fabricate confidence levels. Only High if the persona was explicit and consistent.`;
+Confidence level: High = the persona was explicit and consistent about this. Medium = clear but not universal. Low = inferred or speculative. Never fabricate confidence.`;
     }
 
     async generateCognitiveStream(
