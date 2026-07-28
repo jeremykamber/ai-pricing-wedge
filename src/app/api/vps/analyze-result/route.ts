@@ -1,5 +1,5 @@
 // ─── GET /api/vps/analyze-result ───────────────────────────────────────────
-// Poll the final results (or error) of a completed pricing page analysis.
+// Poll the final results (or error) of a completed artifact analysis.
 // The background analysis runner writes results to the SimulationResultStore;
 // this endpoint reads from that store.
 // ─────────────────────────────────────────────────────────────────────────────

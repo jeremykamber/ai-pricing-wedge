@@ -1,7 +1,7 @@
 /**
- * AnalysisLogger — Per-run logging for pricing analysis.
+ * AnalysisLogger — Per-run logging for artifact analysis.
  *
- * Each call to the pricing analysis pipeline gets a unique run ID and its own
+ * Each run of the analysis pipeline gets a unique run ID and its own
  * log file under logs/analysis/.  Every log entry is both written to the file
  * (as JSONL) AND output to the console for real-time tracing.
  *

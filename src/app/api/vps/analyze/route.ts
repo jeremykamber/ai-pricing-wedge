@@ -1,11 +1,11 @@
-// ─── POST /api/vps/analyze-pricing ──────────────────────────────────────────
-// Fires off a pricing page analysis in the background, writes progress &
+// ─── POST /api/vps/analyze ───────────────────────────────────────────────────
+// Fires off an artifact analysis in the background, writes progress &
 // results to the side-channel stores (shared in-memory maps on globalThis),
 // and returns the runId immediately. The client polls
 //   GET /api/vps/analyze-progress?runId=xxx
 //   GET /api/vps/analyze-screenshot?runId=xxx
 //   GET /api/vps/analyze-result?runId=xxx
-// to track progress and retrieve the final analyses (or error).
+// to track progress and retrieve the final results (or error).
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { NextRequest, NextResponse } from "next/server";
@@ -19,9 +19,6 @@ import { cancellationManager } from "@/infrastructure/RequestCancellationManager
 import { AnalysisLogger } from "@/infrastructure/AnalysisLogger";
 import { simulationResultStore } from "@/infrastructure/SimulationResultStore";
 import { storeProgress, storeCompleted } from "@/actions/getProgress";
-import { storeScreenshot } from "@/actions/getScreenshot";
-
-// ── Rate Limiter ────────────────────────────────────────────────────────────
 
 const AUDIT_RATE_LIMIT_MAX = parseInt(process.env.AUDIT_RATE_LIMIT_MAX || "5");
 const AUDIT_RATE_LIMIT_WINDOW_MS = parseInt(
@@ -34,8 +31,6 @@ const auditRateLimiter = new RateLimiterMemory({
     duration: Math.floor(AUDIT_RATE_LIMIT_WINDOW_MS / 1000),
 });
 
-// ── Constants ───────────────────────────────────────────────────────────────
-
 const rawPersonaTokenLimit = parseInt(
     process.env.PERSONA_TOKEN_LIMIT || "2000",
     10,
@@ -45,35 +40,24 @@ const PERSONA_TOKEN_LIMIT =
         ? rawPersonaTokenLimit
         : 2000;
 
-// ─────────────────────────────────────────────────────────────────────────────
-// POST handler — fire-and-forget, return runId
-// ─────────────────────────────────────────────────────────────────────────────
-
 export async function POST(req: NextRequest) {
-    const { url, personas, runId: reqId, imageBase64, businessGoal, researchQuestion } = await req.json();
-    const id = reqId || `pricing-${Date.now()}`;
-    if (personas.length == 0) {
-        return NextResponse.json({
-            error: "Cannot run pricing page analysis with no selected personas. Please provide a non-zero number of personas to run the analysis with.",
-            runId: id
-        },
-            {
-                status: 400
-            },
-        )
-    };
-    if (url.length == 0) {
-        return NextResponse.json({
-            error: "Cannot run pricing page analysis with blank url. Please provide a valid URL.",
-            runId: id
-        },
-            {
-                status: 400
-            },
-        )
-    };
+    const { input, personas, runId: reqId, businessGoal, researchQuestion } = await req.json();
+    const id = reqId || `analysis-${Date.now()}`;
 
-    // ── Rate limit ──────────────────────────────────────────────────────────
+    if (!personas || personas.length === 0) {
+        return NextResponse.json({
+            error: "Cannot run analysis with no selected personas.",
+            runId: id,
+        }, { status: 400 });
+    }
+
+    if (!input) {
+        return NextResponse.json({
+            error: "No artifact input provided. Supply a URL or screenshot.",
+            runId: id,
+        }, { status: 400 });
+    }
+
     const clientIP =
         req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
         req.headers.get("x-real-ip") ||
@@ -91,16 +75,15 @@ export async function POST(req: NextRequest) {
         );
     }
 
-    // ── Kick off background analysis ────────────────────────────────────────
-    const ANALYSIS_TIMEOUT_MS = 10 * 60 * 1000; // 10 minutes
+    const ANALYSIS_TIMEOUT_MS = 10 * 60 * 1000;
 
     Promise.race([
-        runAnalysis(id, url, personas, imageBase64, businessGoal, researchQuestion),
+        runAnalysis(id, input, personas, businessGoal, researchQuestion),
         new Promise<never>((_, reject) =>
             setTimeout(() => reject(new Error('Analysis timed out after 10 minutes')), ANALYSIS_TIMEOUT_MS)
         ),
     ]).catch((err) => {
-        console.error(`[analyze-pricing] Background analysis failed for ${id}:`, err);
+        console.error(`[analyze] Background analysis failed for ${id}:`, err);
         simulationResultStore.saveError(id, err.message);
         storeProgress(id, { step: 'ERROR', error: err.message });
     });
@@ -108,15 +91,10 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ runId: id });
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Background analysis runner — logs, executes use case, stores results
-// ─────────────────────────────────────────────────────────────────────────────
-
 async function runAnalysis(
     id: string,
-    url: string,
+    input: any,
     personas: Persona[],
-    imageBase64?: string,
     businessGoal?: string,
     researchQuestion?: string,
 ) {
@@ -131,10 +109,11 @@ async function runAnalysis(
         abortSignal = abortController.signal;
 
         log.info("runAnalysis", "=== ANALYSIS START ===", {
-            url,
+            inputType: input?.type,
             personaCount: personas.length,
             personaNames: personas.map((p) => p.name),
-            hasImage: !!imageBase64,
+            businessGoal,
+            researchQuestion,
             requestId: id,
         });
 
@@ -152,9 +131,6 @@ async function runAnalysis(
         const useCase = new AnalyzeArtifactUseCase(intakeAdapter, llmService);
 
         log.info("runAnalysis", "Calling useCase.execute()...");
-        const input = imageBase64
-            ? { type: "screenshot" as const, imageBase64, url }
-            : { type: "url" as const, url };
         const responses = await useCase.execute(
             input,
             personas,
@@ -175,10 +151,7 @@ async function runAnalysis(
             { tokenLimit: PERSONA_TOKEN_LIMIT, runId: id },
         );
 
-        log.info(
-            "runAnalysis",
-            `useCase.execute() completed with ${responses.length} responses`,
-        );
+        log.info("runAnalysis", `useCase.execute() completed with ${responses.length} responses`);
 
         if (!abortSignal.aborted) {
             simulationResultStore.save(id, responses);
@@ -192,9 +165,8 @@ async function runAnalysis(
             simulationResultStore.saveError(id, "Request was cancelled");
         } else {
             const errMsg = (error as Error).message;
-            log.error("runAnalysis", "Error analyzing pricing page", {
+            log.error("runAnalysis", "Error analyzing artifact", {
                 error: errMsg,
-                url,
             });
             simulationResultStore.saveError(id, errMsg);
             storeProgress(id, { error: errMsg });

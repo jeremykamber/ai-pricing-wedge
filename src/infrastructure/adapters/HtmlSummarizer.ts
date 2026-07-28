@@ -13,15 +13,15 @@ export class HtmlSummarizer {
       inputPreview: html.slice(0, 300),
     });
 
-    const prompt = `You are an expert web data extractor. You are provided with the cleaned HTML of a page (likely a pricing page).
+    const prompt = `You are an expert web data extractor. You are provided with the cleaned HTML of a page.
 Your task is to summarize this HTML into a highly objective, compact markdown format.
-Focus ONLY on the objective facts that would be useful for a customer evaluate the product. Do NOT include marketing fluff or subjective opinions.
+Focus ONLY on the objective facts about the page's content. Do NOT include marketing fluff or subjective opinions.
 
-Extract and structure the following:
-1. Product/Website Topic: Briefly, what is this product/service based on the text?
+Extract and structure the following if present:
+1. Product/Website Topic: Briefly, what is this page about based on the text?
 2. Navigation/Functional Links: Key links found (e.g., "Login", "Contact Sales", "FAQ", "Book Demo").
-3. Pricing Tiers: Exact names of plans, price points, and billing cycles (e.g., Monthly vs Annual). List specific currency symbols if present.
-4. Features & Toggles: Objective list of features included in each tier. Mention if there's a "Free Trial" or "Freemium" version.
+3. Offerings: Any plans, tiers, or options mentioned, including price points and billing cycles if available. List specific currency symbols if present.
+4. Features: Objective list of features or offerings mentioned.
 5. Fine Print/Limits: Any mentioned limits (e.g., "up to 5 users"), overage charges, or guarantees.
 
 HTML CONTENT:
