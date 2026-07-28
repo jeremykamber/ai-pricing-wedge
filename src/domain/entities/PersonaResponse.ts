@@ -4,6 +4,13 @@ import type { StageJourney } from "./StageJourney";
 import type { MajorFinding } from "./MajorFinding";
 import type { CognitiveStage } from "./CognitiveStage";
 
+/**
+ * One persona's response to an artifact — the core output of the analysis.
+ * Contains the persona's full reasoning trace and structured report.
+ * Embeds a PersonaProfile (lightweight display projection) rather than the
+ * full Persona entity to avoid carrying backstory, provenance, and other
+ * 30+ fields into every saved result.
+ */
 export interface PersonaResponse {
   id: string;
   artifactUrl?: string;

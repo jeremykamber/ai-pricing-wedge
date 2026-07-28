@@ -7,18 +7,19 @@ import { getSimulationResultAction } from '@/actions/getSimulationResult'
 import { getProgressAction } from '@/actions/getProgress'
 import { StepIndicator } from '@/components/custom/StepIndicator'
 import { ArrowLeftIcon, ClockIcon, CheckCircleIcon, XCircleIcon, ThumbsUpIcon, ThumbsDownIcon, AlertTriangleIcon } from 'lucide-react'
-import { computeRunAverages, computeScoresWithBenchmarks, logDivergenceMetrics } from '@/ui/dashboard/utils/computeBenchmarks'
+import type { PersonaResponse } from '@/domain/entities/PersonaResponse'
+import type { MajorFinding } from '@/domain/entities/MajorFinding'
 
-const SIMULATION_STEPS = [
-  { title: 'Initialization', description: 'Loading target experience' },
-  { title: 'Visual Capture', description: 'Scanning pricing structure' },
-  { title: 'Cognitive Analysis', description: 'Simulating persona thoughts and reactions' },
+const ANALYSIS_STEPS = [
+  { title: 'Starting', description: 'Initializing analysis' },
+  { title: 'Capturing', description: 'Loading the artifact' },
+  { title: 'Analyzing', description: 'Simulating persona responses' },
 ]
 
 function getCurrentStep(step?: string): number {
-  if (!step || step === 'STARTING' || step === 'OPENING_PAGE') return 0
-  if (step === 'FINDING_PRICING') return 1
-  if (step === 'THINKING') return 2
+  if (!step || step === 'STARTING') return 0
+  if (step === 'INTAKE') return 1
+  if (step === 'ANALYZING') return 2
   return 0
 }
 
@@ -234,16 +235,15 @@ function InProgressView({
   return (
     <div className="flex flex-col md:flex-row gap-12 py-4">
       <div className="flex-shrink-0 w-full md:w-56 border-r-0 md:border-r border-border/40 pr-0 md:pr-8">
-        <StepIndicator steps={SIMULATION_STEPS} currentStep={currentStep} />
+        <StepIndicator steps={ANALYSIS_STEPS} currentStep={currentStep} />
       </div>
 
       <div className="flex-1 min-h-[300px] flex flex-col items-center justify-center">
         <div className="flex flex-col items-center justify-center space-y-4 w-full max-w-lg">
           <p className="text-sm font-medium text-muted-foreground animate-pulse">
-            {simulation.currentStep === 'OPENING_PAGE' && 'Loading pricing page...'}
-            {simulation.currentStep === 'FINDING_PRICING' && 'Capturing visual layout...'}
-            {simulation.currentStep === 'THINKING' &&
-              `Gathering feedback (${simulation.completedAnalyses ?? 0}/${simulation.totalAnalyses ?? simulation.personaCount})`}
+            {simulation.currentStep === 'INTAKE' && 'Loading artifact...'}
+            {simulation.currentStep === 'ANALYZING' &&
+              `Gathering responses (${simulation.completedAnalyses ?? 0}/${simulation.totalAnalyses ?? simulation.personaCount})`}
             {(!simulation.currentStep || simulation.currentStep === 'STARTING') && 'Initializing...'}
           </p>
 
@@ -369,25 +369,7 @@ function CompletedView({
   simulation: import('@/domain/entities/Simulation').Simulation
   onRemove: () => void
 }) {
-  const analyses = simulation.analyses
-
-  const benchmarksData = useMemo(
-    () => computeScoresWithBenchmarks(analyses ?? []),
-    [analyses]
-  );
-
-  const runAverages = useMemo(
-    () => computeRunAverages(analyses ?? []),
-    [analyses]
-  );
-
-  const [scoreDetail, setScoreDetail] = useState<{ analysisIndex: number; scoreKey: string } | null>(null);
-
-  useEffect(() => {
-    if (analyses && analyses.length > 0) {
-      logDivergenceMetrics(analyses);
-    }
-  }, [analyses]);
+  const analyses = simulation.analyses as PersonaResponse[] | undefined
 
   if (!analyses || analyses.length === 0) {
     return (
@@ -399,60 +381,9 @@ function CompletedView({
 
   return (
     <div className="flex flex-col gap-8">
-      {/* Average Scores Cards */}
-      <div className="flex flex-col gap-4">
-        <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Average Scores</h2>
-        <div className="grid grid-cols-3 gap-4">
-          {[
-            { key: 'clarity', label: 'Clarity' },
-            { key: 'valuePerception', label: 'Value Perception' },
-            { key: 'trust', label: 'Trust' },
-          ].map(({ key, label }) => {
-            const val = runAverages[key as keyof typeof runAverages] ?? 0;
-            const pct = (val / 10) * 100;
-            const bgColor = val >= 7 ? 'rgba(34,197,94,0.12)' : val >= 4 ? 'rgba(234,179,8,0.12)' : 'rgba(239,68,68,0.12)';
-            const borderColor = val >= 7 ? 'border-green-500/20' : val >= 4 ? 'border-amber-500/20' : 'border-red-500/20';
-            return (
-              <div key={key} className={`relative rounded-lg border ${borderColor} overflow-hidden`}>
-                <div className="absolute inset-y-0 left-0 transition-all duration-500 rounded-l-lg" style={{ width: `${pct}%`, backgroundColor: bgColor }} />
-                <div className="relative p-4 flex flex-col gap-1 z-10">
-                  <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">{label}</span>
-                  <span className="text-3xl font-bold tabular-nums">{val.toFixed(1)}</span>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-        <div className="grid grid-cols-3 gap-4">
-          {[
-            { key: 'explorationIntent', label: 'Exploration Intent' },
-            { key: 'analysisIntent', label: 'Analysis Intent' },
-            { key: 'buyIntent', label: 'Buy Intent' },
-          ].map(({ key, label }) => {
-            const val = runAverages[key as keyof typeof runAverages] ?? 0;
-            const pct = (val / 10) * 100;
-            const bgColor = val >= 7 ? 'rgba(34,197,94,0.12)' : val >= 4 ? 'rgba(234,179,8,0.12)' : 'rgba(239,68,68,0.12)';
-            const borderColor = val >= 7 ? 'border-green-500/20' : val >= 4 ? 'border-amber-500/20' : 'border-red-500/20';
-            return (
-              <div key={key} className={`relative rounded-lg border ${borderColor} overflow-hidden`}>
-                <div className="absolute inset-y-0 left-0 transition-all duration-500 rounded-l-lg" style={{ width: `${pct}%`, backgroundColor: bgColor }} />
-                <div className="relative p-4 flex flex-col gap-1 z-10">
-                  <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">{label}</span>
-                  <span className="text-3xl font-bold tabular-nums">{val.toFixed(1)}</span>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      </div>
-
       <div className="grid gap-6">
         {analyses.map((analysis, index) => {
-          const personaName = analysis.personaProfile?.name ?? (() => {
-            const idPart = analysis.id.split('-')[0]
-            if (!idPart || /^p\d+$/.test(idPart)) return `Persona ${index + 1}`
-            return idPart
-          })() ?? `Persona ${index + 1}`
+          const personaName = analysis.personaProfile?.name ?? `Persona ${index + 1}`
 
           return (
           <div
@@ -467,135 +398,94 @@ function CompletedView({
                     {analysis.personaProfile.name} · {analysis.personaProfile.occupation}
                   </p>
                 )}
-                {analysis.gutReaction && (
-                  <p className="text-sm text-muted-foreground italic">&ldquo;{analysis.gutReaction}&rdquo;</p>
-                )}
               </div>
             </div>
 
             {analysis.personaProfile && <PersonaIdentityCard profile={analysis.personaProfile} />}
 
-            {!analysis.personaProfile && (
-              <p className="text-xs text-muted-foreground italic">Legacy data</p>
+            {/* Overview */}
+            {analysis.overview && (
+              <div className="rounded-lg border border-border bg-muted/20 p-3">
+                <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1 block">Overview</span>
+                <p className="text-sm text-foreground/80 leading-relaxed">{analysis.overview}</p>
+              </div>
             )}
 
-            {analysis.thoughts && (() => {
-              const structured = parseStructuredThoughts(analysis.thoughts);
-              const hasMarkers = structured.good || structured.bad || structured.dealbreaker;
+            {/* Customer Journey */}
+            {analysis.customerJourney.length > 0 && (
+              <div className="flex flex-col gap-3">
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Customer Journey</p>
+                <div className="flex flex-col gap-2">
+                  {analysis.customerJourney.map((stage) => (
+                    <div key={stage.stage} className="rounded-lg border border-border bg-card/50 p-3">
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className={`h-2 w-2 rounded-full ${
+                          stage.outcome === 'succeeded' ? 'bg-green-500' : stage.outcome === 'blocked' ? 'bg-amber-500' : 'bg-red-500'
+                        }`} />
+                        <span className="text-xs font-semibold uppercase tracking-wider">
+                          {stage.stage}
+                        </span>
+                        {stage.sentiment === 'positive' && <ThumbsUpIcon className="h-3 w-3 text-green-500" />}
+                        {stage.sentiment === 'negative' && <ThumbsDownIcon className="h-3 w-3 text-red-500" />}
+                      </div>
+                      <p className="text-sm text-foreground/80">{stage.description}</p>
+                      {stage.transition && (
+                        <p className="text-xs text-muted-foreground mt-1 italic">{stage.transition}</p>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
 
-              if (hasMarkers) {
-                return (
-                  <div className="flex flex-col gap-4">
-                    {structured.good && (
-                      <div className="rounded-lg border border-green-500/20 bg-green-500/5 p-3">
-                        <div className="flex items-center gap-2 mb-1">
-                          <ThumbsUpIcon className="h-4 w-4 text-green-500" />
-                          <span className="text-xs font-semibold text-green-600 dark:text-green-400 uppercase tracking-wider">The Good</span>
-                        </div>
-                        <p className="text-sm text-foreground/80">{structured.good}</p>
-                      </div>
-                    )}
-                    {structured.bad && (
-                      <div className="rounded-lg border border-red-500/20 bg-red-500/5 p-3">
-                        <div className="flex items-center gap-2 mb-1">
-                          <ThumbsDownIcon className="h-4 w-4 text-red-500" />
-                          <span className="text-xs font-semibold text-red-600 dark:text-red-400 uppercase tracking-wider">The Bad</span>
-                        </div>
-                        <p className="text-sm text-foreground/80">{structured.bad}</p>
-                      </div>
-                    )}
-                    {structured.dealbreaker && (
-                      <div className="rounded-lg border border-amber-500/20 bg-amber-500/5 p-3">
-                        <div className="flex items-center gap-2 mb-1">
-                          <AlertTriangleIcon className="h-4 w-4 text-amber-500" />
-                          <span className="text-xs font-semibold text-amber-600 dark:text-amber-400 uppercase tracking-wider">The Dealbreaker</span>
-                        </div>
-                        <p className="text-sm text-foreground/80">{structured.dealbreaker}</p>
-                      </div>
-                    )}
-                    {structured.remaining && (
-                      <div className="rounded-lg border border-border bg-muted/20 p-3">
-                        <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1 block">Additional Thoughts</span>
-                        <p className="text-sm text-foreground/80 whitespace-pre-wrap">{structured.remaining}</p>
-                      </div>
-                    )}
+            {/* Research Question Answer */}
+            {analysis.researchQuestionAnswer && (
+              <div className="rounded-lg border border-primary/10 bg-primary/5 p-3">
+                <span className="text-xs font-semibold text-primary uppercase tracking-wider mb-1 block">Research Question</span>
+                <p className="text-sm text-foreground/80">{analysis.researchQuestionAnswer}</p>
+              </div>
+            )}
+
+            {/* Major Findings */}
+            {analysis.majorFindings.length > 0 && (
+              <div className="flex flex-col gap-3">
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Major Findings</p>
+                {analysis.majorFindings.map((finding: MajorFinding, i: number) => (
+                  <div key={i} className="rounded-lg border border-border bg-card/50 p-3 flex flex-col gap-2">
+                    <div className="flex items-start justify-between gap-2">
+                      <p className="text-sm font-medium text-foreground">{finding.observation}</p>
+                      <span className={`shrink-0 text-xs font-medium px-2 py-0.5 rounded-full ${
+                        finding.confidence === 'High' ? 'bg-green-500/10 text-green-600 border border-green-500/20' :
+                        finding.confidence === 'Medium' ? 'bg-amber-500/10 text-amber-600 border border-amber-500/20' :
+                        'bg-red-500/10 text-red-600 border border-red-500/20'
+                      }`}>
+                        {finding.confidence}
+                      </span>
+                    </div>
+                    <p className="text-xs text-muted-foreground"><span className="font-medium">Evidence:</span> {finding.evidence}</p>
+                    <p className="text-xs text-muted-foreground"><span className="font-medium">Impact:</span> {finding.impact}</p>
                   </div>
-                );
-              }
+                ))}
+              </div>
+            )}
 
-              return (
-                <div className="text-sm text-foreground/80 leading-relaxed whitespace-pre-wrap max-h-32 overflow-y-auto">
-                  {analysis.thoughts}
-                </div>
-              );
-            })()}
-
-            {(() => {
-              const benchmark = benchmarksData[index];
-              const DELTA_COLORS = {
-                positive: 'text-green-500',
-                negative: 'text-red-500',
-                zero: 'text-muted-foreground',
-              };
-              return (
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                  {Object.entries(analysis.scores).filter(([k]) => !k.endsWith('Reason')).map(([key, val]) => {
-                    const bm = benchmark?.scores[key as keyof typeof benchmark.scores];
-                    return (
-                      <div key={key} className="flex flex-col gap-0.5 bg-secondary/30 rounded p-2.5">
-                        <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
-                          {key.replace(/([A-Z])/g, ' $1').trim()}
-                        </span>
-                        <span className="inline-flex items-center gap-1 text-lg font-bold">
-                          {val}/10
-                          <button
-                            onClick={() => setScoreDetail({ analysisIndex: index, scoreKey: key })}
-                            className="h-4 w-4 rounded-full bg-muted text-[10px] font-bold flex items-center justify-center hover:bg-muted-foreground/20"
-                            title="See rationale"
-                          >
-                            i
-                          </button>
-                        </span>
-                        {bm?.delta != null && (
-                          <span className={`text-xs font-medium tabular-nums ${bm.delta > 0 ? DELTA_COLORS.positive : bm.delta < 0 ? DELTA_COLORS.negative : DELTA_COLORS.zero}`}>
-                            {bm.delta > 0 ? '+' : ''}{bm.delta.toFixed(1)} vs Run Avg
-                          </span>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-              );
-            })()}
-
-            <hr className="border-border/40 my-2" />
-
-            {analysis.recommendations.length > 0 && (
-              <div className="flex flex-col gap-1">
-                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Recommendations</p>
+            {/* Points of Friction */}
+            {analysis.pointsOfFriction.length > 0 && (
+              <div className="flex flex-col gap-2">
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Points of Friction</p>
                 <ul className="list-disc list-inside text-sm text-foreground/80">
-                  {analysis.recommendations.map((r, i) => <li key={i}>{r}</li>)}
+                  {analysis.pointsOfFriction.map((f: string, i: number) => <li key={i}>{f}</li>)}
                 </ul>
               </div>
             )}
 
-            <hr className="border-border/40 my-2" />
-
-            {analysis.risks.length > 0 && (
-              <div className="flex flex-col gap-1">
-                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Risks</p>
+            {/* Unanswered Questions */}
+            {analysis.unansweredQuestions.length > 0 && (
+              <div className="flex flex-col gap-2">
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Unanswered Questions</p>
                 <ul className="list-disc list-inside text-sm text-foreground/80">
-                  {analysis.risks.map((r, i) => <li key={i}>{r}</li>)}
+                  {analysis.unansweredQuestions.map((q: string, i: number) => <li key={i}>{q}</li>)}
                 </ul>
-              </div>
-            )}
-
-            <hr className="border-border/40 my-2" />
-
-            {analysis.aiSuggestion && (
-              <div className="bg-primary/5 border border-primary/10 rounded p-3">
-                <p className="text-xs font-semibold text-primary uppercase tracking-wider mb-1">Suggestion</p>
-                <p className="text-sm text-foreground/80">{analysis.aiSuggestion}</p>
               </div>
             )}
           </div>
@@ -611,16 +501,6 @@ function CompletedView({
             alt="Captured page"
             className="w-full"
           />
-        </div>
-      )}
-
-      {scoreDetail && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={() => setScoreDetail(null)}>
-          <div className="rounded-lg bg-card p-6 max-w-md mx-4" onClick={e => e.stopPropagation()}>
-            <h3 className="font-semibold mb-2 capitalize">{scoreDetail.scoreKey.replace(/([A-Z])/g, ' $1').trim()}</h3>
-            <p className="text-sm text-foreground/80">{analyses[scoreDetail.analysisIndex].scores[`${scoreDetail.scoreKey}Reason` as keyof typeof analyses[number]['scores']]}</p>
-            <button onClick={() => setScoreDetail(null)} className="mt-4 text-sm text-primary">Close</button>
-          </div>
         </div>
       )}
     </div>
