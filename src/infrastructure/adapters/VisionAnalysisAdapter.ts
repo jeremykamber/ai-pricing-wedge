@@ -246,7 +246,8 @@ export class VisionAnalysisAdapter {
                     ],
                     max_tokens: 10,
                     temperature: 0,
-                }),
+                    reasoning: { enabled: false },
+                } as any),
             );
 
             const content =

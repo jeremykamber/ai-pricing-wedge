@@ -17,6 +17,48 @@ import { ExtractedInterviewSignals } from "@/application/interviewPipeline/types
 import { AnalysisLogger } from "@/infrastructure/AnalysisLogger";
 import type { ResearchPersonaConfig, StrategyPersonaConfig, ClusterPersonaConfig } from "@/domain/dtos/PersonaGenerationConfig";
 
+function shouldDisableThinkingForModel(model: string): boolean {
+    return model.toLowerCase().includes("qwen");
+}
+
+/**
+ * The AI SDK (@ai-sdk/openai) validates provider options against a fixed schema
+ * and drops unknown request params, so `reasoning: { enabled: false }` cannot be
+ * passed through streamObject. Injecting it at the fetch layer is the only way to
+ * disable chain-of-thought on requests the SDK would otherwise build unmodified.
+ */
+function withReasoningDisabled(
+    baseFetch: typeof fetch,
+    shouldDisable: (model: string) => boolean,
+): typeof fetch {
+    return async (input, init) => {
+        const url =
+            typeof input === "string"
+                ? input
+                : input instanceof URL
+                    ? input.href
+                    : input instanceof Request
+                        ? input.url
+                        : "";
+        if (
+            init?.method === "POST" &&
+            typeof init.body === "string" &&
+            url.includes("/chat/completions")
+        ) {
+            try {
+                const body = JSON.parse(init.body);
+                if (shouldDisable(String(body?.model ?? ""))) {
+                    body.reasoning = { enabled: false };
+                    init = { ...init, body: JSON.stringify(body) };
+                }
+            } catch {
+                // Leave non-JSON bodies untouched.
+            }
+        }
+        return baseFetch(input, init);
+    };
+}
+
 export class LlmServiceImpl implements LlmServicePort {
     public client: OpenAI;
     public provider: OpenAIProvider;
@@ -122,6 +164,7 @@ export class LlmServiceImpl implements LlmServicePort {
         const providerInstance = createOpenAI({
             baseURL,
             apiKey: apiKey as string,
+            fetch: withReasoningDisabled(globalThis.fetch, shouldDisableThinkingForModel),
         });
 
         const models =
@@ -150,7 +193,7 @@ export class LlmServiceImpl implements LlmServicePort {
 
     private shouldDisableThinking(model?: string): boolean {
         const modelToCheck = model || this.textModel;
-        return modelToCheck.toLowerCase().includes("qwen");
+        return shouldDisableThinkingForModel(modelToCheck);
     }
 
     public async createChatCompletion(
