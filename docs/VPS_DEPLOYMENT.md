@@ -185,6 +185,48 @@ npx pm2 restart ecosystem.config.js
 - The VPS `.env` file is NOT read by the standalone build — use `ecosystem.config.js` instead
 - The build must be completed (`.next/standalone/server.js` must exist)
 
+## Disk Space & Cleanup
+
+The VPS has filled up before with `ENOSPC: no space left on device` (e.g. the build failing to create `.next/standalone/logs`). The usual cause is **aborted `ollama pull` downloads**: an interrupted pull leaves multi-GB `-partial` blob files behind in `/usr/share/ollama/.ollama/models/blobs/`. In one incident this accounted for ~66 GB of a 145 GB disk.
+
+### Automated cleanup
+
+`infra/vps-disk-cleanup.sh` removes known-reclaimable disk usage and is safe to run repeatedly. It:
+
+- Deletes Ollama `-partial` files (aborted downloads) — skipped while a pull/create is running
+- Deletes Ollama orphaned blobs (complete blobs no manifest references and no running `ollama runner` has open) — live models and in-flight inference are never touched
+- Truncates PM2 logs over 200 MiB
+- Vacuums the systemd journal to 100 MiB
+- Clears the npm cache when it exceeds 1 GiB
+
+It logs to `/var/log/kynd-disk-cleanup.log` and exits non-zero if the disk is still above 95% after cleanup.
+
+**Install (one-time, on the VPS):**
+
+```bash
+# 1. Passwordless sudo for the script (required so cron can run it as root)
+echo 'jeremykamber ALL=(root) NOPASSWD: /home/jeremykamber/dev/kynd/infra/vps-disk-cleanup.sh' \
+  | sudo tee /etc/sudoers.d/kynd-disk-cleanup
+sudo chmod 440 /etc/sudoers.d/kynd-disk-cleanup
+
+# 2. Cron: run every 6 hours
+(crontab -l 2>/dev/null | grep -v 'vps-disk-cleanup'; \
+  echo '0 */6 * * * sudo /home/jeremykamber/dev/kynd/infra/vps-disk-cleanup.sh >/dev/null 2>&1') \
+  | crontab -
+
+# 3. Verify it runs
+sudo /home/jeremykamber/dev/kynd/infra/vps-disk-cleanup.sh
+```
+
+Manual dry-run (shows what it would delete without deleting):
+
+```bash
+sudo DISK_CLEANUP_LOG=/tmp/cleanup-dry.log \
+  /home/jeremykamber/dev/kynd/infra/vps-disk-cleanup.sh --dry-run
+```
+
+If you ever see `ENOSPC` again, run the cleanup script before rebuilding.
+
 ## Troubleshooting
 
 ### "Error: Cannot read properties of undefined (reading 'toLowerCase')"
