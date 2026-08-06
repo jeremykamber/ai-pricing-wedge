@@ -8,6 +8,7 @@
     "postbuild": "cp node_modules/playwright-core/browsers.json .next/standalone/node_modules/playwright-core/browsers.json",
     "start": "next start",
     "lint": "eslint",
+    "release": "next build && vitest run --config vitest.release.config.ts",
     "benchmark": "tsx scripts/benchmark.ts",
     "test": "vitest run",
     "vitest": "vitest"
