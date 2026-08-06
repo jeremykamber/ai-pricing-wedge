@@ -1,132 +1,139 @@
-import { describe, it, expect, beforeAll, afterAll } from 'vitest'
-import { chromium, type Browser, type Page } from 'playwright'
+// @vitest-environment node
+// Dashboard navigation smoke tests against the CURRENT UI (survey form default,
+// freeform textarea toggle, demo batch, sidebar nav). Seeded with fresh state —
+// no live LLM calls.
 
-const BASE_URL = process.env.E2E_BASE_URL || 'http://localhost:3000'
+import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+import { chromium, type Browser, type Page } from 'playwright';
+import type { ChildProcess } from 'child_process';
+import { findOrStartServer, SCREENSHOT_DIR, ensureScreenshotDir, SERVER_TIMEOUT } from './helpers/server';
+import path from 'path';
 
-async function isVisible(page: Page, text: string, timeoutMs = 5000): Promise<boolean> {
+const TEST_TIMEOUT = 30_000;
+
+let BASE_URL = '';
+let browser: Browser;
+let page: Page;
+let serverProcess: ChildProcess | null = null;
+
+beforeAll(async () => {
+  const result = await findOrStartServer({ preferredPort: 3211 });
+  BASE_URL = result.url;
+  serverProcess = result.process;
+  browser = await chromium.launch({ headless: true });
+  page = await browser.newPage({ viewport: { width: 1280, height: 900 } });
+  await ensureScreenshotDir();
+}, SERVER_TIMEOUT + 30_000);
+
+afterAll(async () => {
+  await browser?.close();
+  if (serverProcess) serverProcess.kill('SIGTERM');
+});
+
+async function isVisible(selector: string, timeoutMs = 10_000): Promise<boolean> {
   try {
-    await page.locator(`text=${text}`).first().waitFor({ state: 'visible', timeout: timeoutMs })
-    return true
+    await page.locator(selector).first().waitFor({ state: 'visible', timeout: timeoutMs });
+    return true;
   } catch {
-    return false
+    return false;
   }
 }
 
-async function isLocatorVisible(page: Page, selector: string, timeoutMs = 5000): Promise<boolean> {
-  try {
-    await page.locator(selector).first().waitFor({ state: 'visible', timeout: timeoutMs })
-    return true
-  } catch {
-    return false
-  }
-}
+describe('Dashboard Navigation — E2E', { timeout: TEST_TIMEOUT }, () => {
+  it('loads the marketing landing page', async () => {
+    const response = await page.goto(`${BASE_URL}/`, { waitUntil: 'networkidle', timeout: TEST_TIMEOUT });
+    expect(response?.ok()).toBe(true);
+  });
 
-describe('Dashboard Navigation — E2E', () => {
-  let browser: Browser
-  let page: Page
+  it('shows the setup view with survey form for a fresh user', async () => {
+    await page.goto(`${BASE_URL}/dashboard`, { waitUntil: 'networkidle', timeout: TEST_TIMEOUT });
 
-  beforeAll(async () => {
-    browser = await chromium.launch({ headless: true })
-    page = await browser.newPage()
-  })
+    expect(await isVisible('h1:has-text("Define your target market")')).toBe(true);
+    // Survey form is the default input path
+    expect(await isVisible('input[placeholder*="Small business owners"]')).toBe(true);
+  });
 
-  afterAll(async () => {
-    await browser.close()
-  })
+  it('shows Generate Personas disabled until the survey is complete', async () => {
+    await page.goto(`${BASE_URL}/dashboard`, { waitUntil: 'networkidle', timeout: TEST_TIMEOUT });
 
-  it('should load the dashboard and show the setup view for a fresh user', async () => {
-    await page.goto(`${BASE_URL}/dashboard`, { waitUntil: 'networkidle', timeout: 30000 })
+    const generateBtn = page.locator('button:has-text("Generate Personas")').first();
+    await generateBtn.waitFor({ state: 'visible', timeout: 10_000 });
+    expect(await generateBtn.isDisabled()).toBe(true);
+  });
 
-    const headingVisible = await isVisible(page, 'Define your target market', 10000)
-    expect(headingVisible).toBe(true)
+  it('switches to freeform mode and shows the audience textarea', async () => {
+    await page.goto(`${BASE_URL}/dashboard`, { waitUntil: 'networkidle', timeout: TEST_TIMEOUT });
 
-    const textareaVisible = await isLocatorVisible(page, 'textarea[placeholder*="B2B SaaS"]')
-    expect(textareaVisible).toBe(true)
-  })
+    await page.locator('button:has-text("Use freeform description instead")').first().click();
+    expect(await isVisible('textarea[placeholder*="B2B SaaS"]')).toBe(true);
+  });
 
-  it('should show setup view with audience description and generate button', async () => {
-    await page.goto(`${BASE_URL}/dashboard`, { waitUntil: 'networkidle', timeout: 30000 })
+  it('disables Generate Personas in freeform mode when textarea is empty', async () => {
+    await page.goto(`${BASE_URL}/dashboard`, { waitUntil: 'networkidle', timeout: TEST_TIMEOUT });
 
-    const headingVisible = await isVisible(page, 'Define your target market', 10000)
-    expect(headingVisible).toBe(true)
+    await page.locator('button:has-text("Use freeform description instead")').first().click();
+    const generateBtn = page.locator('button:has-text("Generate Personas")').first();
+    await generateBtn.waitFor({ state: 'visible', timeout: 10_000 });
+    expect(await generateBtn.isDisabled()).toBe(true);
+  });
 
-    const audienceVisible = await isVisible(page, 'Audience Description')
-    expect(audienceVisible).toBe(true)
+  it('enables Generate Personas in freeform mode when textarea has content', async () => {
+    await page.goto(`${BASE_URL}/dashboard`, { waitUntil: 'networkidle', timeout: TEST_TIMEOUT });
 
-    const generateVisible = await isLocatorVisible(page, 'button:has-text("Generate Personas")')
-    expect(generateVisible).toBe(true)
-  })
+    await page.locator('button:has-text("Use freeform description instead")').first().click();
+    const textarea = page.locator('textarea[placeholder*="B2B SaaS"]').first();
+    await textarea.waitFor({ state: 'visible', timeout: 10_000 });
+    await textarea.fill('B2B SaaS founders dealing with high churn');
 
-  it('should have Generate Personas button disabled when textarea is empty', async () => {
-    await page.goto(`${BASE_URL}/dashboard`, { waitUntil: 'networkidle', timeout: 30000 })
+    const generateBtn = page.locator('button:has-text("Generate Personas")').first();
+    expect(await generateBtn.isEnabled()).toBe(true);
+  });
 
-    const generateBtn = page.locator('button:has-text("Generate Personas")').first()
-    await generateBtn.waitFor({ state: 'visible', timeout: 10000 })
-    const isDisabled = await generateBtn.isDisabled()
-    expect(isDisabled).toBe(true)
-  })
+  it('shows the persona count input with a 1-20 range', async () => {
+    await page.goto(`${BASE_URL}/dashboard`, { waitUntil: 'networkidle', timeout: TEST_TIMEOUT });
 
-  it('should enable Generate Personas button when textarea has content', async () => {
-    await page.goto(`${BASE_URL}/dashboard`, { waitUntil: 'networkidle', timeout: 30000 })
+    const countInput = page.locator('#persona-count');
+    await countInput.waitFor({ state: 'visible', timeout: 10_000 });
+    expect(await countInput.getAttribute('min')).toBe('1');
+    expect(await countInput.getAttribute('max')).toBe('20');
+  });
 
-    const textarea = page.locator('textarea[placeholder*="B2B SaaS"]').first()
-    await textarea.waitFor({ state: 'visible', timeout: 10000 })
-    await textarea.fill('B2B SaaS founders dealing with high churn')
+  it('navigates to interviews from the setup view link', async () => {
+    await page.goto(`${BASE_URL}/dashboard`, { waitUntil: 'networkidle', timeout: TEST_TIMEOUT });
 
-    const generateBtn = page.locator('button:has-text("Generate Personas")').first()
-    const isEnabled = await generateBtn.isEnabled()
-    expect(isEnabled).toBe(true)
-  })
+    await page.locator('button:has-text("Use freeform description instead")').first().click();
+    await page.locator('a:has-text("Generate from interviews")').first().click();
+    await page.waitForURL('**/dashboard/interviews', { timeout: 10_000 });
+  });
 
-  it('should show interview link in the setup view', async () => {
-    await page.goto(`${BASE_URL}/dashboard`, { waitUntil: 'networkidle', timeout: 30000 })
+  it('navigates between sidebar sections', async () => {
+    await page.goto(`${BASE_URL}/dashboard`, { waitUntil: 'networkidle', timeout: TEST_TIMEOUT });
 
-    const linkVisible = await isVisible(page, 'Have interview transcripts?', 10000)
-    expect(linkVisible).toBe(true)
-  })
+    // Personas → Interviews
+    await page.locator('a[href="/dashboard/interviews"]').first().click();
+    await page.waitForURL('**/dashboard/interviews', { timeout: 10_000 });
 
-  it('should navigate to interviews page from setup view link', async () => {
-    await page.goto(`${BASE_URL}/dashboard`, { waitUntil: 'networkidle', timeout: 30000 })
+    // Interviews → Simulations
+    await page.locator('a[href="/dashboard/simulations"]').first().click();
+    await page.waitForURL('**/dashboard/simulations', { timeout: 10_000 });
 
-    await page.locator('a:has-text("Generate from interviews")').first().click()
-    await page.waitForURL('**/dashboard/interviews', { timeout: 10000 })
-    expect(page.url()).toContain('/dashboard/interviews')
-  })
+    // Simulations → back to Personas via sidebar button
+    await page.locator('nav button:has-text("Personas")').click();
+    await page.waitForURL('**/dashboard', { timeout: 10_000 });
+  });
 
-  it('should navigate to interviews page from sidebar', async () => {
-    await page.goto(`${BASE_URL}/dashboard`, { waitUntil: 'networkidle', timeout: 30000 })
+  it('loads the demo persona batch into the sidebar', async () => {
+    await page.goto(`${BASE_URL}/dashboard`, { waitUntil: 'networkidle', timeout: TEST_TIMEOUT });
 
-    await page.locator('a[href="/dashboard/interviews"]').first().click()
-    await page.waitForURL('**/dashboard/interviews', { timeout: 10000 })
-    expect(page.url()).toContain('/dashboard/interviews')
-  })
+    const demoBtn = page.locator('button:has-text("Load Demo Persona Batch")').first();
+    await demoBtn.waitFor({ state: 'visible', timeout: 10_000 });
+    await demoBtn.click();
 
-  it('should navigate to simulations page from sidebar', async () => {
-    await page.goto(`${BASE_URL}/dashboard`, { waitUntil: 'networkidle', timeout: 30000 })
-
-    await page.locator('a[href="/dashboard/simulations"]').first().click()
-    await page.waitForURL('**/dashboard/simulations', { timeout: 10000 })
-    expect(page.url()).toContain('/dashboard/simulations')
-  })
-
-  it('should navigate back to dashboard from interviews via sidebar', async () => {
-    await page.goto(`${BASE_URL}/dashboard/interviews`, { waitUntil: 'networkidle', timeout: 30000 })
-
-    await page.locator('nav button:has-text("Personas")').click()
-    await page.waitForURL('**/dashboard', { timeout: 10000 })
-    expect(page.url()).toMatch(/\/dashboard\/?$/)
-  })
-
-  it('should load demo personas when clicking Load Demo Personas', async () => {
-    await page.goto(`${BASE_URL}/dashboard`, { waitUntil: 'networkidle', timeout: 30000 })
-
-    const demoBtn = page.locator('button:has-text("Load Demo Personas")').first()
-    await demoBtn.waitFor({ state: 'visible', timeout: 10000 })
-    await demoBtn.click()
-
-    // After loading demo personas, the setup view should still be visible
-    // (demo personas are loaded into the flow, not into the store)
-    const headingVisible = await isVisible(page, 'Define your target market', 5000)
-    expect(headingVisible).toBe(true)
-  })
-})
+    // Batch appears in the sidebar's Recent Batches section
+    expect(await isVisible('aside:has-text("B2B SaaS Founders & Developers")')).toBe(true);
+    await page.screenshot({
+      path: path.join(SCREENSHOT_DIR, 'dashboard-demo-batch.png'),
+      fullPage: true,
+    });
+  });
+});
