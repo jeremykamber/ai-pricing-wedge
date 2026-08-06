@@ -1,6 +1,6 @@
 # E2E Test Guide
 
-A practical guide to writing, running, and maintaining end-to-end tests for DeepBound.
+A practical guide to writing, running, and maintaining end-to-end tests for Kynd.
 
 ## Overview
 
@@ -20,13 +20,12 @@ DeepBound uses **Playwright** (via Vitest) for E2E tests. Tests live in the root
 
 ```
 test/
-├── persona-system-e2e.test.ts        # Persona pipeline (no browser needed)
-├── pricing-analysis-e2e.test.ts       # UI rendering via Playwright browser
-├── pricing-analysis-full-flow.test.ts # Full data pipeline E2E
-├── pricing-analysis-comprehensive.test.ts
-├── pricing-analysis-real-flow.test.ts
-├── persona-names.test.ts
-└── persona-variation-e2e.spec.ts
+├── helpers/server.ts                    # findOrStartServer, screenshot dir (shared)
+├── dashboard-navigation.spec.ts         # Dashboard smoke: setup view, nav, demo batch
+├── artifact-analysis-detail.spec.ts     # Completed analysis rendering (seeded IndexedDB)
+├── persona-system-e2e.test.ts           # Persona pipeline (no browser needed)
+├── persona-names.test.ts                # Deterministic naming
+└── two-stage-pipeline.test.ts           # Domain validation
 ```
 
 Screenshots from failed tests are saved to `.sisyphus/evidence/`.
@@ -116,19 +115,20 @@ describe("Pricing Analysis E2E", () => {
   it("renders completed analysis", async () => {
     const page = await browser.newPage({ viewport: { width: 1280, height: 900 } });
 
-    // Seed localStorage with mock data
-    const storageData = buildStorageData("test-sim", "Test Run", mockAnalyses);
-    await page.addInitScript((data: string) => {
-      localStorage.setItem("simulation-storage", data);
-    }, JSON.stringify(storageData));
+    // Seed the simulation store (IndexedDB) with a completed run.
+    // See test/artifact-analysis-detail.spec.ts for a full fixture builder.
+    await seedSimulationStorage(page, {
+      simulations: [completedSimulation],
+      dismissedSimulationIds: [],
+    });
 
     await page.goto(`${BASE_URL}/dashboard/simulations/test-sim`, {
       waitUntil: "networkidle",
     });
 
     const bodyText = await page.textContent("body");
-    expect(bodyText).toContain("Average Scores");
-    expect(bodyText).toContain("Buy Intent");
+    expect(bodyText).toContain("Executive Synthesis");
+    expect(bodyText).toContain("Individual Persona Reports");
 
     await page.screenshot({
       path: path.join(SCREENSHOT_DIR, "my-test.png"),
@@ -164,38 +164,34 @@ The test will **reuse your existing `bun dev` server** if one is running, or sta
 
 ---
 
-## Data Seeding: localStorage vs API
+## Data Seeding: IndexedDB vs API
 
-### localStorage (Existing Pattern)
+### IndexedDB (simulation store)
 
-The pricing analysis UI reads from a Zustand store that persists to `localStorage` under key `simulation-storage`.
+The simulation store persists to **IndexedDB** (via `idb-keyval`: DB `keyval-store`, store `keyval`, key `simulation-storage`), not localStorage. Seed it with `page.addInitScript` before navigation:
 
 ```typescript
-const storageData = {
-  state: {
-    simulations: [
-      {
-        id: "test-sim-123",
-        name: "Pricing Analysis — example.com",
-        url: "https://example.com/pricing",
-        status: "COMPLETED",
-        personaCount: 3,
-        createdAt: new Date().toISOString(),
-        completedAt: new Date().toISOString(),
-        analyses: [ /* array of analysis objects */ ],
-      },
-    ],
-  },
-  version: 0,
-};
-
-// Before navigation (avoids hydration mismatch)
-await page.addInitScript((data: string) => {
-  localStorage.setItem("simulation-storage", data);
-}, JSON.stringify(storageData));
+await page.addInitScript((seed) => {
+  return new Promise<void>((resolve) => {
+    const req = indexedDB.open('keyval-store');
+    req.onupgradeneeded = () => {
+      if (!req.result.objectStoreNames.contains('keyval')) req.result.createObjectStore('keyval');
+    };
+    req.onsuccess = () => {
+      const db = req.result;
+      const tx = db.transaction('keyval', 'readwrite');
+      tx.objectStore('keyval').put(seed, 'simulation-storage');
+      tx.oncomplete = () => { db.close(); resolve(); };
+      tx.onerror = () => { db.close(); resolve(); };
+    };
+    req.onerror = () => resolve();
+  });
+}, JSON.stringify({ state: { simulations: [...], dismissedSimulationIds: [] }, version: 2 }));
 ```
 
-### API (Future / VPS Pattern)
+See `test/artifact-analysis-detail.spec.ts` for a full example with valid `Simulation`/`PersonaResponse`/`ArtifactSynthesis` fixtures.
+
+### API (VPS Pattern)
 
 For tests that need real data from the analysis pipeline, POST to the report API:
 
@@ -302,25 +298,41 @@ expect(traceMessages.length).toBeGreaterThanOrEqual(3);
 
 ### 4. Transition / Streaming Tests
 
-Seed an `IN_PROGRESS` state, then update localStorage and reload:
+Seed an `IN_PROGRESS` state, then update the store and reload. The simulation store lives in IndexedDB, so seed/mutate through a small helper:
 
 ```typescript
-// Seed in-progress state
-await page.evaluate((data) => {
-  localStorage.setItem("simulation-storage", data);
-}, JSON.stringify(inProgressStorage));
+// Seed or overwrite the simulation store (idb-keyval: DB "keyval-store", store "keyval")
+async function seedSimulationStorage(page: Page, state: unknown) {
+  await page.evaluate(async (seed) => {
+    await new Promise<void>((resolve, reject) => {
+      const req = indexedDB.open("keyval-store");
+      req.onupgradeneeded = () => {
+        if (!req.result.objectStoreNames.contains("keyval")) req.result.createObjectStore("keyval");
+      };
+      req.onsuccess = () => {
+        const db = req.result;
+        const tx = db.transaction("keyval", "readwrite");
+        tx.objectStore("keyval").put(seed, "simulation-storage");
+        tx.oncomplete = () => { db.close(); resolve(); };
+        tx.onerror = () => { db.close(); reject(tx.error); };
+      };
+      req.onerror = () => reject(req.error);
+    });
+  }, JSON.stringify({ state, version: 2 }));
+}
+
+// Seed in-progress state, then update and reload
+await seedSimulationStorage(page, { simulations: [inProgressSimulation], dismissedSimulationIds: [] });
 
 await page.goto(`${BASE_URL}/dashboard/simulations/${simId}`, {
   waitUntil: "networkidle",
 });
 
 // Update to completed
-await page.evaluate((mockData) => {
-  const store = JSON.parse(localStorage.getItem("simulation-storage")!);
-  store.state.simulations[0].status = "COMPLETED";
-  store.state.simulations[0].analyses = JSON.parse(mockData);
-  localStorage.setItem("simulation-storage", JSON.stringify(store));
-}, JSON.stringify(mockAnalyses));
+await seedSimulationStorage(page, {
+  simulations: [{ ...inProgressSimulation, status: "COMPLETED", analyses: mockAnalyses }],
+  dismissedSimulationIds: [],
+});
 
 await page.reload({ waitUntil: "networkidle" });
 ```
@@ -335,9 +347,10 @@ const legacyAnalyses = mockAnalyses.map((a) => {
   return rest;
 });
 
-await page.addInitScript((data) => {
-  localStorage.setItem("simulation-storage", data);
-}, JSON.stringify(buildStorageData("legacy-sim", "Legacy", legacyAnalyses)));
+await seedSimulationStorage(page, {
+  simulations: [buildSimulation("legacy-sim", "Legacy", legacyAnalyses)],
+  dismissedSimulationIds: [],
+});
 ```
 
 ---
@@ -419,6 +432,14 @@ await page.waitForSelector("text=Average Scores");
 // Small settling delay
 await page.waitForTimeout(500);
 ```
+
+---
+
+## Release Gate
+
+`bun run release` runs lint + production build (typechecks) + the full deterministic test suite — no live LLM calls. Run it before any external demo, then do the human pass in `docs/RELEASE_CHECKLIST.md`.
+
+Real-pipeline verification (with live LLM calls) is intentional and on-demand: use the `verify-kynd` skill (`bun scripts/verify-output.ts`) when prompts or pipeline structure change. See `.agents/skills/verify-kynd/SKILL.md`.
 
 ---
 

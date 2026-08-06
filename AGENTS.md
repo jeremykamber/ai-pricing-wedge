@@ -22,6 +22,19 @@ Before implementing a feature, ALWAYS read `./ARCHITECTURE.md`.
 
 Whenever creating any user-facing frontend UI, you must ALWAYS use the shadcn/ui skill (`shadcn`).
 
+<!-- BEGIN:verify-output -->
+> **When you implement or change prompts, the persona pipeline, the artifact analysis pipeline, or any LLM output structure**, run the `verify-kynd` skill before declaring done. It runs the real pipeline (`bun scripts/verify-output.ts`), saves the raw output to `.sisyphus/verify/`, and judges it PASS/FAIL against the persona schema and pipeline invariants. The user is the final reviewer — always present the verdict and let them spot-check.
+<!-- END:verify-output -->
+
+## Keep tests current
+
+Tests are part of every change, not an afterthought. A stale test that passes by luck is worse than none.
+
+- **UI or routing changes** (component copy, page structure, nav, new/removed routes) → update the affected browser specs (`test/*.spec.ts`) so they assert against the new UI state.
+- **Logic or output-format changes** (LLM output schemas, prompt structures, use case contracts) → update the covering tests (`src/**/__tests__/*`, `test/*.test.ts`) to match the new contract.
+- **Removed features** → delete their tests. Don't leave dead tests behind.
+- After the change, run the affected test file(s) — and `bun run release` before pushing — and leave the suite green.
+
 
 
 
