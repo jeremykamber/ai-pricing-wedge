@@ -257,7 +257,7 @@ The VPS runs two PM2 processes:
 
 Build and deploy:
 ```bash
-git pull origin feat/artifact-analysis-overhaul
+git pull origin main
 npm run build
 npx pm2 restart kynd-backend-engine
 ```
