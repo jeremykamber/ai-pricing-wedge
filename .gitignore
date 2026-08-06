@@ -31,5 +31,8 @@ logs/
 # Temp files
 TEMP_*
 
+# Git worktrees (isolated dev workspaces, never committed)
+.worktrees/
+
 # Infra management (personal VPS scripts, never committed)
 infra/
