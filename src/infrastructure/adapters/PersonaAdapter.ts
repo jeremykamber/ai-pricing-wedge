@@ -988,30 +988,6 @@ Base all backstory details on the provided evidence. Do not fabricate events.`;
   }
 
   /**
-   * Research Mode streaming variant.
-   */
-  async * generateResearchPersonasStream(config: ResearchPersonaConfig): AsyncIterable<Partial<Persona>[]> {
-    const personaCount = config.count;
-    const system = `You are a research-grade persona generator. Base all claims on evidence. Do NOT fabricate specific life events or trauma.
-Generate a JSON array of ${personaCount} personas. Backstories should be rich narratives (6-10 paragraphs), evidence-based.`;
-
-    const streamUser = `Generate ${personaCount} research-mode personas for: "${config.personaDescription}". Evidence-first, no fabricated memories.${config.interviewIds ? ` Base on interview IDs: ${config.interviewIds.join(", ")}` : ""}${config.evidenceThreshold ? ` Minimum evidence confidence threshold: ${config.evidenceThreshold}` : ""}${config.contextNotes ? `\nAdditional context: ${config.contextNotes}` : ""}`;
-    const { partialOutputStream } = streamText({
-      model: this.llmService.provider(this.llmService.smallTextModel),
-      output: Output.array({ element: PersonaSchema }),
-      system,
-      prompt: streamUser,
-    });
-
-    if (!partialOutputStream) {
-      throw new Error("partialOutputStream not available for research personas stream");
-    }
-    for await (const partialArray of partialOutputStream) {
-      yield partialArray as Partial<Persona>[];
-    }
-  }
-
-  /**
    * Strategy Mode: richer storytelling persona generation.
    * Allows representative assumptions and controlled synthetic details.
    */
@@ -1093,50 +1069,6 @@ ${config.contextNotes ? `Additional context: ${config.contextNotes}` : ""}`;
       throw new Error(
         `Failed to generate strategy personas: ${err}\nInput: ${config.personaDescription}`,
       );
-    }
-  }
-
-  /**
-   * Strategy Mode streaming variant.
-   */
-  async * generateStrategyPersonasStream(config: StrategyPersonaConfig): AsyncIterable<Partial<Persona>[]> {
-    const personaCount = config.count;
-    const system = `You are a strategic persona generator. Create vivid, believable personas. Synthetic details are allowed when they help explain behavior.
-Generate a JSON array of ${personaCount} personas with this structure:
-{
-  name: string;
-  age: number;
-  occupation: string;
-  educationLevel: string;
-  interests: string[];              // Personal interests and hobbies (2-4 items)
-  goals: string[];                  // Professional or personal goals (2-4 items)
-  conscientiousness: number (0-100);
-  neuroticism: number (0-100);
-  openness: number (0-100);
-  extraversion: number (0-100);
-  agreeableness: number (0-100);
-  values: string[];                 // Core values driving decisions (2-4 items)
-  fears: string[];                  // Anxieties and risk concerns (2-3 items)
-  communicationStyle: string;       // e.g. "direct", "analytical", "warm", "cautious"
-  decisionStyle: string;            // e.g. "data-driven", "gut-driven", "consensus-seeking"
-  domainExpertise: string[];        // Domains the persona knows well
-  behavioralDimensions: { name: string; score: number (0-100); context: string; description: string; evidence: string }[];
-  backstory: string;                // Rich narrative (6-10 paragraphs)
-}
-Storytelling level: ${config.storytellingLevel ?? "moderate"}.`;
-
-    const { partialOutputStream } = streamText({
-      model: this.llmService.provider(this.llmService.smallTextModel),
-      output: Output.array({ element: PersonaSchema }),
-      system,
-      prompt: `Generate ${personaCount} strategy-mode personas for: "${config.personaDescription}". Rich backstories, representative assumptions.`,
-    });
-
-    if (!partialOutputStream) {
-      throw new Error("partialOutputStream not available for strategy personas stream");
-    }
-    for await (const partialArray of partialOutputStream) {
-      yield partialArray as Partial<Persona>[];
     }
   }
 

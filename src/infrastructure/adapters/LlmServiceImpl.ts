@@ -618,16 +618,8 @@ export class LlmServiceImpl implements LlmServicePort {
         return this.personaAdapter.generateResearchPersonas(config);
     }
 
-    async *generateResearchPersonasStream(config: ResearchPersonaConfig): AsyncIterable<Partial<Persona>[]> {
-        yield* this.personaAdapter.generateResearchPersonasStream(config);
-    }
-
     async generateStrategyPersonas(config: StrategyPersonaConfig): Promise<Persona[]> {
         return this.personaAdapter.generateStrategyPersonas(config);
-    }
-
-    async *generateStrategyPersonasStream(config: StrategyPersonaConfig): AsyncIterable<Partial<Persona>[]> {
-        yield* this.personaAdapter.generateStrategyPersonasStream(config);
     }
 
     async generateClusterPersonas(config: ClusterPersonaConfig): Promise<Persona[]> {

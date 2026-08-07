@@ -382,20 +382,10 @@ export interface LlmServicePort {
     generateResearchPersonas(config: ResearchPersonaConfig): Promise<Persona[]>;
 
     /**
-     * Research Mode streaming variant.
-     */
-    generateResearchPersonasStream(config: ResearchPersonaConfig): AsyncIterable<Partial<Persona>[]>;
-
-    /**
      * Strategy Mode: richer storytelling persona generation from ICP/market descriptions.
      * Representative assumptions allowed for imagination and decision-making.
      */
     generateStrategyPersonas(config: StrategyPersonaConfig): Promise<Persona[]>;
-
-    /**
-     * Strategy Mode streaming variant.
-     */
-    generateStrategyPersonasStream(config: StrategyPersonaConfig): AsyncIterable<Partial<Persona>[]>;
 
     /**
      * Cluster Mode: synthetic representative personas from multiple interview signals.
