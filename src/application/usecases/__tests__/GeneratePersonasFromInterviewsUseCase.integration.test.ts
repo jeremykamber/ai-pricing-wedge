@@ -12,10 +12,7 @@
  * - LlmServicePort (all LLM calls return controlled data)
  *   - extractInterviewSignals → known signal distribution
  *   - createChatCompletion → { contradictoryIndices: [] }
- *   - generateInitialPersonas → N controlled Persona objects
- *   - generateAbbreviatedBackstoriesBatch → controlled backstories
- *   - rationalizePersonas → identity (preserves personas)
- *   - generatePersonaInsightsBatch → controlled insights
+ *   - generateResearchPersonas → N controlled Persona objects with backstories
  *
  * Signal distribution across 3 transcripts:
  *   Interview 1: "slow onboarding" (×2) + "expensive" (×1)
@@ -115,6 +112,7 @@ function buildPersona(index: number): Persona {
     decisionStyle: 'data-driven',
     pricingSensitivity: 50,
     typicalBudget: '100-200',
+    backstory: 'Persona has always valued efficiency and simple solutions. Growing up in a tech-focused family, they learned that complex tools slow everyone down. In their career, they have seen how poor onboarding, expensive tools, and complicated setup can waste time and money. They now advocate for streamlined processes that just work.',
   };
 }
 
@@ -135,25 +133,12 @@ function createMockLlmService() {
       JSON.stringify({ contradictoryIndices: [] }),
     ),
 
-    // ---- Persona generation (called by GeneratePersonasUseCase.execute) ----
-    generateInitialPersonas: vi.fn().mockImplementation(
-      async (_desc: string, count?: number): Promise<Persona[]> => {
-        const n = count ?? 3;
+    // ---- Persona generation (dual-mode research generation) ----
+    generateResearchPersonas: vi.fn().mockImplementation(
+      async (config: { count?: number }): Promise<Persona[]> => {
+        const n = config.count ?? 3;
         return Array.from({ length: n }, (_, i) => buildPersona(i));
       },
-    ),
-
-    generateAbbreviatedBackstoriesBatch: vi.fn().mockImplementation(
-      async (personas: Persona[]): Promise<string[]> => {
-        return personas.map(
-          (p) =>
-            `${p.name} has always valued efficiency and simple solutions. Growing up in a tech-focused family, they learned that complex tools slow everyone down. In their career, they have seen how poor onboarding, expensive tools, and complicated setup can waste time and money. They now advocate for streamlined processes that just work.`,
-        );
-      },
-    ),
-
-    rationalizePersonas: vi.fn().mockImplementation(
-      async (personas: Persona[]): Promise<Persona[]> => personas,
     ),
 
     // ---- Streaming no-ops required by LlmServicePort ----
@@ -202,8 +187,8 @@ describe('GeneratePersonasFromInterviewsUseCase Integration', () => {
   it('full pipeline produces targetCount personas from 3 transcripts', async () => {
     const personas = await useCase.execute(mockTranscripts);
 
-    // targetCount = max(3 * 2, 10) = 10
-    expect(personas).toHaveLength(10);
+    // targetCount = default count (5), passed straight through to research mode
+    expect(personas).toHaveLength(5);
 
     // Every persona must have an id and backstory
     for (const p of personas) {
@@ -214,9 +199,7 @@ describe('GeneratePersonasFromInterviewsUseCase Integration', () => {
     // Verify each stage of the LLM pipeline was invoked
     expect(mockLlmService.extractInterviewSignals).toHaveBeenCalledTimes(3);
     expect(mockLlmService.createChatCompletion).toHaveBeenCalledTimes(1); // coherence validation
-    expect(mockLlmService.generateInitialPersonas).toHaveBeenCalledTimes(1);
-    expect(mockLlmService.generateAbbreviatedBackstoriesBatch).toHaveBeenCalledTimes(1);
-    expect(mockLlmService.rationalizePersonas).toHaveBeenCalledTimes(1);
+    expect(mockLlmService.generateResearchPersonas).toHaveBeenCalledTimes(1);
   });
 
   // ------------------------------------------------------------------
@@ -227,7 +210,7 @@ describe('GeneratePersonasFromInterviewsUseCase Integration', () => {
 
     // Each persona should have retrievable chunks that include both
     // backstory and interview chunk types.
-    for (let i = 0; i < 10; i++) {
+    for (let i = 0; i < 5; i++) {
       const pid = `persona-${i}`;
       // Use a broad query relevant to both backstory and interview text
       const results = idRagStore.retrieve(pid, 'onboarding setup efficiency', 50);

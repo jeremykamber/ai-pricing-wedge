@@ -10,17 +10,15 @@ const basePersona: Persona = {
   educationLevel: "MBA",
   interests: ["saas"],
   goals: ["optimize"],
-  personalityTraits: ["analytical"],
   conscientiousness: 80,
   neuroticism: 60,
   openness: 70,
   extraversion: 45,
   agreeableness: 55,
-  cognitiveReflex: 75,
-  technicalFluency: 65,
-  economicSensitivity: 50,
-  designStyle: "Minimalist",
-  livingEnvironment: "Clean apartment",
+  values: ["Efficiency", "Transparency"],
+  fears: ["Wasted effort", "Vendor lock-in"],
+  communicationStyle: "Direct",
+  decisionStyle: "Data-driven",
 };
 
 describe("InCharacterEvaluator", () => {

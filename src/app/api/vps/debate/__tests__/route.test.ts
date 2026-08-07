@@ -5,8 +5,9 @@ import { mockPersona, collectStream } from "../../__tests__/test-utils";
 const mockDebateAdapterExecute = vi.hoisted(() => vi.fn());
 
 vi.mock("@/infrastructure/adapters/LlmServiceImpl", () => {
-  const LlmServiceImpl = class {};
-  LlmServiceImpl.createFromEnv = vi.fn(() => new LlmServiceImpl());
+  const LlmServiceImpl = class {
+    static createFromEnv = vi.fn(() => new LlmServiceImpl());
+  };
   return { LlmServiceImpl };
 });
 

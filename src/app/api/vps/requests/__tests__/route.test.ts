@@ -82,8 +82,7 @@ describe("GET /api/vps/requests (list active)", () => {
 
   it("returns list of active request IDs", async () => {
     const { GET } = await import("../route");
-    const req = new NextRequest("http://localhost:3000/api/vps/requests");
-    const res = await GET(req);
+    const res = await GET();
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body).toHaveProperty("requestIds");
@@ -95,8 +94,7 @@ describe("GET /api/vps/requests (list active)", () => {
     mockGetActiveRequestIds.mockReturnValueOnce([]);
 
     const { GET } = await import("../route");
-    const req = new NextRequest("http://localhost:3000/api/vps/requests");
-    const res = await GET(req);
+    const res = await GET();
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.requestIds).toEqual([]);

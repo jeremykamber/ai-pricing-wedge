@@ -5,15 +5,9 @@ import baseConfig from './vitest.config';
 //
 // Kept out of vitest.config.ts so `bun test` still shows the pre-existing
 // failures. Excluded here (all broken before this gate existed):
-//   - GeneratePersonasFromInterviewsUseCase tests — stale after pipeline refactor
-//   - analyze-result / analyze-screenshot route tests — stale mocks
+//   - (none currently — stale tests were fixed; see git history)
 // Fix these and remove the entries (see AGENTS.md "Keep tests current").
-const BROKEN_FILES = [
-  'src/application/usecases/__tests__/GeneratePersonasFromInterviewsUseCase.test.ts',
-  'src/application/usecases/__tests__/GeneratePersonasFromInterviewsUseCase.integration.test.ts',
-  'src/app/api/vps/analyze-result/__tests__/route.test.ts',
-  'src/app/api/vps/analyze-screenshot/__tests__/route.test.ts',
-];
+const BROKEN_FILES: string[] = [];
 
 export default defineConfig({
   ...baseConfig,

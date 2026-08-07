@@ -152,6 +152,10 @@ describe('GeneratePersonasFromInterviewsUseCase', () => {
       createChatCompletion: vi.fn().mockResolvedValue(
         JSON.stringify({ contradictoryIndices: [] }),
       ),
+      // Dual-mode generation: synthesized/individual personas come from
+      // generateResearchPersonas (the legacy generateInitialPersonas path
+      // is no longer part of this pipeline).
+      generateResearchPersonas: vi.fn().mockResolvedValue(mockPersonas),
     };
 
     mockIdRagStore = {
@@ -201,12 +205,13 @@ describe('GeneratePersonasFromInterviewsUseCase', () => {
     // Sampling invoked
     expect(samplePersonas).toHaveBeenCalledTimes(1);
 
-    // Generation receives description
-    expect(mockGenerateUseCase.execute).toHaveBeenCalledTimes(1);
-    expect(mockGenerateUseCase.execute).toHaveBeenCalledWith(
-      expect.any(String),
-      expect.any(Function),
-      expect.any(Number),
+    // Generation receives description via research-mode generation
+    expect(mockLlmService.generateResearchPersonas).toHaveBeenCalledTimes(1);
+    expect(mockLlmService.generateResearchPersonas).toHaveBeenCalledWith(
+      expect.objectContaining({
+        personaDescription: expect.any(String),
+        count: expect.any(Number),
+      }),
     );
 
     // Ingestion for each persona
@@ -260,10 +265,10 @@ describe('GeneratePersonasFromInterviewsUseCase', () => {
   // ---------------------------------------------------------------------------
   // 4) Generation receives correctly formatted descriptions
   // ---------------------------------------------------------------------------
-  it('should pass formatted descriptions from sampled signals to GeneratePersonasUseCase', async () => {
+  it('should pass formatted descriptions from sampled signals to research persona generation', async () => {
     await useCase.execute(transcripts);
 
-    const descriptionArg = vi.mocked(mockGenerateUseCase.execute).mock.calls[0][0];
+    const descriptionArg = mockLlmService.generateResearchPersonas.mock.calls[0][0].personaDescription;
 
     // Contains data from first sampled signal
     expect(descriptionArg).toContain('Role: Engineering Manager');
@@ -370,7 +375,7 @@ describe('GeneratePersonasFromInterviewsUseCase', () => {
     expect(poolExtractions).toHaveLength(2);
 
     expect(samplePersonas).toHaveBeenCalled();
-    expect(mockGenerateUseCase.execute).toHaveBeenCalled();
+    expect(mockLlmService.generateResearchPersonas).toHaveBeenCalled();
     expect(result).toEqual(mockPersonas);
   });
 
@@ -422,6 +427,6 @@ describe('GeneratePersonasFromInterviewsUseCase', () => {
     expect(result).toHaveLength(2);
     expect(poolSignals).toHaveBeenCalled();
     expect(samplePersonas).toHaveBeenCalled();
-    expect(mockGenerateUseCase.execute).toHaveBeenCalled();
+    expect(mockLlmService.generateResearchPersonas).toHaveBeenCalled();
   });
 });

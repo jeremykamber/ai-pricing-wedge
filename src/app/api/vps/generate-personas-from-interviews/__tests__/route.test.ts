@@ -14,8 +14,9 @@ vi.mock("rate-limiter-flexible", () => ({
 }));
 
 vi.mock("@/infrastructure/adapters/LlmServiceImpl", () => {
-  const LlmServiceImpl = class {};
-  LlmServiceImpl.createFromEnv = vi.fn(() => new LlmServiceImpl());
+  const LlmServiceImpl = class {
+    static createFromEnv = vi.fn(() => new LlmServiceImpl());
+  };
   return { LlmServiceImpl };
 });
 

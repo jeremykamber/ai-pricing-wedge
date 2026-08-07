@@ -38,17 +38,17 @@ vi.mock("@/infrastructure/AnalysisLogger", () => {
     error = vi.fn();
     init = vi.fn(() => Promise.resolve());
     close = vi.fn(() => Promise.resolve());
+    static forRun = vi.fn(() => new MockLogger());
+    static removeRun = vi.fn();
   };
-  MockLogger.forRun = vi.fn(() => new MockLogger());
-  MockLogger.removeRun = vi.fn();
   return { AnalysisLogger: MockLogger };
 });
 
 vi.mock("@/infrastructure/adapters/LlmServiceImpl", () => {
   const LlmServiceImpl = class {
     createChatCompletion = vi.fn();
+    static createFromEnv = vi.fn(() => new LlmServiceImpl());
   };
-  LlmServiceImpl.createFromEnv = vi.fn(() => new LlmServiceImpl());
   return { LlmServiceImpl };
 });
 
@@ -56,8 +56,8 @@ vi.mock("@/infrastructure/adapters/RemotePlaywrightAdapter", () => {
   const MockAdapter = class {
     navigate = vi.fn();
     close = vi.fn();
+    static createFromEnv = vi.fn(() => new MockAdapter());
   };
-  MockAdapter.createFromEnv = vi.fn(() => new MockAdapter());
   return { RemotePlaywrightAdapter: MockAdapter };
 });
 

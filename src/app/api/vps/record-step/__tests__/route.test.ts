@@ -11,8 +11,8 @@ vi.mock("@/infrastructure/adapters/LlmMemoryAdapter", () => {
   const MockAdapter = class {
     remember = vi.fn();
     recall = vi.fn();
+    static createFromEnv = vi.fn(() => new MockAdapter());
   };
-  MockAdapter.createFromEnv = vi.fn(() => new MockAdapter());
   return { LlmMemoryAdapter: MockAdapter };
 });
 

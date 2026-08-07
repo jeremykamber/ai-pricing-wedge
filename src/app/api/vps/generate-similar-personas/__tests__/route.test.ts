@@ -7,8 +7,8 @@ const mockGenerateVariationPersonas = vi.hoisted(() => vi.fn());
 vi.mock("@/infrastructure/adapters/LlmServiceImpl", () => {
   const LlmServiceImpl = class {
     generateVariationPersonas = mockGenerateVariationPersonas;
+    static createFromEnv = vi.fn(() => new LlmServiceImpl());
   };
-  LlmServiceImpl.createFromEnv = vi.fn(() => new LlmServiceImpl());
   return { LlmServiceImpl };
 });
 
