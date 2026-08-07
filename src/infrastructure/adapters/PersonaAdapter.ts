@@ -45,6 +45,34 @@ export class PersonaAdapter {
   }
 
   /**
+   * Deterministic, seed-stable assignment of curated gender-neutral names
+   * (see PR #27). FNV-1a hash of the seed text + mulberry32 shuffle so the
+   * same seed yields the same name order. Returns the first `count` names.
+   */
+  private static neutralNames(seedText: string, count: number): string[] {
+    let h = 2166136261 >>> 0;
+    for (let i = 0; i < seedText.length; i++) {
+      h ^= seedText.charCodeAt(i);
+      h = Math.imul(h, 16777619);
+    }
+    const rnd = (() => {
+      let a = h >>> 0;
+      return () => {
+        a = a + 0x6D2B79F5 | 0;
+        let t = Math.imul(a ^ a >>> 15, 1 | a);
+        t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+        return ((t ^ t >>> 14) >>> 0) / 4294967296;
+      };
+    })();
+    const copy = GENDERLESS_NAMES.slice();
+    for (let i = copy.length - 1; i > 0; i--) {
+      const j = Math.floor(rnd() * (i + 1));
+      [copy[i], copy[j]] = [copy[j], copy[i]];
+    }
+    return copy.slice(0, count);
+  }
+
+  /**
    * Shared helper: extract common persona fields from a raw record.
    */
   private static extractBaseFields(p: Record<string, unknown>): Record<string, unknown> {
@@ -85,6 +113,53 @@ export class PersonaAdapter {
       description: String(d.description ?? ""),
       evidence: d.evidence ? String(d.evidence) : undefined,
     }));
+  }
+
+  /**
+   * Generate a persona array via schema-enforced structured output.
+   *
+   * Raw freeform JSON from the LLM is unreliable (deepseek occasionally emits
+   * malformed JSON or burns the response budget on reasoning), and a single
+   * parse failure used to fail the whole batch with no retry. Structured
+   * output gives the provider a JSON schema; we additionally retry once when
+   * the model still fails to produce valid output or returns too few personas
+   * (the AI SDK only auto-retries HTTP errors, not output validation errors).
+   */
+  private async generatePersonaArray(
+    system: string,
+    user: string,
+    expectedCount: number,
+    context: string,
+    temperature: number,
+  ): Promise<Record<string, unknown>[]> {
+    const attempts = 2;
+    let lastError: unknown;
+    for (let attempt = 1; attempt <= attempts; attempt++) {
+      console.log(`[PersonaAdapter] [${context}] Generating ${expectedCount} personas (attempt ${attempt}/${attempts})...`);
+      try {
+        const { output } = streamText({
+          model: this.llmService.provider(this.llmService.smallTextModel),
+          output: Output.array({ element: PersonaSchema }),
+          system,
+          prompt: user,
+          temperature,
+        });
+        const records = (await output) as unknown as Record<string, unknown>[];
+        if (records.length < expectedCount) {
+          throw new Error(
+            `[PersonaAdapter] ${context} persona count mismatch: expected ${expectedCount}, got ${records.length}. The generation will be retried automatically.`,
+          );
+        }
+        if (records.length > expectedCount) {
+          console.warn(`[PersonaAdapter] ${context} returned ${records.length} personas, truncating to ${expectedCount}`);
+        }
+        return records.slice(0, expectedCount);
+      } catch (err) {
+        lastError = err;
+        console.warn(`[PersonaAdapter] [${context}] Attempt ${attempt}/${attempts} failed: ${(err as Error).message}`);
+      }
+    }
+    throw lastError;
   }
 
   /**
@@ -197,35 +272,7 @@ Return ONLY valid JSON without explanatory text or markdown code blocks.`;
       // Deterministically pick neutral, curated names from GENDERLESS_NAMES so the LLM
       // does not invent potentially biased names on the fly. We seed the shuffle
       // with the personaDescription so the same input yields stable name assignments.
-      const seedFrom = (s: string) => {
-        let h = 2166136261 >>> 0;
-        for (let i = 0; i < s.length; i++) {
-          h ^= s.charCodeAt(i);
-          h = Math.imul(h, 16777619);
-        }
-        return h >>> 0;
-      };
-
-      const mulberry32 = (a: number) => () => {
-        a |= 0;
-        a = a + 0x6D2B79F5 | 0;
-        let t = Math.imul(a ^ a >>> 15, 1 | a);
-        t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
-        return ((t ^ t >>> 14) >>> 0) / 4294967296;
-      };
-
-      const seededShuffle = (arr: string[], seed: number) => {
-        const copy = arr.slice();
-        const rnd = mulberry32(seed);
-        for (let i = copy.length - 1; i > 0; i--) {
-          const j = Math.floor(rnd() * (i + 1));
-          [copy[i], copy[j]] = [copy[j], copy[i]];
-        }
-        return copy;
-      };
-
-      const seed = seedFrom(personaDescription || "");
-      const chosenNames = seededShuffle(GENDERLESS_NAMES, seed);
+      const chosenNames = PersonaAdapter.neutralNames(personaDescription || "", personas.length);
 
       return personas.map(
         (p: Record<string, unknown>, idx: number) =>
@@ -840,6 +887,7 @@ CRITICAL RULES:
 - For each behavioral dimension, include a direct quote from the source material as evidence.
 - If the evidence is thin, say so rather than inventing details.
 - Backstory should be a rich, detailed narrative (6-10 paragraphs) grounded in the source material. Research (Moon et al. 2024, Anthology framework) shows that detailed narrative backstories yield 18-27% better behavioral consistency than short summaries. The backstory is evidence-based but vivid.
+- Do NOT mention the persona's name in the backstory or any other narrative text — names are assigned separately from a curated pool.
 
 Generate a JSON array of EXACTLY ${config.count} personas with this structure:
 {
@@ -879,19 +927,14 @@ ${config.contextNotes ? `\nAdditional context: ${config.contextNotes}` : ""}
 Base all backstory details on the provided evidence. Do not fabricate events.`;
 
     try {
-      const content = await this.llmService.createChatCompletion(
-        [
-          { role: "system", content: system },
-          { role: "user", content: user },
-        ],
-        {
-          model: this.llmService.smallTextModel,
-          temperature: 0.5,
-          purpose: "Generate Research Personas",
-        },
+      const records = await this.generatePersonaArray(
+        system,
+        user,
+        config.count,
+        "research",
+        0.5,
       );
-
-      const records = PersonaAdapter.parsePersonaList(content, config.count, "research");
+      const chosenNames = PersonaAdapter.neutralNames(config.personaDescription, records.length);
 
       return records.map((p, idx) => {
         const dims = PersonaAdapter.extractBehavioralDimensions(p);
@@ -913,6 +956,7 @@ Base all backstory details on the provided evidence. Do not fabricate events.`;
           : 0.7;
         return {
           ...base,
+          name: chosenNames[idx % chosenNames.length] ?? "Persona",
           id: `research-persona-${idx}`,
           generationMode: "research" as const,
           behavioralDimensions: dims,
@@ -980,35 +1024,52 @@ GUIDELINES:
 - Richer backstories are encouraged — they help teams design better products.
 - Do NOT add details that would CHANGE product decisions if they were false (counterfactual test).
 - Mark the persona's generation mode as strategy.
+- Do NOT mention the persona's name in the backstory or any other narrative text — names are assigned separately from a curated pool.
 
 Storytelling level: ${config.storytellingLevel ?? "moderate"}
 ${config.allowSyntheticBackstory ? "Synthetic backstory details are permitted." : "Keep backstory grounded in realistic scenarios without specific invented events."}
 
-Generate a JSON array of EXACTLY ${config.count} personas with the standard structure including backstory.`;
+Generate a JSON array of EXACTLY ${config.count} personas with this structure:
+{
+  name: string;
+  age: number;
+  occupation: string;
+  educationLevel: string;
+  interests: string[];              // Personal interests and hobbies (2-4 items)
+  goals: string[];                  // Professional or personal goals (2-4 items)
+  conscientiousness: number (0-100);
+  neuroticism: number (0-100);
+  openness: number (0-100);
+  extraversion: number (0-100);
+  agreeableness: number (0-100);
+  values: string[];                 // Core values driving decisions (2-4 items)
+  fears: string[];                  // Anxieties and risk concerns (2-3 items)
+  communicationStyle: string;       // e.g. "direct", "analytical", "warm", "cautious"
+  decisionStyle: string;            // e.g. "data-driven", "gut-driven", "consensus-seeking"
+  domainExpertise: string[];        // Domains the persona knows well
+  behavioralDimensions: { name: string; score: number (0-100); context: string; description: string; evidence: string }[];
+  backstory: string;                // Rich narrative (6-10 paragraphs)
+}`;
 
     const user = `Generate ${config.count} strategy-mode personas for: "${config.personaDescription}"
 ${config.icpDescription ? `ICP context: ${config.icpDescription}` : ""}
 ${config.contextNotes ? `Additional context: ${config.contextNotes}` : ""}`;
 
     try {
-      const content = await this.llmService.createChatCompletion(
-        [
-          { role: "system", content: system },
-          { role: "user", content: user },
-        ],
-        {
-          model: this.llmService.smallTextModel,
-          temperature: 0.7,
-          purpose: "Generate Strategy Personas",
-        },
+      const records = await this.generatePersonaArray(
+        system,
+        user,
+        config.count,
+        "strategy",
+        0.7,
       );
-
-      const records = PersonaAdapter.parsePersonaList(content, config.count, "strategy");
       const evidenceExcerpt = config.personaDescription.length > 200
         ? config.personaDescription.slice(0, 200) + "..."
         : config.personaDescription;
+      const chosenNames = PersonaAdapter.neutralNames(config.personaDescription, records.length);
       return records.map((p, idx) => ({
         ...PersonaAdapter.extractBaseFields(p),
+        name: chosenNames[idx % chosenNames.length] ?? "Persona",
         id: `strategy-persona-${idx}`,
         generationMode: "strategy" as const,
         behavioralDimensions: PersonaAdapter.extractBehavioralDimensions(p),
@@ -1041,7 +1102,28 @@ ${config.contextNotes ? `Additional context: ${config.contextNotes}` : ""}`;
   async * generateStrategyPersonasStream(config: StrategyPersonaConfig): AsyncIterable<Partial<Persona>[]> {
     const personaCount = config.count;
     const system = `You are a strategic persona generator. Create vivid, believable personas. Synthetic details are allowed when they help explain behavior.
-Generate a JSON array of ${personaCount} personas. Storytelling level: ${config.storytellingLevel ?? "moderate"}.`;
+Generate a JSON array of ${personaCount} personas with this structure:
+{
+  name: string;
+  age: number;
+  occupation: string;
+  educationLevel: string;
+  interests: string[];              // Personal interests and hobbies (2-4 items)
+  goals: string[];                  // Professional or personal goals (2-4 items)
+  conscientiousness: number (0-100);
+  neuroticism: number (0-100);
+  openness: number (0-100);
+  extraversion: number (0-100);
+  agreeableness: number (0-100);
+  values: string[];                 // Core values driving decisions (2-4 items)
+  fears: string[];                  // Anxieties and risk concerns (2-3 items)
+  communicationStyle: string;       // e.g. "direct", "analytical", "warm", "cautious"
+  decisionStyle: string;            // e.g. "data-driven", "gut-driven", "consensus-seeking"
+  domainExpertise: string[];        // Domains the persona knows well
+  behavioralDimensions: { name: string; score: number (0-100); context: string; description: string; evidence: string }[];
+  backstory: string;                // Rich narrative (6-10 paragraphs)
+}
+Storytelling level: ${config.storytellingLevel ?? "moderate"}.`;
 
     const { partialOutputStream } = streamText({
       model: this.llmService.provider(this.llmService.smallTextModel),

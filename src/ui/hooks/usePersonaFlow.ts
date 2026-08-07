@@ -166,7 +166,9 @@ export function usePersonaFlow(onSuccess?: (personas: Persona[]) => void) {
 
     ;(async () => {
       try {
-        const result: any = await generatePersonasAction(prompt, personaCount)
+        // The ICP flow always generates strategy-mode personas (rich storytelling,
+        // representative assumptions) rather than the legacy description pipeline.
+        const result: any = await generatePersonasAction(prompt, personaCount, 'strategy')
         const streamData = result.streamData
         const id = result.runId as string | undefined
         setIsPending(false) // core action returned — release loading state

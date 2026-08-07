@@ -30,7 +30,7 @@ const personasRateLimiter = new RateLimiterMemory({
 // ─────────────────────────────────────────────────────────────────────────────
 
 export async function POST(req: NextRequest) {
-  const { personaDescription, count } = await req.json();
+  const { personaDescription, count, mode } = await req.json();
 
   // ── Validate input ──────────────────────────────────────────────────────
   if (!personaDescription || typeof personaDescription !== "string" || personaDescription.trim().length === 0) {
@@ -41,6 +41,11 @@ export async function POST(req: NextRequest) {
   }
 
   const personaCount = typeof count === "number" && count >= 1 && count <= 20 ? count : 5;
+
+  // Mode is forwarded to the use case so the deployed backend can run
+  // strategy/research generation (previously it was silently dropped,
+  // making strategy mode impossible over the VPS).
+  const generationMode = mode === "research" || mode === "strategy" ? mode : undefined;
 
   // ── Rate limit ──────────────────────────────────────────────────────────
   const clientIP =
@@ -62,7 +67,7 @@ export async function POST(req: NextRequest) {
   // ── Generate runId and kick off background generation ───────────────────
   const runId = `pt-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
 
-  runGeneration(runId, personaDescription, personaCount).catch((err) => {
+  runGeneration(runId, personaDescription, personaCount, generationMode).catch((err) => {
     console.error(`[generate-personas] Background generation failed for ${runId}:`, err);
   });
 
@@ -73,7 +78,7 @@ export async function POST(req: NextRequest) {
 // Background generation runner
 // ─────────────────────────────────────────────────────────────────────────────
 
-async function runGeneration(runId: string, personaDescription: string, count: number) {
+async function runGeneration(runId: string, personaDescription: string, count: number, generationMode?: 'research' | 'strategy') {
   try {
     storeProgress(runId, { step: "BRAINSTORMING_PERSONAS" });
 
@@ -87,7 +92,7 @@ async function runGeneration(runId: string, personaDescription: string, count: n
         completedAnalyses: progress.completedCount ?? progress.completedSubSteps,
         totalAnalyses: progress.totalCount ?? progress.totalSubSteps,
       });
-    }, count);
+    }, count, undefined, generationMode);
 
     const serialized = JSON.parse(JSON.stringify(personas));
     personaGenerationStore.save(runId, serialized);

@@ -1,6 +1,15 @@
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect, vi, beforeEach } from "vitest";
 import { PersonaAdapter } from "../PersonaAdapter";
 import type { LlmServiceImpl } from "../LlmServiceImpl";
+import { GENDERLESS_NAMES } from "@/data/genderless_names";
+
+// Research/strategy generation uses schema-enforced structured output
+// (streamText + Output.array), so the `ai` module is mocked here.
+const mockStreamText = vi.hoisted(() => vi.fn());
+vi.mock("ai", () => ({
+  streamText: mockStreamText,
+  Output: { array: vi.fn(() => ({ type: "array" })) },
+}));
 
 function createMockLlmService(): any {
   return {
@@ -11,7 +20,7 @@ function createMockLlmService(): any {
   };
 }
 
-const researchPersonaJson = JSON.stringify([
+const researchPersona = [
   {
     name: "Sawyer Miller",
     age: 24,
@@ -37,7 +46,7 @@ const researchPersonaJson = JSON.stringify([
       { name: "recency-sensitivity", score: 90, context: "job search", description: "Prefers recently posted opportunities" },
     ],
   },
-]);
+];
 
 const clusterPersonaJson = JSON.stringify([
   {
@@ -67,12 +76,20 @@ const clusterPersonaJson = JSON.stringify([
   },
 ]);
 
+/** Makes the mocked streamText resolve with the given persona array. */
+function stubStructuredOutput(personas: unknown[], calls = 1): void {
+  for (let i = 0; i < calls; i++) {
+    mockStreamText.mockReturnValueOnce({ output: Promise.resolve(personas) });
+  }
+}
+
 describe("PersonaAdapter dual-mode generation", () => {
+  beforeEach(() => mockStreamText.mockReset());
+
   describe("generateResearchPersonas", () => {
     it("generates research-mode personas with provenance tracking", async () => {
-      const llmMock = createMockLlmService();
-      llmMock.createChatCompletion.mockResolvedValue(researchPersonaJson);
-      const adapter = new PersonaAdapter(llmMock);
+      stubStructuredOutput(researchPersona);
+      const adapter = new PersonaAdapter(createMockLlmService());
 
       const personas = await adapter.generateResearchPersonas({
         count: 1,
@@ -89,60 +106,79 @@ describe("PersonaAdapter dual-mode generation", () => {
       expect(personas[0].evidenceLinks).toBeDefined();
     })
 
+    it("assigns curated neutral names instead of LLM names, deterministically", async () => {
+      stubStructuredOutput(researchPersona); // contains "Sawyer Miller"
+      const adapter = new PersonaAdapter(createMockLlmService());
+
+      const personas = await adapter.generateResearchPersonas({
+        count: 1,
+        personaDescription: "Junior backend engineer who values automation",
+        interviewIds: ["int-1"],
+        evidenceThreshold: 0.7,
+      });
+
+      expect(personas[0].name).not.toBe("Sawyer Miller");
+      expect(GENDERLESS_NAMES).toContain(personas[0].name);
+    })
+
     it("uses evidence-first prompt with no fabricated memories", async () => {
-      const llmMock = createMockLlmService();
-      llmMock.createChatCompletion.mockResolvedValue(researchPersonaJson);
-      const adapter = new PersonaAdapter(llmMock);
+      stubStructuredOutput(researchPersona);
+      const adapter = new PersonaAdapter(createMockLlmService());
 
       await adapter.generateResearchPersonas({
         count: 1,
         personaDescription: "Test user",
       });
 
-      const prompt = llmMock.createChatCompletion.mock.calls[0][0][0].content;
-      expect(prompt).toContain("research");
-      expect(prompt).toContain("evidence");
+      const system = mockStreamText.mock.calls[0][0].system;
+      expect(system).toContain("research");
+      expect(system).toContain("evidence");
     })
 
-    it("handles LLM failure gracefully", async () => {
-      const llmMock = createMockLlmService();
-      llmMock.createChatCompletion.mockRejectedValue(new Error("LLM error"));
-      const adapter = new PersonaAdapter(llmMock);
+    it("retries once when structured output fails, then succeeds", async () => {
+      mockStreamText
+        .mockReturnValueOnce({ output: Promise.reject(new Error("No object generated: could not parse the response.")) })
+        .mockReturnValueOnce({ output: Promise.resolve(researchPersona) });
+      const adapter = new PersonaAdapter(createMockLlmService());
+
+      const personas = await adapter.generateResearchPersonas({
+        count: 1,
+        personaDescription: "Test",
+      });
+
+      expect(personas).toHaveLength(1);
+      expect(mockStreamText).toHaveBeenCalledTimes(2);
+    })
+
+    it("fails after exhausting retries", async () => {
+      mockStreamText
+        .mockReturnValueOnce({ output: Promise.reject(new Error("No object generated")) })
+        .mockReturnValueOnce({ output: Promise.reject(new Error("No object generated")) });
+      const adapter = new PersonaAdapter(createMockLlmService());
 
       await expect(adapter.generateResearchPersonas({
         count: 1,
         personaDescription: "Test",
       })).rejects.toThrow("Failed to generate research personas");
+      expect(mockStreamText).toHaveBeenCalledTimes(2);
     })
 
-    it("throws on count mismatch", async () => {
-      const llmMock = createMockLlmService();
-      llmMock.createChatCompletion.mockResolvedValue(JSON.stringify([{ name: "Only" }]));
-      const adapter = new PersonaAdapter(llmMock);
+    it("throws on count mismatch after retries", async () => {
+      stubStructuredOutput([{ name: "Only" }], 2);
+      const adapter = new PersonaAdapter(createMockLlmService());
 
       await expect(adapter.generateResearchPersonas({
         count: 3,
         personaDescription: "Test",
       })).rejects.toThrow("count mismatch");
-    })
-
-    it("throws on non-array response", async () => {
-      const llmMock = createMockLlmService();
-      llmMock.createChatCompletion.mockResolvedValue(JSON.stringify({ name: "Object" }));
-      const adapter = new PersonaAdapter(llmMock);
-
-      await expect(adapter.generateResearchPersonas({
-        count: 1,
-        personaDescription: "Test",
-      })).rejects.toThrow("research personas");
+      expect(mockStreamText).toHaveBeenCalledTimes(2);
     })
   })
 
   describe("generateStrategyPersonas", () => {
     it("generates strategy-mode personas with richer backstories", async () => {
-      const llmMock = createMockLlmService();
-      llmMock.createChatCompletion.mockResolvedValue(researchPersonaJson);
-      const adapter = new PersonaAdapter(llmMock);
+      stubStructuredOutput(researchPersona);
+      const adapter = new PersonaAdapter(createMockLlmService());
 
       const personas = await adapter.generateStrategyPersonas({
         count: 1,
@@ -153,12 +189,44 @@ describe("PersonaAdapter dual-mode generation", () => {
 
       expect(personas).toHaveLength(1);
       expect(personas[0].generationMode).toBe("strategy");
+      // Psychographic fields must survive extraction from the LLM response
+      expect(personas[0].values).toEqual(["Efficiency", "Transparency"]);
+      expect(personas[0].fears).toEqual(["Wasted effort", "Outdated postings"]);
+      expect(personas[0].interests).toEqual(["automation", "scripting"]);
+    })
+
+    it("enumerates psychographic fields in the system prompt", async () => {
+      stubStructuredOutput(researchPersona);
+      const adapter = new PersonaAdapter(createMockLlmService());
+
+      await adapter.generateStrategyPersonas({
+        count: 1,
+        personaDescription: "Enterprise buyer",
+      });
+
+      const system = mockStreamText.mock.calls[0][0].system;
+      expect(system).toContain("values: string[]");
+      expect(system).toContain("fears: string[]");
+      expect(system).toContain("interests: string[]");
+    })
+
+    it("assigns curated neutral names instead of LLM names, deterministically", async () => {
+      mockStreamText.mockReturnValue({ output: Promise.resolve(researchPersona) }); // contains "Sawyer Miller"
+      const adapter = new PersonaAdapter(createMockLlmService());
+
+      const first = await adapter.generateStrategyPersonas({ count: 1, personaDescription: "Enterprise buyer" });
+      const repeat = await adapter.generateStrategyPersonas({ count: 1, personaDescription: "Enterprise buyer" });
+      const different = await adapter.generateStrategyPersonas({ count: 1, personaDescription: "Different audience" });
+
+      expect(first[0].name).not.toBe("Sawyer Miller");
+      expect(GENDERLESS_NAMES).toContain(first[0].name);
+      expect(repeat[0].name).toBe(first[0].name);
+      expect(different[0].name).not.toBe(first[0].name);
     })
 
     it("uses storytelling prompt when rich level set", async () => {
-      const llmMock = createMockLlmService();
-      llmMock.createChatCompletion.mockResolvedValue(researchPersonaJson);
-      const adapter = new PersonaAdapter(llmMock);
+      stubStructuredOutput(researchPersona);
+      const adapter = new PersonaAdapter(createMockLlmService());
 
       await adapter.generateStrategyPersonas({
         count: 1,
@@ -166,8 +234,23 @@ describe("PersonaAdapter dual-mode generation", () => {
         storytellingLevel: "rich",
       });
 
-      const prompt = llmMock.createChatCompletion.mock.calls[0][0][0].content;
-      expect(prompt).toContain("story");
+      const system = mockStreamText.mock.calls[0][0].system;
+      expect(system).toContain("story");
+    })
+
+    it("retries once when structured output fails, then succeeds", async () => {
+      mockStreamText
+        .mockReturnValueOnce({ output: Promise.reject(new Error("No object generated: could not parse the response.")) })
+        .mockReturnValueOnce({ output: Promise.resolve(researchPersona) });
+      const adapter = new PersonaAdapter(createMockLlmService());
+
+      const personas = await adapter.generateStrategyPersonas({
+        count: 1,
+        personaDescription: "Enterprise buyer",
+      });
+
+      expect(personas).toHaveLength(1);
+      expect(mockStreamText).toHaveBeenCalledTimes(2);
     })
   })
 

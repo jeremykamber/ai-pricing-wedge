@@ -47,6 +47,53 @@ describe("POST /api/vps/generate-personas", () => {
     expect(body.runId.length).toBeGreaterThan(0);
   });
 
+  it("forwards mode to the use case", async () => {
+    mockGeneratePersonasExecute.mockResolvedValue([]);
+
+    const { POST } = await import("../route");
+    const req = new NextRequest(
+      "http://localhost:3000/api/vps/generate-personas",
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ personaDescription: "A tech-savvy founder", mode: "strategy" }),
+      },
+    );
+    await POST(req);
+    // Generation is fire-and-forget: wait for the background IIFE to reach the use case.
+    await new Promise((r) => setTimeout(r, 10));
+    expect(mockGeneratePersonasExecute).toHaveBeenCalledWith(
+      "A tech-savvy founder",
+      expect.any(Function),
+      5,
+      undefined,
+      "strategy",
+    );
+  });
+
+  it("drops unsupported modes", async () => {
+    mockGeneratePersonasExecute.mockResolvedValue([]);
+
+    const { POST } = await import("../route");
+    const req = new NextRequest(
+      "http://localhost:3000/api/vps/generate-personas",
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ personaDescription: "A tech-savvy founder", mode: "bogus" }),
+      },
+    );
+    await POST(req);
+    await new Promise((r) => setTimeout(r, 10));
+    expect(mockGeneratePersonasExecute).toHaveBeenCalledWith(
+      "A tech-savvy founder",
+      expect.any(Function),
+      5,
+      undefined,
+      undefined,
+    );
+  });
+
   it("returns 400 when personaDescription is missing", async () => {
     const { POST } = await import("../route");
     const req = new NextRequest(
