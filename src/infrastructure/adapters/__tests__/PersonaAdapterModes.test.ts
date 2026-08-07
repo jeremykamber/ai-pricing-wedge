@@ -176,9 +176,42 @@ describe("PersonaAdapter dual-mode generation", () => {
   })
 
   describe("generateStrategyPersonas", () => {
-    it("generates strategy-mode personas with richer backstories", async () => {
-      stubStructuredOutput(researchPersona);
-      const adapter = new PersonaAdapter(createMockLlmService());
+    // Profile-phase fixture: matches the omitted profile schema (no id/name/backstory).
+    const strategyProfile = [
+      {
+        age: 34,
+        occupation: "VP Product",
+        educationLevel: "MBA",
+        interests: ["sailing", "podcasts"],
+        goals: ["Ship a pricing engine", "Cut churn"],
+        conscientiousness: 80,
+        neuroticism: 45,
+        openness: 70,
+        extraversion: 55,
+        agreeableness: 60,
+        values: ["Autonomy", "Evidence"],
+        fears: ["Micromanagement", "Churn spikes"],
+        communicationStyle: "Analytical",
+        decisionStyle: "Data-driven",
+        domainExpertise: ["pricing", "PLG"],
+        behavioralDimensions: [
+          { name: "risk-tolerance", score: 70, context: "pricing changes", description: "Willing to experiment with packaging", evidence: "quotes from the brief" },
+          { name: "evidence-need", score: 90, context: "tool adoption", description: "Requires benchmarks before committing", evidence: "quotes from the brief" },
+        ],
+      },
+    ];
+
+    function mockBackstories(llm: any, stories: string[] = ["Jordan's life story."]): void {
+      for (const story of stories) {
+        llm.createChatCompletion.mockResolvedValueOnce(story);
+      }
+    }
+
+    it("runs phased: one profile batch call, then a per-persona backstory call", async () => {
+      stubStructuredOutput(strategyProfile);
+      const llm = createMockLlmService();
+      mockBackstories(llm);
+      const adapter = new PersonaAdapter(llm);
 
       const personas = await adapter.generateStrategyPersonas({
         count: 1,
@@ -188,16 +221,22 @@ describe("PersonaAdapter dual-mode generation", () => {
       });
 
       expect(personas).toHaveLength(1);
+      expect(mockStreamText).toHaveBeenCalledTimes(1); // profiles only
+      expect(llm.createChatCompletion).toHaveBeenCalledTimes(1); // backstory
       expect(personas[0].generationMode).toBe("strategy");
-      // Psychographic fields must survive extraction from the LLM response
-      expect(personas[0].values).toEqual(["Efficiency", "Transparency"]);
-      expect(personas[0].fears).toEqual(["Wasted effort", "Outdated postings"]);
-      expect(personas[0].interests).toEqual(["automation", "scripting"]);
+      expect(personas[0].backstory).toBe("Jordan's life story.");
+      // Psychographic fields must survive extraction from the profile response
+      expect(personas[0].values).toEqual(["Autonomy", "Evidence"]);
+      expect(personas[0].fears).toEqual(["Micromanagement", "Churn spikes"]);
+      expect(personas[0].interests).toEqual(["sailing", "podcasts"]);
+      expect(personas[0].behavioralDimensions).toHaveLength(2);
     })
 
-    it("enumerates psychographic fields in the system prompt", async () => {
-      stubStructuredOutput(researchPersona);
-      const adapter = new PersonaAdapter(createMockLlmService());
+    it("enumerates psychographic fields in the profile prompt, with no backstory", async () => {
+      stubStructuredOutput(strategyProfile);
+      const llm = createMockLlmService();
+      mockBackstories(llm);
+      const adapter = new PersonaAdapter(llm);
 
       await adapter.generateStrategyPersonas({
         count: 1,
@@ -208,41 +247,50 @@ describe("PersonaAdapter dual-mode generation", () => {
       expect(system).toContain("values: string[]");
       expect(system).toContain("fears: string[]");
       expect(system).toContain("interests: string[]");
+      expect(system).not.toContain("backstory");
     })
 
     it("assigns curated neutral names instead of LLM names, deterministically", async () => {
-      mockStreamText.mockReturnValue({ output: Promise.resolve(researchPersona) }); // contains "Sawyer Miller"
-      const adapter = new PersonaAdapter(createMockLlmService());
+      mockStreamText.mockReturnValue({ output: Promise.resolve(strategyProfile) });
+      const llm = createMockLlmService();
+      llm.createChatCompletion.mockResolvedValue("Backstory text.");
+      const adapter = new PersonaAdapter(llm);
 
       const first = await adapter.generateStrategyPersonas({ count: 1, personaDescription: "Enterprise buyer" });
       const repeat = await adapter.generateStrategyPersonas({ count: 1, personaDescription: "Enterprise buyer" });
       const different = await adapter.generateStrategyPersonas({ count: 1, personaDescription: "Different audience" });
 
-      expect(first[0].name).not.toBe("Sawyer Miller");
       expect(GENDERLESS_NAMES).toContain(first[0].name);
       expect(repeat[0].name).toBe(first[0].name);
       expect(different[0].name).not.toBe(first[0].name);
     })
 
-    it("uses storytelling prompt when rich level set", async () => {
-      stubStructuredOutput(researchPersona);
-      const adapter = new PersonaAdapter(createMockLlmService());
+    it("writes named third-person backstories, honoring the storytelling level", async () => {
+      stubStructuredOutput(strategyProfile);
+      const llm = createMockLlmService();
+      mockBackstories(llm);
+      const adapter = new PersonaAdapter(llm);
 
-      await adapter.generateStrategyPersonas({
+      const personas = await adapter.generateStrategyPersonas({
         count: 1,
-        personaDescription: "Test",
+        personaDescription: "Enterprise buyer",
         storytellingLevel: "rich",
       });
 
-      const system = mockStreamText.mock.calls[0][0].system;
-      expect(system).toContain("story");
+      const [system, user] = llm.createChatCompletion.mock.calls[0][0] as { role: string; content: string }[];
+      expect(system.content).toContain(personas[0].name);
+      expect(system.content).toContain("THIRD PERSON");
+      expect(system.content).toContain("Storytelling level: rich");
+      expect(user.content).toContain(personas[0].name); // profile JSON includes the assigned name
     })
 
-    it("retries once when structured output fails, then succeeds", async () => {
+    it("retries the profile batch once when structured output fails, then succeeds", async () => {
       mockStreamText
         .mockReturnValueOnce({ output: Promise.reject(new Error("No object generated: could not parse the response.")) })
-        .mockReturnValueOnce({ output: Promise.resolve(researchPersona) });
-      const adapter = new PersonaAdapter(createMockLlmService());
+        .mockReturnValueOnce({ output: Promise.resolve(strategyProfile) });
+      const llm = createMockLlmService();
+      mockBackstories(llm);
+      const adapter = new PersonaAdapter(llm);
 
       const personas = await adapter.generateStrategyPersonas({
         count: 1,
@@ -251,6 +299,81 @@ describe("PersonaAdapter dual-mode generation", () => {
 
       expect(personas).toHaveLength(1);
       expect(mockStreamText).toHaveBeenCalledTimes(2);
+    })
+
+    it("retries the profile batch when required fields are missing, then succeeds", async () => {
+      const hollow = [{ age: 34, occupation: "VP Product" }]; // missing values/fears/etc.
+      mockStreamText
+        .mockReturnValueOnce({ output: Promise.resolve(hollow) })
+        .mockReturnValueOnce({ output: Promise.resolve(strategyProfile) });
+      const llm = createMockLlmService();
+      mockBackstories(llm);
+      const adapter = new PersonaAdapter(llm);
+
+      const personas = await adapter.generateStrategyPersonas({
+        count: 1,
+        personaDescription: "Enterprise buyer",
+      });
+
+      expect(personas).toHaveLength(1);
+      expect(mockStreamText).toHaveBeenCalledTimes(2);
+      // The retry nudge names the missing fields in the prompt
+      expect(mockStreamText.mock.calls[1][0].prompt).toContain("behavioralDimensions");
+    })
+
+    it("retries a backstory call once, then succeeds", async () => {
+      stubStructuredOutput(strategyProfile);
+      const llm = createMockLlmService();
+      llm.createChatCompletion
+        .mockRejectedValueOnce(new Error("provider timeout"))
+        .mockResolvedValueOnce("Recovered story.");
+      const adapter = new PersonaAdapter(llm);
+
+      const personas = await adapter.generateStrategyPersonas({
+        count: 1,
+        personaDescription: "Enterprise buyer",
+      });
+
+      expect(personas[0].backstory).toBe("Recovered story.");
+      expect(llm.createChatCompletion).toHaveBeenCalledTimes(2);
+    })
+
+    it("fails the whole run loudly, naming the persona, when a backstory call exhausts retries", async () => {
+      stubStructuredOutput(strategyProfile);
+      const llm = createMockLlmService();
+      llm.createChatCompletion.mockRejectedValue(new Error("provider down"));
+      const adapter = new PersonaAdapter(llm);
+
+      const promise = adapter.generateStrategyPersonas({
+        count: 1,
+        personaDescription: "Enterprise buyer",
+      });
+
+      await expect(promise).rejects.toThrow(/Failed to generate backstory for persona/);
+      expect(llm.createChatCompletion).toHaveBeenCalledTimes(2);
+    })
+
+    it("reports phase progress via onPhase", async () => {
+      stubStructuredOutput(strategyProfile);
+      const llm = createMockLlmService();
+      llm.createChatCompletion.mockResolvedValue("Story.");
+      const adapter = new PersonaAdapter(llm);
+      const phases: string[] = [];
+      const progress: { completed: number; total: number; personaName?: string }[] = [];
+
+      await adapter.generateStrategyPersonas(
+        { count: 1, personaDescription: "Enterprise buyer" },
+        (phase, p) => {
+          phases.push(phase);
+          if (p) progress.push(p);
+        },
+      );
+
+      expect(phases).toEqual(["profiles", "profiles", "backstories", "backstories"]); // start + done per phase
+      expect(progress[0]).toEqual({ completed: 0, total: 1 }); // profiles start
+      expect(progress[1]).toEqual({ completed: 1, total: 1 }); // profiles done
+      expect(progress[2]).toEqual({ completed: 0, total: 1 }); // backstories start
+      expect(progress[3]).toEqual({ completed: 1, total: 1, personaName: expect.any(String) }); // backstory done
     })
   })
 

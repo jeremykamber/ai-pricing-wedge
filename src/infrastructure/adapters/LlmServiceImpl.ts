@@ -1,6 +1,6 @@
 import OpenAI from "openai";
 import pLimit from "p-limit";
-import { LlmServicePort, PricingLocation } from "@/domain/ports/LlmServicePort";
+import { LlmServicePort, PricingLocation, PersonaPhaseCallback } from "@/domain/ports/LlmServicePort";
 import { createOpenAI, OpenAIProvider } from "@ai-sdk/openai";
 import { PersonaAdapter } from "./PersonaAdapter";
 import { VisionAnalysisAdapter } from "./VisionAnalysisAdapter";
@@ -618,8 +618,8 @@ export class LlmServiceImpl implements LlmServicePort {
         return this.personaAdapter.generateResearchPersonas(config);
     }
 
-    async generateStrategyPersonas(config: StrategyPersonaConfig): Promise<Persona[]> {
-        return this.personaAdapter.generateStrategyPersonas(config);
+    async generateStrategyPersonas(config: StrategyPersonaConfig, onPhase?: PersonaPhaseCallback): Promise<Persona[]> {
+        return this.personaAdapter.generateStrategyPersonas(config, onPhase);
     }
 
     async generateClusterPersonas(config: ClusterPersonaConfig): Promise<Persona[]> {

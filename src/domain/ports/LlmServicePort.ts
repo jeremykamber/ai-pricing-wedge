@@ -11,6 +11,21 @@ export type AgentAction =
     | { type: "TYPE"; selector: string; text: string; reasoning: string }
     | { type: "FINISH"; report: string };
 
+/**
+ * Progress callback for phased persona generation.
+ *
+ * Phase 1 (`profiles`) is one batched call; phase 2 (`backstories`) is one
+ * call per persona. Progress carries completed/total counts; personaName is
+ * set during the backstories phase so callers can render per-persona ticks.
+ */
+export type PersonaPhase = "profiles" | "backstories";
+export interface PersonaPhaseProgress {
+    completed: number;
+    total: number;
+    personaName?: string;
+}
+export type PersonaPhaseCallback = (phase: PersonaPhase, progress?: PersonaPhaseProgress) => void;
+
 /** @deprecated Pricing-specific — use generic artifact intake instead. */
 export interface PricingLocation {
     found: boolean;
@@ -384,8 +399,10 @@ export interface LlmServicePort {
     /**
      * Strategy Mode: richer storytelling persona generation from ICP/market descriptions.
      * Representative assumptions allowed for imagination and decision-making.
+     * Phased: batched profiles, then per-persona parallel backstories.
+     * @param onPhase - Optional progress callback (profiles -> backstories).
      */
-    generateStrategyPersonas(config: StrategyPersonaConfig): Promise<Persona[]>;
+    generateStrategyPersonas(config: StrategyPersonaConfig, onPhase?: PersonaPhaseCallback): Promise<Persona[]>;
 
     /**
      * Cluster Mode: synthetic representative personas from multiple interview signals.

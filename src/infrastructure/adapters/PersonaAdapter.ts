@@ -4,6 +4,8 @@ import { streamText, Output } from "ai";
 import { z } from "zod";
 import { stripCodeFence } from "./llmUtils";
 import { GENDERLESS_NAMES } from "@/data/genderless_names";
+import pLimit from "p-limit";
+import type { PersonaPhaseCallback } from "@/domain/ports/LlmServicePort";
 import type {
   ResearchPersonaConfig,
   StrategyPersonaConfig,
@@ -124,6 +126,13 @@ export class PersonaAdapter {
    * output gives the provider a JSON schema; we additionally retry once when
    * the model still fails to produce valid output or returns too few personas
    * (the AI SDK only auto-retries HTTP errors, not output validation errors).
+   *
+   * The model also occasionally skips schema fields when the structure is
+   * large, so callers can pass `requiredFields` to validate the content every
+   * record must have and retry with a nudge rather than shipping hollow
+   * personas. The phased strategy pipeline passes a profile-level set (no
+   * backstory — that phase comes later); other modes omit it and keep the
+   * historical lenient behavior.
    */
   private async generatePersonaArray(
     system: string,
@@ -131,17 +140,27 @@ export class PersonaAdapter {
     expectedCount: number,
     context: string,
     temperature: number,
+    options: {
+      /** Output element schema — defaults to the full PersonaSchema. */
+      schema?: z.ZodType;
+      /** Fields every record must have with non-empty values; absence triggers a retry with a nudge. */
+      requiredFields?: readonly string[];
+    } = {},
   ): Promise<Record<string, unknown>[]> {
+    const { schema = PersonaSchema, requiredFields } = options;
     const attempts = 2;
     let lastError: unknown;
     for (let attempt = 1; attempt <= attempts; attempt++) {
       console.log(`[PersonaAdapter] [${context}] Generating ${expectedCount} personas (attempt ${attempt}/${attempts})...`);
       try {
+        const retryNudge = attempt > 1 && requiredFields && requiredFields.length > 0
+          ? `\n\nThe previous generation was incomplete: every persona MUST include ALL of these fields with non-empty values: ${requiredFields.join(', ')}. A persona missing any of them is invalid.`
+          : '';
         const { output } = streamText({
           model: this.llmService.provider(this.llmService.smallTextModel),
-          output: Output.array({ element: PersonaSchema }),
+          output: Output.array({ element: schema }),
           system,
-          prompt: user,
+          prompt: user + retryNudge,
           temperature,
         });
         const records = (await output) as unknown as Record<string, unknown>[];
@@ -153,7 +172,20 @@ export class PersonaAdapter {
         if (records.length > expectedCount) {
           console.warn(`[PersonaAdapter] ${context} returned ${records.length} personas, truncating to ${expectedCount}`);
         }
-        return records.slice(0, expectedCount);
+        const slice = records.slice(0, expectedCount);
+        if (requiredFields && requiredFields.length > 0) {
+          const incomplete = slice.flatMap((rec, i) => {
+            const absent = requiredFields.filter((k) => {
+              const v = rec[k];
+              return v === undefined || v === null || v === '' || (Array.isArray(v) && v.length === 0);
+            });
+            return absent.length > 0 ? [`persona #${i + 1} missing: ${absent.join(', ')}`] : [];
+          });
+          if (incomplete.length > 0) {
+            throw new Error(`[PersonaAdapter] ${context} incomplete output: ${incomplete.join('; ')}`);
+          }
+        }
+        return slice;
       } catch (err) {
         lastError = err;
         console.warn(`[PersonaAdapter] [${context}] Attempt ${attempt}/${attempts} failed: ${(err as Error).message}`);
@@ -990,24 +1022,102 @@ Base all backstory details on the provided evidence. Do not fabricate events.`;
   /**
    * Strategy Mode: richer storytelling persona generation.
    * Allows representative assumptions and controlled synthetic details.
+   *
+   * Phased generation (decisions.md — persona-a-profile-backstory):
+   * phase 1 generates the batched profiles WITHOUT backstory (diversity needs
+   * in-batch prompting — per-persona profile calls homogenize), then phase 2
+   * writes each persona's backstory in a parallel per-persona call, removing
+   * the single-call latency wall and the field-skipping failure surface. A
+   * backstory call failing after retries fails the whole run, naming the
+   * persona — no hollow personas.
    */
-  async generateStrategyPersonas(config: StrategyPersonaConfig): Promise<Persona[]> {
+  async generateStrategyPersonas(
+    config: StrategyPersonaConfig,
+    onPhase?: PersonaPhaseCallback,
+  ): Promise<Persona[]> {
+    onPhase?.("profiles", { completed: 0, total: 1 });
+    const records = await this.generateStrategyProfiles(config);
+    onPhase?.("profiles", { completed: 1, total: 1 });
+
+    // Names are assigned between the phases, so the backstory call knows the
+    // persona's name and can write a named third-person narrative.
+    const chosenNames = PersonaAdapter.neutralNames(config.personaDescription, records.length);
+    const profiles = records.map((p, idx) => ({
+      ...PersonaAdapter.extractBaseFields(p),
+      name: chosenNames[idx % chosenNames.length] ?? "Persona",
+      id: `strategy-persona-${idx}`,
+      generationMode: "strategy" as const,
+      behavioralDimensions: PersonaAdapter.extractBehavioralDimensions(p),
+    })) as Persona[];
+
+    // Phase 2: per-persona parallel backstories. p-limit caps concurrent calls
+    // so a slow provider doesn't fan out unboundedly.
+    const limit = pLimit(4);
+    let completedBackstories = 0;
+    onPhase?.("backstories", { completed: 0, total: profiles.length });
+    const backstories = await Promise.all(
+      profiles.map((profile) =>
+        limit(async () => {
+          const story = await this.generateStrategyBackstory(profile, config);
+          onPhase?.("backstories", {
+            completed: ++completedBackstories,
+            total: profiles.length,
+            personaName: profile.name,
+          });
+          return story;
+        }),
+      ),
+    );
+
+    const evidenceExcerpt = config.personaDescription.length > 200
+      ? config.personaDescription.slice(0, 200) + "..."
+      : config.personaDescription;
+    return profiles.map((profile, idx) => ({
+      ...profile,
+      backstory: backstories[idx],
+      evidenceLinks: [{
+        transcriptId: 'user-input',
+        excerpt: evidenceExcerpt,
+        attribute: 'persona-description',
+      }],
+      provenance: {
+        attributes: [
+          { attribute: 'values', tier: 'interpreted' as const, confidence: 0.7 },
+          { attribute: 'fears', tier: 'interpreted' as const, confidence: 0.7 },
+          { attribute: 'goals', tier: 'interpreted' as const, confidence: 0.7 },
+          { attribute: 'backstory', tier: 'synthetic' as const, confidence: 0.5 },
+        ],
+        generationMode: 'strategy' as const,
+        overallConfidence: 0.7,
+      },
+    })) as Persona[];
+  }
+
+  /**
+   * Phase 1 of strategy generation: one batched call for all profiles.
+   * Schema excludes backstory (written per-persona in phase 2); required-field
+   * validation covers everything the verify judge needs minus the fields
+   * assigned after generation (id, name, backstory) plus behavioralDimensions,
+   * which must be non-empty at profile time.
+   */
+  private static readonly STRATEGY_PROFILE_REQUIRED_FIELDS = [
+    'age', 'occupation', 'educationLevel', 'interests', 'goals',
+    'conscientiousness', 'neuroticism', 'openness', 'extraversion', 'agreeableness',
+    'values', 'fears', 'communicationStyle', 'decisionStyle',
+    'behavioralDimensions',
+  ] as const;
+
+  private async generateStrategyProfiles(config: StrategyPersonaConfig): Promise<Record<string, unknown>[]> {
     const system = `You are a strategic persona generator creating buyer personas for product decision-making.
 
 GUIDELINES:
 - Create vivid, believable personas that help teams empathize with target users.
 - Synthetic details are ALLOWED when they help explain behavior.
-- Richer backstories are encouraged — they help teams design better products.
 - Do NOT add details that would CHANGE product decisions if they were false (counterfactual test).
-- Mark the persona's generation mode as strategy.
-- Do NOT mention the persona's name in the backstory or any other narrative text — names are assigned separately from a curated pool.
+- Do NOT invent names — names are assigned separately from a curated pool.
 
-Storytelling level: ${config.storytellingLevel ?? "moderate"}
-${config.allowSyntheticBackstory ? "Synthetic backstory details are permitted." : "Keep backstory grounded in realistic scenarios without specific invented events."}
-
-Generate a JSON array of EXACTLY ${config.count} personas with this structure:
+Generate a JSON array of EXACTLY ${config.count} DISTINCT personas with this structure:
 {
-  name: string;
   age: number;
   occupation: string;
   educationLevel: string;
@@ -1023,53 +1133,64 @@ Generate a JSON array of EXACTLY ${config.count} personas with this structure:
   communicationStyle: string;       // e.g. "direct", "analytical", "warm", "cautious"
   decisionStyle: string;            // e.g. "data-driven", "gut-driven", "consensus-seeking"
   domainExpertise: string[];        // Domains the persona knows well
-  behavioralDimensions: { name: string; score: number (0-100); context: string; description: string; evidence: string }[];
-  backstory: string;                // Rich narrative (6-10 paragraphs)
+  behavioralDimensions: { name: string; score: number (0-100); context: string; description: string; evidence: string }[];  // 3-5 dimensions
 }`;
 
     const user = `Generate ${config.count} strategy-mode personas for: "${config.personaDescription}"
 ${config.icpDescription ? `ICP context: ${config.icpDescription}` : ""}
 ${config.contextNotes ? `Additional context: ${config.contextNotes}` : ""}`;
 
-    try {
-      const records = await this.generatePersonaArray(
-        system,
-        user,
-        config.count,
-        "strategy",
-        0.7,
-      );
-      const evidenceExcerpt = config.personaDescription.length > 200
-        ? config.personaDescription.slice(0, 200) + "..."
-        : config.personaDescription;
-      const chosenNames = PersonaAdapter.neutralNames(config.personaDescription, records.length);
-      return records.map((p, idx) => ({
-        ...PersonaAdapter.extractBaseFields(p),
-        name: chosenNames[idx % chosenNames.length] ?? "Persona",
-        id: `strategy-persona-${idx}`,
-        generationMode: "strategy" as const,
-        behavioralDimensions: PersonaAdapter.extractBehavioralDimensions(p),
-        evidenceLinks: [{
-          transcriptId: 'user-input',
-          excerpt: evidenceExcerpt,
-          attribute: 'persona-description',
-        }],
-        provenance: {
-          attributes: [
-            { attribute: 'values', tier: 'interpreted' as const, confidence: 0.7 },
-            { attribute: 'fears', tier: 'interpreted' as const, confidence: 0.7 },
-            { attribute: 'goals', tier: 'interpreted' as const, confidence: 0.7 },
-            { attribute: 'backstory', tier: 'synthetic' as const, confidence: 0.5 },
+    return this.generatePersonaArray(
+      system,
+      user,
+      config.count,
+      "strategy-profiles",
+      0.6,
+      {
+        schema: PersonaSchema.omit({ id: true, name: true, backstory: true }),
+        requiredFields: PersonaAdapter.STRATEGY_PROFILE_REQUIRED_FIELDS,
+      },
+    );
+  }
+
+  /**
+   * Phase 2 of strategy generation: one backstory per persona, written in
+   * third person with the persona's name. Retries twice per persona; when both
+   * attempts fail the whole run fails loudly, naming the persona.
+   */
+  private async generateStrategyBackstory(profile: Persona, config: StrategyPersonaConfig): Promise<string> {
+    const system = `You are a narrative writer crafting the life story of a buyer persona.
+Write a RICH backstory of 6-10 substantial paragraphs, in THIRD PERSON, referring to the persona by name (${profile.name}). The narrative must:
+- Be causally coherent with the persona's psychographic profile: values, fears, goals, Big Five, communication and decision style.
+- Show HOW the persona's experiences led to their current traits and decision style.
+- ${config.allowSyntheticBackstory ? "Synthetic details are permitted when they help explain behavior." : "Stay grounded in realistic scenarios without specific invented events."}
+- Never contradict the profile below.
+Storytelling level: ${config.storytellingLevel ?? "moderate"}.
+Return plain text only. No labels, no markdown, no headers.`;
+
+    const user = `Write the backstory for this persona:\n${JSON.stringify(profile, null, 2)}`;
+    const attempts = 2;
+    let lastError: unknown;
+    for (let attempt = 1; attempt <= attempts; attempt++) {
+      try {
+        const story = await this.llmService.createChatCompletion(
+          [
+            { role: "system", content: system },
+            { role: "user", content: user },
           ],
-          generationMode: 'strategy' as const,
-          overallConfidence: 0.7,
-        },
-      })) as Persona[];
-    } catch (err) {
-      throw new Error(
-        `Failed to generate strategy personas: ${err}\nInput: ${config.personaDescription}`,
-      );
+          { model: this.llmService.smallTextModel, temperature: 0.7, purpose: "Strategy Backstory" },
+        );
+        const cleaned = stripCodeFence(story).trim();
+        if (!cleaned) throw new Error("empty backstory");
+        return cleaned;
+      } catch (err) {
+        lastError = err;
+        console.warn(`[PersonaAdapter] [strategy] Backstory attempt ${attempt}/${attempts} for ${profile.name} failed: ${(err as Error).message}`);
+      }
     }
+    throw new Error(
+      `Failed to generate backstory for persona "${profile.name}" (${profile.id}): ${(lastError as Error)?.message ?? "unknown error"}`,
+    );
   }
 
   /**
