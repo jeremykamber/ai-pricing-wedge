@@ -190,13 +190,23 @@ describe("PersonaAdapter dual-mode generation", () => {
         extraversion: 55,
         agreeableness: 60,
         values: ["Autonomy", "Evidence"],
+        valueEvidence: ["They asked for full autonomy over the roadmap", "Decisions must cite numbers"],
         fears: ["Micromanagement", "Churn spikes"],
+        fearEvidence: ["Being overridden by investors worries them", "A churn spike would end the runway"],
         communicationStyle: "Analytical",
         decisionStyle: "Data-driven",
         domainExpertise: ["pricing", "PLG"],
+        bestFor: ["Predicting pricing-package adoption"],
+        lessReliableFor: ["Predicting enterprise procurement cycles"],
+        identityContext: "Autonomous, evidence-driven operator across domains",
+        situationContext: "Under runway pressure, favors quick experiments",
+        evidenceLinks: [
+          { transcriptId: "user-input", excerpt: "full autonomy over the roadmap", attribute: "values" },
+        ],
         behavioralDimensions: [
-          { name: "risk-tolerance", score: 70, context: "pricing changes", description: "Willing to experiment with packaging", evidence: "quotes from the brief" },
-          { name: "evidence-need", score: 90, context: "tool adoption", description: "Requires benchmarks before committing", evidence: "quotes from the brief" },
+          { name: "risk-tolerance", score: 70, context: "pricing changes", description: "Willing to experiment with packaging", evidence: "they run pricing experiments quarterly" },
+          { name: "evidence-need", score: 90, context: "tool adoption", description: "Requires benchmarks before committing", evidence: "decisions must cite numbers" },
+          { name: "speed-bias", score: 75, context: "ship velocity", description: "Prefers shipping fast over perfect", evidence: "favors quick experiments" },
         ],
       },
     ];
@@ -229,7 +239,70 @@ describe("PersonaAdapter dual-mode generation", () => {
       expect(personas[0].values).toEqual(["Autonomy", "Evidence"]);
       expect(personas[0].fears).toEqual(["Micromanagement", "Churn spikes"]);
       expect(personas[0].interests).toEqual(["sailing", "podcasts"]);
-      expect(personas[0].behavioralDimensions).toHaveLength(2);
+      expect(personas[0].behavioralDimensions).toHaveLength(3);
+    })
+
+    it("maps the evidence fields through from the profile response", async () => {
+      stubStructuredOutput(strategyProfile);
+      const llm = createMockLlmService();
+      mockBackstories(llm);
+      const adapter = new PersonaAdapter(llm);
+
+      const personas = await adapter.generateStrategyPersonas({
+        count: 1,
+        personaDescription: "Enterprise buyer",
+      });
+
+      expect(personas[0].valueEvidence).toEqual(["They asked for full autonomy over the roadmap", "Decisions must cite numbers"]);
+      expect(personas[0].fearEvidence).toEqual(["Being overridden by investors worries them", "A churn spike would end the runway"]);
+      expect(personas[0].bestFor).toEqual(["Predicting pricing-package adoption"]);
+      expect(personas[0].lessReliableFor).toEqual(["Predicting enterprise procurement cycles"]);
+      expect(personas[0].identityContext).toBe("Autonomous, evidence-driven operator across domains");
+      expect(personas[0].situationContext).toBe("Under runway pressure, favors quick experiments");
+      expect(personas[0].evidenceLinks).toEqual([
+        { transcriptId: "user-input", excerpt: "full autonomy over the roadmap", attribute: "values" },
+      ]);
+    })
+
+    it("derives per-attribute provenance and a computed overall confidence", async () => {
+      stubStructuredOutput(strategyProfile);
+      const llm = createMockLlmService();
+      mockBackstories(llm);
+      const adapter = new PersonaAdapter(llm);
+
+      const personas = await adapter.generateStrategyPersonas({
+        count: 1,
+        personaDescription: "Enterprise buyer",
+      });
+
+      const attrs = personas[0].provenance?.attributes ?? [];
+      // Dimensions with evidence quotes are observed/0.9, not blanket 0.7
+      expect(attrs).toContainEqual({ attribute: "evidence-need", tier: "observed", confidence: 0.9, evidence: "decisions must cite numbers" });
+      // 3 evidence dims pull the computed mean to 0.8: (0.7*3 + 0.5 + 0.9*3) / 7
+      expect(personas[0].provenance?.overallConfidence).toBe(0.8);
+    })
+
+    it("marks dimensions without evidence as interpreted with lower confidence", async () => {
+      const dimlessEvidence = [{
+        ...strategyProfile[0],
+        behavioralDimensions: [
+          { name: "gut-call", score: 60, context: "hiring", description: "Decides on instinct", evidence: undefined },
+        ],
+      }];
+      stubStructuredOutput(dimlessEvidence);
+      const llm = createMockLlmService();
+      mockBackstories(llm);
+      const adapter = new PersonaAdapter(llm);
+
+      const personas = await adapter.generateStrategyPersonas({
+        count: 1,
+        personaDescription: "Enterprise buyer",
+      });
+
+      const attrs = personas[0].provenance?.attributes ?? [];
+      expect(attrs).toContainEqual({ attribute: "gut-call", tier: "interpreted", confidence: 0.6, evidence: undefined });
+      // Overall reflects the lower per-attribute confidence, not a blanket value
+      expect(personas[0].provenance?.overallConfidence).not.toBe(0.7);
     })
 
     it("enumerates psychographic fields in the profile prompt, with no backstory", async () => {
@@ -248,6 +321,10 @@ describe("PersonaAdapter dual-mode generation", () => {
       expect(system).toContain("fears: string[]");
       expect(system).toContain("interests: string[]");
       expect(system).not.toContain("backstory");
+      // Evidence contract is enumerated so the LLM fills it
+      expect(system).toContain("valueEvidence: string[]");
+      expect(system).toContain("evidenceLinks");
+      expect(system).toContain("bestFor: string[]");
     })
 
     it("assigns curated neutral names instead of LLM names, deterministically", async () => {
@@ -319,6 +396,7 @@ describe("PersonaAdapter dual-mode generation", () => {
       expect(mockStreamText).toHaveBeenCalledTimes(2);
       // The retry nudge names the missing fields in the prompt
       expect(mockStreamText.mock.calls[1][0].prompt).toContain("behavioralDimensions");
+      expect(mockStreamText.mock.calls[1][0].prompt).toContain("valueEvidence"); // evidence contract is enforced too
     })
 
     it("retries a backstory call once, then succeeds", async () => {

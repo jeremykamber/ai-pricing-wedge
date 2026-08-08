@@ -12,6 +12,53 @@ import type {
   ClusterPersonaConfig,
 } from "@/domain/dtos/PersonaGenerationConfig";
 
+/**
+ * Profile-phase output schema for strategy generation.
+ *
+ * Deliberately NOT the full PersonaSchema: the LLM only produces the profile
+ * here (backstory comes per-persona in phase 2), and a tight schema matching
+ * the prompt's structure block keeps the output small enough to parse
+ * reliably. Everything the evidence contract needs is required except each
+ * behavioral dimension's `evidence` quote — provenance marks dimensions
+ * observed/0.9 when the quote is present and interpreted/0.6 when not, so
+ * confidence stays honest rather than blanket-high.
+ */
+const StrategyProfileSchema = z.object({
+  age: z.number().min(0).max(100),
+  occupation: z.string().min(1),
+  educationLevel: z.string().min(1),
+  interests: z.array(z.string().min(1)),
+  goals: z.array(z.string().min(1)),
+  conscientiousness: z.number().min(0).max(100),
+  neuroticism: z.number().min(0).max(100),
+  openness: z.number().min(0).max(100),
+  extraversion: z.number().min(0).max(100),
+  agreeableness: z.number().min(0).max(100),
+  values: z.array(z.string().min(1)),
+  valueEvidence: z.array(z.string().min(1)),
+  fears: z.array(z.string().min(1)),
+  fearEvidence: z.array(z.string().min(1)),
+  communicationStyle: z.string().min(1),
+  decisionStyle: z.string().min(1),
+  domainExpertise: z.array(z.string().min(1)),
+  behavioralDimensions: z.array(z.object({
+    name: z.string().min(1),
+    score: z.number().min(0).max(100),
+    context: z.string().min(1),
+    description: z.string().min(1),
+    evidence: z.string().optional(),
+  })),
+  bestFor: z.array(z.string().min(1)),
+  lessReliableFor: z.array(z.string().min(1)),
+  identityContext: z.string().min(1),
+  situationContext: z.string().min(1),
+  evidenceLinks: z.array(z.object({
+    transcriptId: z.string().min(1),
+    excerpt: z.string().min(1),
+    attribute: z.string().min(1),
+  })),
+});
+
 export class PersonaAdapter {
   constructor(private llmService: LlmServiceImpl) { }
 
@@ -1048,6 +1095,13 @@ Base all backstory details on the provided evidence. Do not fabricate events.`;
       id: `strategy-persona-${idx}`,
       generationMode: "strategy" as const,
       behavioralDimensions: PersonaAdapter.extractBehavioralDimensions(p),
+      bestFor: Array.isArray(p.bestFor) ? p.bestFor as string[] : undefined,
+      lessReliableFor: Array.isArray(p.lessReliableFor) ? p.lessReliableFor as string[] : undefined,
+      identityContext: typeof p.identityContext === 'string' ? p.identityContext : undefined,
+      situationContext: typeof p.situationContext === 'string' ? p.situationContext : undefined,
+      evidenceLinks: Array.isArray(p.evidenceLinks)
+        ? p.evidenceLinks as { transcriptId: string; excerpt: string; attribute: string }[]
+        : undefined,
     })) as Persona[];
 
     // Phase 2: per-persona parallel backstories. p-limit caps concurrent calls
@@ -1069,42 +1123,58 @@ Base all backstory details on the provided evidence. Do not fabricate events.`;
       ),
     );
 
-    const evidenceExcerpt = config.personaDescription.length > 200
-      ? config.personaDescription.slice(0, 200) + "..."
-      : config.personaDescription;
-    return profiles.map((profile, idx) => ({
-      ...profile,
-      backstory: backstories[idx],
-      evidenceLinks: [{
-        transcriptId: 'user-input',
-        excerpt: evidenceExcerpt,
-        attribute: 'persona-description',
-      }],
-      provenance: {
-        attributes: [
-          { attribute: 'values', tier: 'interpreted' as const, confidence: 0.7 },
-          { attribute: 'fears', tier: 'interpreted' as const, confidence: 0.7 },
-          { attribute: 'goals', tier: 'interpreted' as const, confidence: 0.7 },
-          { attribute: 'backstory', tier: 'synthetic' as const, confidence: 0.5 },
-        ],
-        generationMode: 'strategy' as const,
-        overallConfidence: 0.7,
-      },
-    })) as Persona[];
+    return profiles.map((profile, idx) => {
+      const dims = profile.behavioralDimensions ?? [];
+      const attrProvenance = [
+        { attribute: 'values', tier: 'interpreted' as const, confidence: 0.7 },
+        { attribute: 'fears', tier: 'interpreted' as const, confidence: 0.7 },
+        { attribute: 'goals', tier: 'interpreted' as const, confidence: 0.7 },
+        { attribute: 'backstory', tier: 'synthetic' as const, confidence: 0.5 },
+        ...dims.map((d) => ({
+          attribute: d.name,
+          tier: (d.evidence ? 'observed' : 'interpreted') as 'observed' | 'interpreted',
+          confidence: d.evidence ? 0.9 : 0.6,
+          evidence: d.evidence,
+        })),
+      ];
+      const computedConfidence = attrProvenance.length > 0
+        ? Math.round(attrProvenance.reduce((sum, a) => sum + a.confidence, 0) / attrProvenance.length * 10) / 10
+        : 0.7;
+      return {
+        ...profile,
+        backstory: backstories[idx],
+        valueEvidence: Array.isArray(profile.valueEvidence) ? profile.valueEvidence : undefined,
+        fearEvidence: Array.isArray(profile.fearEvidence) ? profile.fearEvidence : undefined,
+        bestFor: Array.isArray(profile.bestFor) ? profile.bestFor : undefined,
+        lessReliableFor: Array.isArray(profile.lessReliableFor) ? profile.lessReliableFor : undefined,
+        identityContext: typeof profile.identityContext === 'string' ? profile.identityContext : undefined,
+        situationContext: typeof profile.situationContext === 'string' ? profile.situationContext : undefined,
+        provenance: {
+          attributes: attrProvenance,
+          generationMode: 'strategy' as const,
+          overallConfidence: computedConfidence,
+        },
+      };
+    }) as Persona[];
   }
 
   /**
    * Phase 1 of strategy generation: one batched call for all profiles.
    * Schema excludes backstory (written per-persona in phase 2); required-field
    * validation covers everything the verify judge needs minus the fields
-   * assigned after generation (id, name, backstory) plus behavioralDimensions,
-   * which must be non-empty at profile time.
+   * assigned after generation (id, name, backstory), plus behavioralDimensions
+   * (must be non-empty at profile time) and the evidence contract
+   * (valueEvidence/fearEvidence quote the input description;
+   * identityContext/situationContext are part of research parity).
+   * evidenceLinks stays optional — the mapping falls back to a whole-input
+   * excerpt rather than forcing per-attribute links through a retry.
    */
   private static readonly STRATEGY_PROFILE_REQUIRED_FIELDS = [
     'age', 'occupation', 'educationLevel', 'interests', 'goals',
     'conscientiousness', 'neuroticism', 'openness', 'extraversion', 'agreeableness',
     'values', 'fears', 'communicationStyle', 'decisionStyle',
-    'behavioralDimensions',
+    'behavioralDimensions', 'valueEvidence', 'fearEvidence',
+    'identityContext', 'situationContext', 'evidenceLinks',
   ] as const;
 
   private async generateStrategyProfiles(config: StrategyPersonaConfig): Promise<Record<string, unknown>[]> {
@@ -1115,6 +1185,10 @@ GUIDELINES:
 - Synthetic details are ALLOWED when they help explain behavior.
 - Do NOT add details that would CHANGE product decisions if they were false (counterfactual test).
 - Do NOT invent names — names are assigned separately from a curated pool.
+- MANDATORY: every persona must include ALL fields in the structure below with non-empty values. A persona missing any field is invalid.
+- Every persona MUST include 3-5 behavioralDimensions, each with a direct evidence quote drawn from the input description.
+- valueEvidence and fearEvidence MUST quote the input description (the user's own words), one quote per value/fear.
+- evidenceLinks MUST quote the input description; set attribute to the persona fields the quote supports.
 
 Generate a JSON array of EXACTLY ${config.count} DISTINCT personas with this structure:
 {
@@ -1129,11 +1203,18 @@ Generate a JSON array of EXACTLY ${config.count} DISTINCT personas with this str
   extraversion: number (0-100);
   agreeableness: number (0-100);
   values: string[];                 // Core values driving decisions (2-4 items)
+  valueEvidence: string[];          // Evidence quote for each value, parallel to values
   fears: string[];                  // Anxieties and risk concerns (2-3 items)
+  fearEvidence: string[];           // Evidence quote for each fear, parallel to fears
   communicationStyle: string;       // e.g. "direct", "analytical", "warm", "cautious"
   decisionStyle: string;            // e.g. "data-driven", "gut-driven", "consensus-seeking"
   domainExpertise: string[];        // Domains the persona knows well
-  behavioralDimensions: { name: string; score: number (0-100); context: string; description: string; evidence: string }[];  // 3-5 dimensions
+  behavioralDimensions: { name: string; score: number (0-100); context: string; description: string; evidence: string }[];  // 3-5 dimensions, each with a direct evidence quote from the input description
+  bestFor: string[];                // What this persona model is good at predicting (2-4 items)
+  lessReliableFor: string[];        // What this persona model is less reliable for (1-3 items)
+  identityContext: string;          // Stable traits that apply across domains
+  situationContext: string;         // Contextual behavior specific to this domain
+  evidenceLinks: { transcriptId: string; excerpt: string; attribute: string }[];  // Direct quotes from the input description
 }`;
 
     const user = `Generate ${config.count} strategy-mode personas for: "${config.personaDescription}"
@@ -1147,7 +1228,7 @@ ${config.contextNotes ? `Additional context: ${config.contextNotes}` : ""}`;
       "strategy-profiles",
       0.6,
       {
-        schema: PersonaSchema.omit({ id: true, name: true, backstory: true }),
+        schema: StrategyProfileSchema,
         requiredFields: PersonaAdapter.STRATEGY_PROFILE_REQUIRED_FIELDS,
       },
     );
