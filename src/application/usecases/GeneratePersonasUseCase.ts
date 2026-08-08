@@ -1,5 +1,5 @@
 import { Persona } from "@/domain/entities/Persona";
-import { LlmServicePort } from "../../domain/ports/LlmServicePort";
+import { LlmServicePort, PersonaPhase, PersonaPhaseProgress } from "../../domain/ports/LlmServicePort";
 
 export type PersonaGenerationProgressStep =
     | 'BRAINSTORMING_PERSONAS'
@@ -44,37 +44,34 @@ export class GeneratePersonasUseCase {
         let personas: Persona[];
         const targetCount = count ?? 3;
 
-        if (mode === 'research') {
-            personas = await this.llmService.generateResearchPersonas({
-                count: targetCount,
-                personaDescription,
-                contextNotes,
-            });
-
-            // Run PB&J rationalization for research mode, store in pbjRationales
-            // Capture backstories BEFORE calling rationalizePersonas (which mutates in-place)
-            const backstoriesBefore = personas.map(p => p.backstory ?? '');
-            const rationalized = await this.llmService.rationalizePersonas(personas, contextNotes);
-            for (let i = 0; i < personas.length; i++) {
-                const enhanced = rationalized[i]?.backstory ?? backstoriesBefore[i];
-                const pbjMatch = enhanced.match(/<<PSYCHOLOGICAL RATIONALES \(PB&J\)>>[\s\S]*$/);
-                if (pbjMatch && personas[i]) {
-                    personas[i].pbjRationales = pbjMatch[0].trim();
-                    personas[i].backstory = backstoriesBefore[i];
+        if (mode === 'research' || mode === 'strategy') {
+            // Phased modes: the adapter reports generation phases; forward the
+            // backstories phase onto the existing progress steps so the UI shows
+            // per-persona ticks. The profiles phase is already announced above.
+            const onPhase = (phase: PersonaPhase, progress?: PersonaPhaseProgress) => {
+                if (phase === 'backstories' && progress) {
+                    onProgress?.({
+                        step: 'GENERATING_BACKSTORIES',
+                        personaName: progress.personaName,
+                        completedCount: progress.completed,
+                        totalCount: progress.total,
+                        streamingText: progress.completed === 0
+                            ? `Building stories for ${progress.total} personas...`
+                            : undefined,
+                    });
                 }
-            }
+            };
 
-            return personas;
-        }
+            personas = mode === 'research'
+                ? await this.llmService.generateResearchPersonas({ count: targetCount, personaDescription, contextNotes }, onPhase)
+                : await this.llmService.generateStrategyPersonas(
+                    { count: targetCount, personaDescription, contextNotes, allowSyntheticBackstory: true, storytellingLevel: 'moderate' },
+                    onPhase,
+                  );
 
-        if (mode === 'strategy') {
-            personas = await this.llmService.generateStrategyPersonas({
-                count: targetCount,
-                personaDescription,
-                contextNotes,
-                allowSyntheticBackstory: true,
-                storytellingLevel: 'moderate',
-            });
+            // PB&J rationalization for both modes; stored in pbjRationales so
+            // the backstory stays clean. Failure degrades gracefully.
+            await this.extractPbjRationales(personas, contextNotes);
             return personas;
         }
 
@@ -176,6 +173,34 @@ export class GeneratePersonasUseCase {
         console.log("[GeneratePersonasUseCase] PB&J extraction complete");
 
         return personas;
+    }
+
+    /**
+     * PB&J (Psychology of Behavior and Judgment) pass, shared by the research
+     * and strategy modes. rationalizePersonas appends the PB&J section to each
+     * persona's backstory; the original backstory is captured first and
+     * restored after the section is extracted into pbjRationales, so the
+     * narrative stays clean and the rationales land in their own field.
+     * A rationalization failure degrades gracefully: personas are returned
+     * unchanged (without pbjRationales) rather than failing the run.
+     */
+    private async extractPbjRationales(personas: Persona[], contextNotes?: string): Promise<void> {
+        const backstoriesBefore = personas.map(p => p.backstory ?? '');
+        let rationalized: Persona[];
+        try {
+            rationalized = await this.llmService.rationalizePersonas(personas, contextNotes);
+        } catch (err) {
+            console.warn(`[GeneratePersonasUseCase] PB&J rationalization failed, continuing without pbjRationales: ${(err as Error).message}`);
+            return;
+        }
+        for (let i = 0; i < personas.length; i++) {
+            const enhanced = rationalized[i]?.backstory ?? backstoriesBefore[i];
+            const pbjMatch = enhanced.match(/<<PSYCHOLOGICAL RATIONALES \(PB&J\)>>[\s\S]*$/);
+            if (pbjMatch && personas[i]) {
+                personas[i].pbjRationales = pbjMatch[0].trim();
+                personas[i].backstory = backstoriesBefore[i];
+            }
+        }
     }
 }
 

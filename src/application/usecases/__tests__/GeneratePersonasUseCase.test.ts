@@ -87,12 +87,60 @@ describe('GeneratePersonasUseCase', () => {
 
   it('should dispatch to strategy mode when specified', async () => {
     mockLlmService.generateStrategyPersonas.mockResolvedValue([{ ...fullPersona, generationMode: 'strategy' } as Persona]);
+    mockLlmService.rationalizePersonas.mockImplementation(async (ps: Persona[]) => ps);
 
     const results = await useCase.execute('Test description', undefined, 1, undefined, 'strategy');
 
     expect(mockLlmService.generateStrategyPersonas).toHaveBeenCalled();
     expect(results[0].generationMode).toBe('strategy');
     expect(mockLlmService.generateInitialPersonas).not.toHaveBeenCalled();
-    expect(mockLlmService.rationalizePersonas).not.toHaveBeenCalled();
+    // Strategy now gets the same PB&J pass as research
+    expect(mockLlmService.rationalizePersonas).toHaveBeenCalled();
+  });
+
+  it('should extract PB&J rationales into pbjRationales for strategy mode', async () => {
+    mockLlmService.generateStrategyPersonas.mockResolvedValue([{
+      ...fullPersona,
+      backstory: 'Original story.',
+      generationMode: 'strategy',
+    } as Persona]);
+    mockLlmService.rationalizePersonas.mockImplementation(async (ps: Persona[]) =>
+      ps.map((p) => ({ ...p, backstory: p.backstory + '\n\n<<PSYCHOLOGICAL RATIONALES (PB&J)>>\nBecause of X' } as Persona)),
+    );
+
+    const results = await useCase.execute('Test', undefined, 1, undefined, 'strategy');
+
+    expect(results[0].pbjRationales).toContain('<<PSYCHOLOGICAL RATIONALES (PB&J)>>');
+    expect(results[0].backstory).toBe('Original story.'); // restored, not polluted
+  });
+
+  it('should degrade gracefully when the PB&J pass fails', async () => {
+    mockLlmService.generateStrategyPersonas.mockResolvedValue([{ ...fullPersona, generationMode: 'strategy' } as Persona]);
+    mockLlmService.rationalizePersonas.mockRejectedValue(new Error('LLM down'));
+
+    const results = await useCase.execute('Test', undefined, 1, undefined, 'strategy');
+
+    expect(results).toHaveLength(1);
+    expect(results[0].pbjRationales).toBeUndefined();
+  });
+
+  it('should forward phased backstory progress to onProgress', async () => {
+    mockLlmService.generateStrategyPersonas.mockImplementation(async (_config: any, onPhase?: any) => {
+      onPhase?.('profiles', { completed: 0, total: 1 });
+      onPhase?.('profiles', { completed: 1, total: 1 });
+      onPhase?.('backstories', { completed: 0, total: 2 });
+      onPhase?.('backstories', { completed: 1, total: 2, personaName: 'A' });
+      onPhase?.('backstories', { completed: 2, total: 2, personaName: 'B' });
+      return [{ ...fullPersona, generationMode: 'strategy' } as Persona];
+    });
+    mockLlmService.rationalizePersonas.mockImplementation(async (ps: Persona[]) => ps);
+
+    const progress: any[] = [];
+    await useCase.execute('Test', (p) => progress.push(p), 1, undefined, 'strategy');
+
+    const backstorySteps = progress.filter((p) => p.step === 'GENERATING_BACKSTORIES');
+    expect(backstorySteps).toHaveLength(3); // start + one tick per persona
+    expect(backstorySteps[1]).toMatchObject({ personaName: 'A', completedCount: 1, totalCount: 2 });
+    expect(backstorySteps[2]).toMatchObject({ personaName: 'B', completedCount: 2, totalCount: 2 });
   });
 });
