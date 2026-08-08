@@ -20,34 +20,6 @@ function createMockLlmService(): any {
   };
 }
 
-const researchPersona = [
-  {
-    name: "Sawyer Miller",
-    age: 24,
-    occupation: "Junior Backend Engineer",
-    educationLevel: "B.S. Computer Science",
-    interests: ["automation", "scripting"],
-    goals: ["Find backend role", "Reduce job search friction"],
-    conscientiousness: 70,
-    neuroticism: 40,
-    openness: 80,
-    extraversion: 30,
-    agreeableness: 50,
-    values: ["Efficiency", "Transparency"],
-    fears: ["Wasted effort", "Outdated postings"],
-    communicationStyle: "Direct",
-    decisionStyle: "Data-driven",
-    pricingSensitivity: 60,
-    typicalBudget: "Up to $20/user/month",
-    domainExpertise: ["backend engineering", "API design"],
-    backstory: "Sawyer recently graduated and values tools that reduce manual effort.",
-    behavioralDimensions: [
-      { name: "friction-tolerance", score: 85, context: "job search", description: "Low tolerance for unnecessary clicks" },
-      { name: "recency-sensitivity", score: 90, context: "job search", description: "Prefers recently posted opportunities" },
-    ],
-  },
-];
-
 const clusterPersonaJson = JSON.stringify([
   {
     name: "Cluster Rep 1",
@@ -87,9 +59,53 @@ describe("PersonaAdapter dual-mode generation", () => {
   beforeEach(() => mockStreamText.mockReset());
 
   describe("generateResearchPersonas", () => {
-    it("generates research-mode personas with provenance tracking", async () => {
-      stubStructuredOutput(researchPersona);
-      const adapter = new PersonaAdapter(createMockLlmService());
+    // Profile-phase fixture: evidence fields kept, no id/name/backstory.
+    const researchProfile = [
+      {
+        age: 24,
+        occupation: "Junior Backend Engineer",
+        educationLevel: "B.S. Computer Science",
+        interests: ["automation", "scripting"],
+        goals: ["Find backend role", "Reduce job search friction"],
+        conscientiousness: 70,
+        neuroticism: 40,
+        openness: 80,
+        extraversion: 30,
+        agreeableness: 50,
+        values: ["Efficiency", "Transparency"],
+        valueEvidence: ["Efficiency is core to their workflow", "Transparency builds trust"],
+        fears: ["Wasted effort", "Outdated postings"],
+        fearEvidence: ["Wasted effort frustrates them", "Outdated postings waste time"],
+        communicationStyle: "Direct",
+        decisionStyle: "Data-driven",
+        pricingSensitivity: 60,
+        typicalBudget: "Up to $20/user/month",
+        domainExpertise: ["backend engineering", "API design"],
+        bestFor: ["Predicting tool adoption decisions"],
+        lessReliableFor: ["Predicting enterprise procurement"],
+        identityContext: "Values efficiency and transparency across domains",
+        situationContext: "Focused on reducing job-search friction",
+        evidenceLinks: [
+          { transcriptId: "interview-0", excerpt: "Efficiency is core to their workflow", attribute: "values" },
+        ],
+        behavioralDimensions: [
+          { name: "friction-tolerance", score: 85, context: "job search", description: "Low tolerance for unnecessary clicks", evidence: "quotes from the interview" },
+          { name: "recency-sensitivity", score: 90, context: "job search", description: "Prefers recently posted opportunities", evidence: "quotes from the interview" },
+        ],
+      },
+    ];
+
+    function mockBackstories(llm: any, stories: string[] = ["Sawyer's story."]): void {
+      for (const story of stories) {
+        llm.createChatCompletion.mockResolvedValueOnce(story);
+      }
+    }
+
+    it("runs phased: one profile batch call, then a per-persona backstory call", async () => {
+      stubStructuredOutput(researchProfile);
+      const llm = createMockLlmService();
+      mockBackstories(llm);
+      const adapter = new PersonaAdapter(llm);
 
       const personas = await adapter.generateResearchPersonas({
         count: 1,
@@ -99,47 +115,85 @@ describe("PersonaAdapter dual-mode generation", () => {
       });
 
       expect(personas).toHaveLength(1);
+      expect(mockStreamText).toHaveBeenCalledTimes(1); // profiles only
+      expect(llm.createChatCompletion).toHaveBeenCalledTimes(1); // backstory
       expect(personas[0].generationMode).toBe("research");
+      expect(personas[0].backstory).toBe("Sawyer's story.");
       expect(personas[0].behavioralDimensions).toHaveLength(2);
       expect(personas[0].provenance?.generationMode).toBe("research");
       expect(personas[0].provenance?.overallConfidence).toBeGreaterThanOrEqual(0);
-      expect(personas[0].evidenceLinks).toBeDefined();
+      // LLM-provided evidence links pass through
+      expect(personas[0].evidenceLinks?.[0]?.transcriptId).toBe("interview-0");
     })
 
     it("assigns curated neutral names instead of LLM names, deterministically", async () => {
-      stubStructuredOutput(researchPersona); // contains "Sawyer Miller"
-      const adapter = new PersonaAdapter(createMockLlmService());
+      mockStreamText.mockReturnValue({ output: Promise.resolve(researchProfile) });
+      const llm = createMockLlmService();
+      llm.createChatCompletion.mockResolvedValue("Story.");
+      const adapter = new PersonaAdapter(llm);
 
-      const personas = await adapter.generateResearchPersonas({
+      const first = await adapter.generateResearchPersonas({
         count: 1,
         personaDescription: "Junior backend engineer who values automation",
         interviewIds: ["int-1"],
-        evidenceThreshold: 0.7,
+      });
+      const repeat = await adapter.generateResearchPersonas({
+        count: 1,
+        personaDescription: "Junior backend engineer who values automation",
+        interviewIds: ["int-1"],
       });
 
-      expect(personas[0].name).not.toBe("Sawyer Miller");
-      expect(GENDERLESS_NAMES).toContain(personas[0].name);
+      expect(GENDERLESS_NAMES).toContain(first[0].name);
+      expect(repeat[0].name).toBe(first[0].name);
     })
 
-    it("uses evidence-first prompt with no fabricated memories", async () => {
-      stubStructuredOutput(researchPersona);
-      const adapter = new PersonaAdapter(createMockLlmService());
+    it("uses evidence-first prompts with no fabricated memories", async () => {
+      stubStructuredOutput(researchProfile);
+      const llm = createMockLlmService();
+      mockBackstories(llm);
+      const adapter = new PersonaAdapter(llm);
 
       await adapter.generateResearchPersonas({
         count: 1,
         personaDescription: "Test user",
+        interviewIds: ["int-1"],
       });
 
-      const system = mockStreamText.mock.calls[0][0].system;
-      expect(system).toContain("research");
-      expect(system).toContain("evidence");
+      const profileSystem = mockStreamText.mock.calls[0][0].system;
+      expect(profileSystem).toContain("research");
+      expect(profileSystem).toContain("evidence");
+      // The backstory call inherits the no-fabrication contract
+      const backstorySystem = llm.createChatCompletion.mock.calls[0][0][0].content as string;
+      expect(backstorySystem).toContain("NOT fabricate");
+      expect(backstorySystem).toContain("evidence");
+    })
+
+    it("falls back to interview-derived evidence links when the LLM omits them", async () => {
+      const noLinks = [{
+        ...researchProfile[0],
+        evidenceLinks: undefined,
+      }];
+      stubStructuredOutput(noLinks);
+      const llm = createMockLlmService();
+      mockBackstories(llm);
+      const adapter = new PersonaAdapter(llm);
+
+      const personas = await adapter.generateResearchPersonas({
+        count: 1,
+        personaDescription: "Test user",
+        interviewIds: ["int-1", "int-2"],
+      });
+
+      expect(personas[0].evidenceLinks?.map((l) => l.transcriptId)).toEqual(["int-1", "int-2"]);
     })
 
     it("retries once when structured output fails, then succeeds", async () => {
       mockStreamText
         .mockReturnValueOnce({ output: Promise.reject(new Error("No object generated: could not parse the response.")) })
-        .mockReturnValueOnce({ output: Promise.resolve(researchPersona) });
-      const adapter = new PersonaAdapter(createMockLlmService());
+        .mockReturnValueOnce({ output: Promise.resolve(researchProfile) });
+      const llm = createMockLlmService();
+      mockBackstories(llm);
+      const adapter = new PersonaAdapter(llm);
 
       const personas = await adapter.generateResearchPersonas({
         count: 1,
@@ -159,12 +213,12 @@ describe("PersonaAdapter dual-mode generation", () => {
       await expect(adapter.generateResearchPersonas({
         count: 1,
         personaDescription: "Test",
-      })).rejects.toThrow("Failed to generate research personas");
+      })).rejects.toThrow("No object generated");
       expect(mockStreamText).toHaveBeenCalledTimes(2);
     })
 
     it("throws on count mismatch after retries", async () => {
-      stubStructuredOutput([{ name: "Only" }], 2);
+      stubStructuredOutput([{ age: 30 }], 2);
       const adapter = new PersonaAdapter(createMockLlmService());
 
       await expect(adapter.generateResearchPersonas({
@@ -172,6 +226,34 @@ describe("PersonaAdapter dual-mode generation", () => {
         personaDescription: "Test",
       })).rejects.toThrow("count mismatch");
       expect(mockStreamText).toHaveBeenCalledTimes(2);
+    })
+
+    it("fails the whole run loudly, naming the persona, when a backstory call exhausts retries", async () => {
+      stubStructuredOutput(researchProfile);
+      const llm = createMockLlmService();
+      llm.createChatCompletion.mockRejectedValue(new Error("provider down"));
+      const adapter = new PersonaAdapter(llm);
+
+      await expect(adapter.generateResearchPersonas({
+        count: 1,
+        personaDescription: "Test user",
+      })).rejects.toThrow(/Failed to generate backstory for persona/);
+      expect(llm.createChatCompletion).toHaveBeenCalledTimes(2);
+    })
+
+    it("reports phase progress via onPhase", async () => {
+      stubStructuredOutput(researchProfile);
+      const llm = createMockLlmService();
+      llm.createChatCompletion.mockResolvedValue("Story.");
+      const adapter = new PersonaAdapter(llm);
+      const phases: string[] = [];
+
+      await adapter.generateResearchPersonas(
+        { count: 1, personaDescription: "Test user" },
+        (phase) => phases.push(phase),
+      );
+
+      expect(phases).toEqual(["profiles", "profiles", "backstories", "backstories"]); // start + done per phase
     })
   })
 

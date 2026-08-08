@@ -13,7 +13,7 @@ import type {
 } from "@/domain/dtos/PersonaGenerationConfig";
 
 /**
- * Profile-phase output schema for strategy generation.
+ * Profile-phase output schema for phased persona generation (strategy + research).
  *
  * Deliberately NOT the full PersonaSchema: the LLM only produces the profile
  * here (backstory comes per-persona in phase 2), and a tight schema matching
@@ -21,9 +21,11 @@ import type {
  * reliably. Everything the evidence contract needs is required except each
  * behavioral dimension's `evidence` quote — provenance marks dimensions
  * observed/0.9 when the quote is present and interpreted/0.6 when not, so
- * confidence stays honest rather than blanket-high.
+ * confidence stays honest rather than blanket-high. evidenceLinks is optional
+ * in the schema: strategy enforces it via the required-fields nudge, research
+ * keeps its interview-derived fallback.
  */
-const StrategyProfileSchema = z.object({
+const PersonaProfileSchema = z.object({
   age: z.number().min(0).max(100),
   occupation: z.string().min(1),
   educationLevel: z.string().min(1),
@@ -56,7 +58,7 @@ const StrategyProfileSchema = z.object({
     transcriptId: z.string().min(1),
     excerpt: z.string().min(1),
     attribute: z.string().min(1),
-  })),
+  })).optional(),
 });
 
 export class PersonaAdapter {
@@ -956,8 +958,105 @@ Base your analysis on explicit life experiences, attitudes toward money/risk, an
   /**
    * Research Mode: evidence-first persona generation.
    * Minimal invention, no fabricated memories, provenance tracking on all attributes.
+   *
+   * Phased like strategy (decisions.md — persona-a-profile-backstory): one
+   * batched profile call (evidence fields included, no backstory), then
+   * per-persona parallel backstories grounded in the interview evidence.
    */
-  async generateResearchPersonas(config: ResearchPersonaConfig): Promise<Persona[]> {
+  async generateResearchPersonas(
+    config: ResearchPersonaConfig,
+    onPhase?: PersonaPhaseCallback,
+  ): Promise<Persona[]> {
+    onPhase?.("profiles", { completed: 0, total: 1 });
+    const records = await this.generateResearchProfiles(config);
+    onPhase?.("profiles", { completed: 1, total: 1 });
+
+    const chosenNames = PersonaAdapter.neutralNames(config.personaDescription, records.length);
+    const profiles = records.map((p, idx) => ({
+      ...PersonaAdapter.extractBaseFields(p),
+      name: chosenNames[idx % chosenNames.length] ?? "Persona",
+      id: `research-persona-${idx}`,
+      generationMode: "research" as const,
+      behavioralDimensions: PersonaAdapter.extractBehavioralDimensions(p),
+      bestFor: Array.isArray(p.bestFor) ? p.bestFor as string[] : undefined,
+      lessReliableFor: Array.isArray(p.lessReliableFor) ? p.lessReliableFor as string[] : undefined,
+      identityContext: typeof p.identityContext === 'string' ? p.identityContext : undefined,
+      situationContext: typeof p.situationContext === 'string' ? p.situationContext : undefined,
+      evidenceLinks: Array.isArray(p.evidenceLinks)
+        ? p.evidenceLinks as { transcriptId: string; excerpt: string; attribute: string }[]
+        : undefined,
+    })) as Persona[];
+
+    const limit = pLimit(4);
+    let completedBackstories = 0;
+    onPhase?.("backstories", { completed: 0, total: profiles.length });
+    const backstories = await Promise.all(
+      profiles.map((profile) =>
+        limit(async () => {
+          const story = await this.generateResearchBackstory(profile, config);
+          onPhase?.("backstories", {
+            completed: ++completedBackstories,
+            total: profiles.length,
+            personaName: profile.name,
+          });
+          return story;
+        }),
+      ),
+    );
+
+    return profiles.map((profile, idx) => {
+      const dims = profile.behavioralDimensions ?? [];
+      const attrProvenance = [
+        { attribute: "values", tier: "interpreted" as const, confidence: 0.7 },
+        { attribute: "fears", tier: "interpreted" as const, confidence: 0.7 },
+        { attribute: "backstory", tier: "synthetic" as const, confidence: 0.4 },
+        ...dims.map((d) => ({
+          attribute: d.name,
+          tier: (d.evidence ? "observed" : "interpreted") as "observed" | "interpreted",
+          confidence: d.evidence ? 0.9 : 0.6,
+          evidence: d.evidence,
+        })),
+      ];
+      const computedConfidence = attrProvenance.length > 0
+        ? Math.round(attrProvenance.reduce((sum, a) => sum + a.confidence, 0) / attrProvenance.length * 10) / 10
+        : 0.7;
+      return {
+        ...profile,
+        backstory: backstories[idx],
+        provenance: {
+          attributes: attrProvenance,
+          generationMode: "research" as const,
+          overallConfidence: computedConfidence,
+        },
+        evidenceLinks: (profile.evidenceLinks && profile.evidenceLinks.length > 0)
+          ? profile.evidenceLinks
+          : config.interviewIds
+            ? config.interviewIds.map((id) => ({
+                transcriptId: id,
+                excerpt: `Quotes from interview ${id} fed into persona generation`,
+                attribute: "overall-persona",
+              }))
+            : [],
+      } as Persona;
+    });
+  }
+
+  /**
+   * Phase 1 of research generation: one batched call for all profiles.
+   * Same tight schema as strategy; the prompt keeps the evidence-first,
+   * interview-grounded contract. evidenceLinks is NOT client-required here —
+   * when the LLM omits them, the mapping falls back to interview-derived
+   * links (research has real transcripts to point at; strategy doesn't).
+   */
+  private static readonly RESEARCH_PROFILE_REQUIRED_FIELDS = [
+    'age', 'occupation', 'educationLevel', 'interests', 'goals',
+    'conscientiousness', 'neuroticism', 'openness', 'extraversion', 'agreeableness',
+    'values', 'fears', 'communicationStyle', 'decisionStyle',
+    'behavioralDimensions', 'valueEvidence', 'fearEvidence',
+    'identityContext', 'situationContext',
+  ] as const;
+
+  private async generateResearchProfiles(config: ResearchPersonaConfig): Promise<Record<string, unknown>[]> {
     const system = `You are a research-grade persona generator. Your task is to create personas grounded in evidence.
 
 CRITICAL RULES:
@@ -965,12 +1064,11 @@ CRITICAL RULES:
 - Do NOT fabricate specific life events, purchases, or trauma unless explicitly stated.
 - For each behavioral dimension, include a direct quote from the source material as evidence.
 - If the evidence is thin, say so rather than inventing details.
-- Backstory should be a rich, detailed narrative (6-10 paragraphs) grounded in the source material. Research (Moon et al. 2024, Anthology framework) shows that detailed narrative backstories yield 18-27% better behavioral consistency than short summaries. The backstory is evidence-based but vivid.
-- Do NOT mention the persona's name in the backstory or any other narrative text — names are assigned separately from a curated pool.
+- MANDATORY: every persona must include ALL fields in the structure below with non-empty values. A persona missing any field is invalid.
+- Do NOT invent names — names are assigned separately from a curated pool.
 
-Generate a JSON array of EXACTLY ${config.count} personas with this structure:
+Generate a JSON array of EXACTLY ${config.count} DISTINCT personas with this structure:
 {
-  name: string;
   age: number;
   occupation: string;
   educationLevel: string;
@@ -987,11 +1085,8 @@ Generate a JSON array of EXACTLY ${config.count} personas with this structure:
   fearEvidence: string[]; // Evidence quote for each fear, parallel to fears array
   communicationStyle: string;
   decisionStyle: string;
-  pricingSensitivity: number (0-100);
-  typicalBudget: string;
   domainExpertise: string[];
   behavioralDimensions: { name: string; score: number (0-100); context: string; description: string; evidence: string }[];
-  backstory: string; // 6-10 paragraph evidence-based narrative
   identityContext: string; // Stable traits that apply across domains
   situationContext: string; // Contextual behavior specific to this domain
   bestFor: string[]; // What this persona model is good at predicting (2-4 items)
@@ -1002,68 +1097,38 @@ Generate a JSON array of EXACTLY ${config.count} personas with this structure:
     const user = `Generate ${config.count} research-mode personas for: "${config.personaDescription}"
 ${config.interviewIds ? `Base on interview IDs: ${config.interviewIds.join(", ")}` : ""}
 ${config.evidenceThreshold ? `Minimum evidence confidence threshold: ${config.evidenceThreshold}` : ""}
-${config.contextNotes ? `\nAdditional context: ${config.contextNotes}` : ""}
-Base all backstory details on the provided evidence. Do not fabricate events.`;
+${config.contextNotes ? `\nAdditional context: ${config.contextNotes}` : ""}`;
 
-    try {
-      const records = await this.generatePersonaArray(
-        system,
-        user,
-        config.count,
-        "research",
-        0.5,
-      );
-      const chosenNames = PersonaAdapter.neutralNames(config.personaDescription, records.length);
+    return this.generatePersonaArray(
+      system,
+      user,
+      config.count,
+      "research-profiles",
+      0.5,
+      {
+        schema: PersonaProfileSchema,
+        requiredFields: PersonaAdapter.RESEARCH_PROFILE_REQUIRED_FIELDS,
+      },
+    );
+  }
 
-      return records.map((p, idx) => {
-        const dims = PersonaAdapter.extractBehavioralDimensions(p);
-        const base = PersonaAdapter.extractBaseFields(p);
-        const llmEvidenceLinks = Array.isArray(p.evidenceLinks) ? p.evidenceLinks as { transcriptId: string; excerpt: string; attribute: string }[] : [];
-        const attrProvenance = [
-          { attribute: "values", tier: "interpreted" as const, confidence: 0.7 },
-          { attribute: "fears", tier: "interpreted" as const, confidence: 0.7 },
-          { attribute: "backstory", tier: "synthetic" as const, confidence: 0.4 },
-          ...dims.map((d) => ({
-            attribute: d.name,
-            tier: (d.evidence ? "observed" : "interpreted") as "observed" | "interpreted",
-            confidence: d.evidence ? 0.9 : 0.6,
-            evidence: d.evidence,
-          })),
-        ];
-        const computedConfidence = attrProvenance.length > 0
-          ? Math.round(attrProvenance.reduce((sum, a) => sum + a.confidence, 0) / attrProvenance.length * 10) / 10
-          : 0.7;
-        return {
-          ...base,
-          name: chosenNames[idx % chosenNames.length] ?? "Persona",
-          id: `research-persona-${idx}`,
-          generationMode: "research" as const,
-          behavioralDimensions: dims,
-          bestFor: Array.isArray(p.bestFor) ? p.bestFor as string[] : undefined,
-          lessReliableFor: Array.isArray(p.lessReliableFor) ? p.lessReliableFor as string[] : undefined,
-          provenance: {
-            attributes: attrProvenance,
-            generationMode: "research" as const,
-            overallConfidence: computedConfidence,
-          },
-          evidenceLinks: llmEvidenceLinks.length > 0
-            ? llmEvidenceLinks
-            : config.interviewIds
-              ? config.interviewIds.map((id) => ({
-                  transcriptId: id,
-                  excerpt: `Quotes from interview ${id} fed into persona generation`,
-                  attribute: "overall-persona",
-                }))
-              : [],
-          identityContext: (p.identityContext as string) ?? undefined,
-          situationContext: (p.situationContext as string) ?? undefined,
-        } as Persona;
-      });
-    } catch (err) {
-      throw new Error(
-        `Failed to generate research personas: ${err}\nInput: ${config.personaDescription}`,
-      );
-    }
+  /**
+   * Research backstory: grounded in the source material, no fabricated
+   * events. The Moon et al. (2024) rationale for rich narratives lives here.
+   */
+  private async generateResearchBackstory(profile: Persona, config: ResearchPersonaConfig): Promise<string> {
+    const system = `You are a narrative writer crafting the life story of a buyer persona grounded in interview evidence.
+Write a RICH backstory of 6-10 substantial paragraphs, in THIRD PERSON, referring to the persona by name (${profile.name}). Research (Moon et al. 2024, Anthology framework) shows that detailed narrative backstories yield 18-27% better behavioral consistency than short summaries. The narrative must:
+- Be causally coherent with the persona's psychographic profile: values, fears, goals, Big Five, communication and decision style.
+- Show HOW the persona's experiences led to their current traits and decision style.
+- Be grounded in the provided interview/description evidence.
+- NOT fabricate specific life events, purchases, or trauma unless explicitly stated in the evidence.
+- If the evidence is thin, say so rather than inventing details.
+- Never contradict the profile below.
+Return plain text only. No labels, no markdown, no headers.`;
+
+    const user = `Write the backstory for this persona, grounded in the evidence:\n${JSON.stringify(profile, null, 2)}${config.interviewIds ? `\nSource interviews: ${config.interviewIds.join(", ")}` : ""}${config.contextNotes ? `\nAdditional context: ${config.contextNotes}` : ""}`;
+    return this.generateBackstoryWithRetry(profile, system, user);
   }
 
   /**
@@ -1228,16 +1293,45 @@ ${config.contextNotes ? `Additional context: ${config.contextNotes}` : ""}`;
       "strategy-profiles",
       0.6,
       {
-        schema: StrategyProfileSchema,
+        schema: PersonaProfileSchema,
         requiredFields: PersonaAdapter.STRATEGY_PROFILE_REQUIRED_FIELDS,
       },
     );
   }
 
   /**
-   * Phase 2 of strategy generation: one backstory per persona, written in
-   * third person with the persona's name. Retries twice per persona; when both
-   * attempts fail the whole run fails loudly, naming the persona.
+   * Phase 2 backstory call, shared by strategy and research modes.
+   * Per-persona, third person, name included. Retries twice per persona; when
+   * both attempts fail the whole run fails loudly, naming the persona.
+   */
+  private async generateBackstoryWithRetry(profile: Persona, system: string, user: string): Promise<string> {
+    const attempts = 2;
+    let lastError: unknown;
+    for (let attempt = 1; attempt <= attempts; attempt++) {
+      try {
+        const story = await this.llmService.createChatCompletion(
+          [
+            { role: "system", content: system },
+            { role: "user", content: user },
+          ],
+          { model: this.llmService.smallTextModel, temperature: 0.7, purpose: "Persona Backstory" },
+        );
+        const cleaned = stripCodeFence(story).trim();
+        if (!cleaned) throw new Error("empty backstory");
+        return cleaned;
+      } catch (err) {
+        lastError = err;
+        console.warn(`[PersonaAdapter] Backstory attempt ${attempt}/${attempts} for ${profile.name} failed: ${(err as Error).message}`);
+      }
+    }
+    throw new Error(
+      `Failed to generate backstory for persona "${profile.name}" (${profile.id}): ${(lastError as Error)?.message ?? "unknown error"}`,
+    );
+  }
+
+  /**
+   * Strategy backstory: narrative freedom, grounded in the questionnaire
+   * description. Synthetic details allowed per config.
    */
   private async generateStrategyBackstory(profile: Persona, config: StrategyPersonaConfig): Promise<string> {
     const system = `You are a narrative writer crafting the life story of a buyer persona.
@@ -1250,28 +1344,7 @@ Storytelling level: ${config.storytellingLevel ?? "moderate"}.
 Return plain text only. No labels, no markdown, no headers.`;
 
     const user = `Write the backstory for this persona:\n${JSON.stringify(profile, null, 2)}`;
-    const attempts = 2;
-    let lastError: unknown;
-    for (let attempt = 1; attempt <= attempts; attempt++) {
-      try {
-        const story = await this.llmService.createChatCompletion(
-          [
-            { role: "system", content: system },
-            { role: "user", content: user },
-          ],
-          { model: this.llmService.smallTextModel, temperature: 0.7, purpose: "Strategy Backstory" },
-        );
-        const cleaned = stripCodeFence(story).trim();
-        if (!cleaned) throw new Error("empty backstory");
-        return cleaned;
-      } catch (err) {
-        lastError = err;
-        console.warn(`[PersonaAdapter] [strategy] Backstory attempt ${attempt}/${attempts} for ${profile.name} failed: ${(err as Error).message}`);
-      }
-    }
-    throw new Error(
-      `Failed to generate backstory for persona "${profile.name}" (${profile.id}): ${(lastError as Error)?.message ?? "unknown error"}`,
-    );
+    return this.generateBackstoryWithRetry(profile, system, user);
   }
 
   /**

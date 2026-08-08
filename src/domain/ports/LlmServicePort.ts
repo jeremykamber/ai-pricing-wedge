@@ -393,8 +393,10 @@ export interface LlmServicePort {
     /**
      * Research Mode: evidence-first persona generation from interview transcripts.
      * Produces personas with provenance tracking, minimal invention, no fabricated memories.
+     * Phased: batched profiles, then per-persona parallel backstories.
+     * @param onPhase - Optional progress callback (profiles -> backstories).
      */
-    generateResearchPersonas(config: ResearchPersonaConfig): Promise<Persona[]>;
+    generateResearchPersonas(config: ResearchPersonaConfig, onPhase?: PersonaPhaseCallback): Promise<Persona[]>;
 
     /**
      * Strategy Mode: richer storytelling persona generation from ICP/market descriptions.

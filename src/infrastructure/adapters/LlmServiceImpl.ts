@@ -614,8 +614,8 @@ export class LlmServiceImpl implements LlmServicePort {
 
     // --- Dual-Mode Persona Generation (2025 Philosophy) ---
 
-    async generateResearchPersonas(config: ResearchPersonaConfig): Promise<Persona[]> {
-        return this.personaAdapter.generateResearchPersonas(config);
+    async generateResearchPersonas(config: ResearchPersonaConfig, onPhase?: PersonaPhaseCallback): Promise<Persona[]> {
+        return this.personaAdapter.generateResearchPersonas(config, onPhase);
     }
 
     async generateStrategyPersonas(config: StrategyPersonaConfig, onPhase?: PersonaPhaseCallback): Promise<Persona[]> {
