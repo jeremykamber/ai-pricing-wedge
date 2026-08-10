@@ -26,6 +26,11 @@ function shouldDisableThinkingForModel(model: string): boolean {
  * and drops unknown request params, so `reasoning: { enabled: false }` cannot be
  * passed through streamObject. Injecting it at the fetch layer is the only way to
  * disable chain-of-thought on requests the SDK would otherwise build unmodified.
+ *
+ * This wrapper is also the single hook where OpenRouter-only request params can
+ * be injected. The persona profile call (provider.chat → /chat/completions) gets
+ * throughput-sorted, structured-output-guaranteed routing: OpenRouter's default
+ * price-weighted routing sends deepseek to backends with 6x+ latency spread.
  */
 function withReasoningDisabled(
     baseFetch: typeof fetch,
@@ -47,10 +52,15 @@ function withReasoningDisabled(
         ) {
             try {
                 const body = JSON.parse(init.body);
-                if (shouldDisable(String(body?.model ?? ""))) {
+                const model = String(body?.model ?? "");
+                // qwen (analysis) via the global rule; deepseek on chat
+                // completions is the persona profile call — its CoT explodes
+                // on the demanding schema prompt (8k+ reasoning tokens,
+                // 90-400s). Everything else on /responses is untouched.
+                if (shouldDisable(model) || model.includes("deepseek")) {
                     body.reasoning = { enabled: false };
-                    init = { ...init, body: JSON.stringify(body) };
                 }
+                init = { ...init, body: JSON.stringify(body) };
             } catch {
                 // Leave non-JSON bodies untouched.
             }
@@ -205,6 +215,13 @@ export class LlmServiceImpl implements LlmServicePort {
             model?: string;
             purpose?: string;
             runId?: string;
+            /**
+             * Disable chain-of-thought for this call even when the model's
+             * reasoning is normally on (deepseek). Persona generation needs
+             * direct answers — CoT burns the output budget and can return
+             * empty content on reasoning-heavy calls.
+             */
+            disableReasoning?: boolean;
         },
     ): Promise<string> {
         return this.withRetry(async () => {
@@ -241,7 +258,7 @@ export class LlmServiceImpl implements LlmServicePort {
                 response_format: options.response_format,
             };
 
-            if (this.shouldDisableThinking(model)) {
+            if (this.shouldDisableThinking(model) || options.disableReasoning) {
                 requestParams.reasoning = { enabled: false };
             }
 

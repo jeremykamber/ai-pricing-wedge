@@ -84,7 +84,7 @@ export class PsychographicRationalizer {
           ].join("\n");
           return this.llmService.createChatCompletion(
             [{ role: "system", content: system }, { role: "user", content: user }],
-            { purpose: "PB&J Big Five Scaffold", temperature: 0.5 },
+            { purpose: "PB&J Big Five Scaffold", temperature: 0.5, disableReasoning: true },
           );
         },
       },
@@ -112,7 +112,7 @@ export class PsychographicRationalizer {
           ].join("\n");
           return this.llmService.createChatCompletion(
             [{ role: "system", content: system }, { role: "user", content: user }],
-            { purpose: "PB&J Decision Scaffold", temperature: 0.5 },
+            { purpose: "PB&J Decision Scaffold", temperature: 0.5, disableReasoning: true },
           );
         },
       },
@@ -138,7 +138,7 @@ export class PsychographicRationalizer {
           ].join("\n");
           return this.llmService.createChatCompletion(
             [{ role: "system", content: system }, { role: "user", content: user }],
-            { purpose: "PB&J Values Scaffold", temperature: 0.5 },
+            { purpose: "PB&J Values Scaffold", temperature: 0.5, disableReasoning: true },
           );
         },
       },
