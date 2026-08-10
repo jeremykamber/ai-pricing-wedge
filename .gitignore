@@ -36,3 +36,14 @@ TEMP_*
 
 # Infra management (personal VPS scripts, never committed)
 infra/
+
+# Engineering notebook durability (workflow.md convention): decisions + notes are ADRs/worklog, committed
+!.ai/
+.ai/*
+!.ai/contexts/
+.ai/contexts/*
+!.ai/contexts/**/
+.ai/contexts/**/plans/
+.ai/contexts/**/designs/
+.ai/contexts/**/verification/
+.ai/contexts/**/understanding.md
