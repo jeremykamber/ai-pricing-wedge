@@ -12,6 +12,12 @@ import type {
   ClusterPersonaConfig,
 } from "@/domain/dtos/PersonaGenerationConfig";
 
+const attributeConfidenceSchema = z.array(z.object({
+  attribute: z.string().min(1),
+  confidence: z.number().min(0).max(1),
+  rationale: z.string().optional(),
+}));
+
 /**
  * Profile-phase output schema for phased persona generation (strategy + research).
  *
@@ -23,7 +29,9 @@ import type {
  * observed/0.9 when the quote is present and interpreted/0.6 when not, so
  * confidence stays honest rather than blanket-high. evidenceLinks is optional
  * in the schema: strategy enforces it via the required-fields nudge, research
- * keeps its interview-derived fallback.
+ * keeps its interview-derived fallback. attributeConfidence is optional here
+ * because research's prompt never produces it; strategy requires it via
+ * StrategyProfileSchema.
  */
 const PersonaProfileSchema = z.object({
   age: z.number().min(0).max(100),
@@ -37,9 +45,13 @@ const PersonaProfileSchema = z.object({
   extraversion: z.number().min(0).max(100),
   agreeableness: z.number().min(0).max(100),
   values: z.array(z.string().min(1)),
-  valueEvidence: z.array(z.string().min(1)),
+  // Entries may be empty: on a terse input there are not enough distinct
+  // verbatim fragments for every value/fear, and "omit rather than invent"
+  // requires an empty slot to be representable (the verbatim + distinct
+  // checks accept empties; the UI renders no disclosure line for them).
+  valueEvidence: z.array(z.string()),
   fears: z.array(z.string().min(1)),
-  fearEvidence: z.array(z.string().min(1)),
+  fearEvidence: z.array(z.string()),
   communicationStyle: z.string().min(1),
   decisionStyle: z.string().min(1),
   domainExpertise: z.array(z.string().min(1)),
@@ -61,12 +73,19 @@ const PersonaProfileSchema = z.object({
   })).optional(),
   // LLM-decided per-attribute confidence (strategy only; optional so the
   // shared schema tolerates research, whose prompt never asks for it).
-  // Strategy enforces presence via the coverage check.
-  attributeConfidence: z.array(z.object({
-    attribute: z.string().min(1),
-    confidence: z.number().min(0).max(1),
-    rationale: z.string().optional(),
-  })).optional(),
+  // Strategy enforces presence via StrategyProfileSchema + the coverage check.
+  attributeConfidence: attributeConfidenceSchema.optional(),
+});
+
+/**
+ * Strategy profile schema: attributeConfidence is REQUIRED (min 1 entry).
+ * Empirically, when the schema left it optional the model could drop the
+ * whole block on a retry after a verbatim-nudge (over-correction), failing
+ * the run via the coverage check; a required field turns that silent drop
+ * into a parse rejection the model self-corrects on the next attempt.
+ */
+const StrategyProfileSchema = PersonaProfileSchema.extend({
+  attributeConfidence: attributeConfidenceSchema.min(1),
 });
 
 export class PersonaAdapter {
@@ -192,7 +211,7 @@ export class PersonaAdapter {
       case 'distinct':
         return `\n\nThe previous generation repeated the same evidence quote: quotes (${options.distinctFields?.join(', ') ?? ''}) must be DISTINCT — never repeat the same quote for two different values or fears.`;
       case 'verbatim':
-        return `\n\nThe previous generation's evidence quotes were not verbatim: every quote in ${options.verbatim?.fields?.join(', ') ?? ''} MUST be a word-for-word fragment of the user's response, in quotation marks, NEVER the persona's invented voice. If no fragment of the user's response fits, omit rather than invent: leave the quote empty.`;
+        return `\n\nThe previous generation's evidence quotes were not verbatim: every quote in ${options.verbatim?.fields?.join(', ') ?? ''} MUST be a word-for-word fragment of the user's response, in quotation marks, NEVER the persona's invented voice. If no fragment of the user's response fits, omit rather than invent: leave the quote empty. This applies to evidence QUOTES only — every other field, including attributeConfidence with one entry per attribute, must remain complete.`;
       case 'coverage':
         return `\n\nThe previous generation's ${options.coverage?.listField ?? ''} was incomplete: it MUST include exactly one entry for each of ${options.coverage?.requiredNames?.join(', ') ?? ''} and for every behavioral dimension, using the EXACT attribute names from the structure. Missing entries: ${failure.detail ?? ''}.`;
       default:
@@ -340,7 +359,11 @@ export class PersonaAdapter {
     } = {},
   ): Promise<Record<string, unknown>[]> {
     const { schema = PersonaSchema, requiredFields, distinctFields, verbatim, coverage } = options;
-    const attempts = 2;
+    // Three attempts, not two: a single run can fail twice in a row — e.g.
+    // the model fabricates quotes (verbatim nudge), then over-corrects on the
+    // retry and drops attributeConfidence (coverage nudge). A third attempt
+    // absorbs that chain; it only costs an extra call on failure paths.
+    const attempts = 3;
     let lastError: unknown;
     // Which client-side rule the previous attempt violated, plus the failing
     // detail; the retry nudge is built from this so it names the actual
@@ -392,7 +415,8 @@ export class PersonaAdapter {
               const v = rec[k];
               if (!Array.isArray(v)) return [];
               const seen = new Set<string>();
-              const dupes = (v as string[]).filter((s) => (seen.has(s) ? true : (seen.add(s), false)));
+              // Empty entries are honest omission, not duplicates.
+              const dupes = (v as string[]).filter((s) => s.trim() !== '' && (seen.has(s) ? true : (seen.add(s), false)));
               return dupes.length > 0 ? [`persona #${i + 1} ${k} repeats quotes: ${dupes.join(', ')}`] : [];
             }),
           );
@@ -1493,6 +1517,7 @@ GUIDELINES:
 - MANDATORY: every persona must include ALL fields in the structure below with non-empty values. A persona missing any field is invalid.
 - Every persona MUST include 3-5 behavioralDimensions.
 - VERBATIM EVIDENCE (non-negotiable): every evidence quote — valueEvidence, fearEvidence, behavioralDimensions[].evidence, evidenceLinks[].excerpt — MUST be a word-for-word fragment of the user's response (the text in quotes in the prompt), copied exactly, wrapped in quotation marks. NEVER write a quote in the persona's invented voice. If no fragment of the user's response fits, OMIT the quote (leave it empty) rather than invent one — an honest gap beats a fabricated quote.
+- It is better to leave a quote empty than to repeat a fragment or invent one — not every value or fear needs a quote; entries in valueEvidence/fearEvidence may be empty strings.
 - Each valueEvidence/fearEvidence quote MUST be DISTINCT — never reuse the same quote for two different values or fears.
 - evidenceLinks MUST quote the user's response; set attribute to the persona fields the quote supports.
 - attributeConfidence MUST include exactly ONE entry per attribute — values, fears, goals, backstory, and every behavioral dimension (by its EXACT name). Confidence 0-1 rates how directly the user's response supports the attribute: high (0.8+) when stated, moderate (0.6-0.8) when implied, low (<0.6) when mostly inferred. rationale: one short sentence.
@@ -1510,9 +1535,9 @@ Generate a JSON array of EXACTLY ${config.count} DISTINCT personas with this str
   extraversion: number (0-100);
   agreeableness: number (0-100);
   values: string[];                 // Core values driving decisions (2-4 items)
-  valueEvidence: string[];          // VERBATIM fragment of the user's response per value, parallel to values; omit (empty) rather than invent
+  valueEvidence: string[];          // VERBATIM fragment of the user's response per value, parallel to values; empty string when no distinct fragment fits
   fears: string[];                  // Anxieties and risk concerns (2-3 items)
-  fearEvidence: string[];           // VERBATIM fragment of the user's response per fear, parallel to fears; omit (empty) rather than invent
+  fearEvidence: string[];           // VERBATIM fragment of the user's response per fear, parallel to fears; empty string when no distinct fragment fits
   communicationStyle: string;       // e.g. "direct", "analytical", "warm", "cautious"
   decisionStyle: string;            // e.g. "data-driven", "gut-driven", "consensus-seeking"
   domainExpertise: string[];        // Domains the persona knows well
@@ -1536,7 +1561,7 @@ ${config.contextNotes ? `Additional context: ${config.contextNotes}` : ""}`;
       "strategy-profiles",
       0.6,
       {
-        schema: PersonaProfileSchema,
+        schema: StrategyProfileSchema,
         requiredFields: PersonaAdapter.STRATEGY_PROFILE_REQUIRED_FIELDS,
         distinctFields: ['valueEvidence', 'fearEvidence'],
         verbatim: {

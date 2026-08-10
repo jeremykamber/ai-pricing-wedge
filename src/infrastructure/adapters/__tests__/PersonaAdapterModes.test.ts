@@ -207,6 +207,7 @@ describe("PersonaAdapter dual-mode generation", () => {
     it("fails after exhausting retries", async () => {
       mockStreamText
         .mockReturnValueOnce({ output: Promise.reject(new Error("No object generated")) })
+        .mockReturnValueOnce({ output: Promise.reject(new Error("No object generated")) })
         .mockReturnValueOnce({ output: Promise.reject(new Error("No object generated")) });
       const adapter = new PersonaAdapter(createMockLlmService());
 
@@ -214,18 +215,18 @@ describe("PersonaAdapter dual-mode generation", () => {
         count: 1,
         personaDescription: "Test",
       })).rejects.toThrow("No object generated");
-      expect(mockStreamText).toHaveBeenCalledTimes(2);
+      expect(mockStreamText).toHaveBeenCalledTimes(3);
     })
 
     it("throws on count mismatch after retries", async () => {
-      stubStructuredOutput([{ age: 30 }], 2);
+      stubStructuredOutput([{ age: 30 }], 3);
       const adapter = new PersonaAdapter(createMockLlmService());
 
       await expect(adapter.generateResearchPersonas({
         count: 3,
         personaDescription: "Test",
       })).rejects.toThrow("count mismatch");
-      expect(mockStreamText).toHaveBeenCalledTimes(2);
+      expect(mockStreamText).toHaveBeenCalledTimes(3);
     })
 
     it("fails the whole run loudly, naming the persona, when a backstory call exhausts retries", async () => {
@@ -592,6 +593,35 @@ describe("PersonaAdapter dual-mode generation", () => {
       expect(mockStreamText.mock.calls[1][0].prompt).toContain("omit rather than invent");
     })
 
+    it("recovers when a retry over-corrects and drops attributeConfidence", async () => {
+      // Attempt 1 fabricates persona-voice quotes; attempt 2 over-corrects to
+      // the verbatim nudge and drops the whole confidence block; attempt 3
+      // lands complete. This is the exact chain observed on the deployed VPS.
+      const fabricated = [{
+        ...strategyProfile[0],
+        valueEvidence: ["They value total autonomy above all else", "Decisions must cite numbers"],
+      }];
+      const overCorrected = [{
+        ...strategyProfile[0],
+        attributeConfidence: [],
+      }];
+      mockStreamText
+        .mockReturnValueOnce({ output: Promise.resolve(fabricated) })
+        .mockReturnValueOnce({ output: Promise.resolve(overCorrected) })
+        .mockReturnValueOnce({ output: Promise.resolve(strategyProfile) });
+      const llm = createMockLlmService();
+      mockBackstories(llm);
+      const adapter = new PersonaAdapter(llm);
+
+      const personas = await adapter.generateStrategyPersonas({
+        count: 1,
+        personaDescription: STRATEGY_INPUT,
+      });
+
+      expect(personas).toHaveLength(1);
+      expect(mockStreamText).toHaveBeenCalledTimes(3);
+    })
+
     it("retries the profile batch when an evidenceLinks excerpt is not verbatim", async () => {
       const fabricatedLink = [{
         ...strategyProfile[0],
@@ -670,6 +700,32 @@ describe("PersonaAdapter dual-mode generation", () => {
       expect(personas).toHaveLength(1);
       expect(mockStreamText).toHaveBeenCalledTimes(1); // an honest gap must not retry-loop
       expect(personas[0].valueEvidence).toEqual([]);
+    })
+
+    it("accepts empty placeholder quotes for entries no distinct fragment fits", async () => {
+      // Terse input, 3 values: only two distinct verbatim fragments exist. The
+      // honest model leaves the third slot empty; that must not trip the
+      // distinct or verbatim checks (empty strings are omission, not dupes).
+      const partial = [{
+        ...strategyProfile[0],
+        values: ["Efficiency", "Evidence-based", "Speed"],
+        valueEvidence: ["asked for full autonomy over the roadmap", "Decisions must cite numbers", ""],
+        fears: ["Micromanagement", "Runway"],
+        fearEvidence: ["Being overridden by investors worries them", ""],
+      }];
+      stubStructuredOutput(partial);
+      const llm = createMockLlmService();
+      mockBackstories(llm);
+      const adapter = new PersonaAdapter(llm);
+
+      const personas = await adapter.generateStrategyPersonas({
+        count: 1,
+        personaDescription: STRATEGY_INPUT,
+      });
+
+      expect(personas).toHaveLength(1);
+      expect(mockStreamText).toHaveBeenCalledTimes(1);
+      expect(personas[0].valueEvidence).toEqual(["asked for full autonomy over the roadmap", "Decisions must cite numbers", ""]);
     })
 
     it("retries the profile batch when attributeConfidence misses an attribute", async () => {
