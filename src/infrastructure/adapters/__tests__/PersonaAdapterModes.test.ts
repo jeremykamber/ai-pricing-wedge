@@ -14,7 +14,7 @@ vi.mock("ai", () => ({
 function createMockLlmService(): any {
   return {
     smallTextModel: "test-model",
-    provider: vi.fn(),
+    provider: { chat: vi.fn() }, // provider.chat() → Chat Completions endpoint
     createChatCompletion: vi.fn(),
     createChatCompletionStream: vi.fn(),
   };
@@ -407,6 +407,32 @@ describe("PersonaAdapter dual-mode generation", () => {
       expect(system).toContain("valueEvidence: string[]");
       expect(system).toContain("evidenceLinks");
       expect(system).toContain("bestFor: string[]");
+      // Distinctness rule: no quote reused across values/fears
+      expect(system).toContain("DISTINCT");
+    })
+
+    it("retries the profile batch when evidence quotes are duplicated across values", async () => {
+      const duplicated = [{
+        ...strategyProfile[0],
+        values: ["Autonomy", "Evidence", "Speed"],
+        valueEvidence: ["the same quote", "a different quote", "the same quote"],
+      }];
+      mockStreamText
+        .mockReturnValueOnce({ output: Promise.resolve(duplicated) })
+        .mockReturnValueOnce({ output: Promise.resolve(strategyProfile) });
+      const llm = createMockLlmService();
+      mockBackstories(llm);
+      const adapter = new PersonaAdapter(llm);
+
+      const personas = await adapter.generateStrategyPersonas({
+        count: 1,
+        personaDescription: "Enterprise buyer",
+      });
+
+      expect(personas).toHaveLength(1);
+      expect(mockStreamText).toHaveBeenCalledTimes(2);
+      // The retry nudge tells the model quotes must be distinct
+      expect(mockStreamText.mock.calls[1][0].prompt).toContain("DISTINCT");
     })
 
     it("assigns curated neutral names instead of LLM names, deterministically", async () => {
@@ -441,6 +467,8 @@ describe("PersonaAdapter dual-mode generation", () => {
       expect(system.content).toContain("THIRD PERSON");
       expect(system.content).toContain("Storytelling level: rich");
       expect(user.content).toContain(personas[0].name); // profile JSON includes the assigned name
+      // Reasoning is disabled on the backstory call — CoT burns budget and can return empty output
+      expect(llm.createChatCompletion.mock.calls[0][1].disableReasoning).toBe(true);
     })
 
     it("retries the profile batch once when structured output fails, then succeeds", async () => {

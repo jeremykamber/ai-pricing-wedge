@@ -194,19 +194,28 @@ export class PersonaAdapter {
       schema?: z.ZodType;
       /** Fields every record must have with non-empty values; absence triggers a retry with a nudge. */
       requiredFields?: readonly string[];
+      /**
+       * Array fields whose entries must be distinct (e.g. evidence quotes
+       * reused across values); duplicates trigger a retry with a nudge.
+       */
+      distinctFields?: readonly string[];
     } = {},
   ): Promise<Record<string, unknown>[]> {
-    const { schema = PersonaSchema, requiredFields } = options;
+    const { schema = PersonaSchema, requiredFields, distinctFields } = options;
     const attempts = 2;
     let lastError: unknown;
     for (let attempt = 1; attempt <= attempts; attempt++) {
       console.log(`[PersonaAdapter] [${context}] Generating ${expectedCount} personas (attempt ${attempt}/${attempts})...`);
       try {
-        const retryNudge = attempt > 1 && requiredFields && requiredFields.length > 0
-          ? `\n\nThe previous generation was incomplete: every persona MUST include ALL of these fields with non-empty values: ${requiredFields.join(', ')}. A persona missing any of them is invalid.`
+        const retryNudge = attempt > 1 && (requiredFields?.length || distinctFields?.length)
+          ? `\n\nThe previous generation was incomplete: every persona MUST include ALL of these fields with non-empty values: ${requiredFields?.join(', ') ?? ''}. A persona missing any of them is invalid.${distinctFields?.length ? ` Evidence quotes (${distinctFields.join(', ')}) must be DISTINCT — never repeat the same quote for two different values or fears.` : ''}`
           : '';
         const { output } = streamText({
-          model: this.llmService.provider(this.llmService.smallTextModel),
+          // provider.chat() → Chat Completions endpoint. The default
+          // provider() factory routes to OpenRouter's /responses endpoint,
+          // which is pathologically slow for deepseek (90-240s+ for this
+          // call) and unreachable by the reasoning-disable fetch hook.
+          model: this.llmService.provider.chat(this.llmService.smallTextModel),
           output: Output.array({ element: schema }),
           system,
           prompt: user + retryNudge,
@@ -232,6 +241,20 @@ export class PersonaAdapter {
           });
           if (incomplete.length > 0) {
             throw new Error(`[PersonaAdapter] ${context} incomplete output: ${incomplete.join('; ')}`);
+          }
+        }
+        if (distinctFields && distinctFields.length > 0) {
+          const duplicated = slice.flatMap((rec, i) =>
+            distinctFields.flatMap((k) => {
+              const v = rec[k];
+              if (!Array.isArray(v)) return [];
+              const seen = new Set<string>();
+              const dupes = (v as string[]).filter((s) => (seen.has(s) ? true : (seen.add(s), false)));
+              return dupes.length > 0 ? [`persona #${i + 1} ${k} repeats quotes: ${dupes.join(', ')}`] : [];
+            }),
+          );
+          if (duplicated.length > 0) {
+            throw new Error(`[PersonaAdapter] ${context} duplicated evidence: ${duplicated.join('; ')}`);
           }
         }
         return slice;
@@ -1253,6 +1276,8 @@ GUIDELINES:
 - MANDATORY: every persona must include ALL fields in the structure below with non-empty values. A persona missing any field is invalid.
 - Every persona MUST include 3-5 behavioralDimensions, each with a direct evidence quote drawn from the input description.
 - valueEvidence and fearEvidence MUST quote the input description (the user's own words), one quote per value/fear.
+- Each valueEvidence/fearEvidence quote MUST be DISTINCT — never reuse the same quote for two different values or fears.
+- Quotes should carry a few words of context so they read like the user's reasoning, e.g. "evaluate software on ROI — every dollar has to come back".
 - evidenceLinks MUST quote the input description; set attribute to the persona fields the quote supports.
 
 Generate a JSON array of EXACTLY ${config.count} DISTINCT personas with this structure:
@@ -1295,6 +1320,7 @@ ${config.contextNotes ? `Additional context: ${config.contextNotes}` : ""}`;
       {
         schema: PersonaProfileSchema,
         requiredFields: PersonaAdapter.STRATEGY_PROFILE_REQUIRED_FIELDS,
+        distinctFields: ['valueEvidence', 'fearEvidence'],
       },
     );
   }
@@ -1314,7 +1340,7 @@ ${config.contextNotes ? `Additional context: ${config.contextNotes}` : ""}`;
             { role: "system", content: system },
             { role: "user", content: user },
           ],
-          { model: this.llmService.smallTextModel, temperature: 0.7, purpose: "Persona Backstory" },
+          { model: this.llmService.smallTextModel, temperature: 0.7, purpose: "Persona Backstory", disableReasoning: true },
         );
         const cleaned = stripCodeFence(story).trim();
         if (!cleaned) throw new Error("empty backstory");
