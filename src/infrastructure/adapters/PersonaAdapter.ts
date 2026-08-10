@@ -134,23 +134,26 @@ export class PersonaAdapter {
   /**
    * Normalizes a quote or source text for the verbatim substring check:
    * lowercase, whitespace collapsed, surrounding quotation marks stripped.
-   * The prompt asks the model to wrap fragments in quotes — the marks are
-   * formatting, not content, and must not cause a false rejection.
+   * The prompt asks the model to wrap fragments in quotes — the marks (and
+   * any padding between them and the fragment) are formatting, not content,
+   * and must not cause a false rejection.
    */
   private static normalizeVerbatim(s: string): string {
     const collapsed = s.toLowerCase().replace(/\s+/g, ' ').trim();
-    return collapsed.replace(/^["'«»“”‘’]+|["'«»“”‘’]+$/g, '');
+    return collapsed.replace(/^["'«»“”‘’]+|["'«»“”‘’]+$/g, '').trim();
   }
 
   /**
    * Collects the non-empty quote values a record holds at a dot path, e.g.
    * 'valueEvidence' (top-level string array) or 'behavioralDimensions.evidence'
-   * (a string field inside each record of an array).
+   * (a single string field inside each record of an array). The leaf accepts
+   * both a string and an array of strings.
    */
   private static collectQuoteValues(rec: Record<string, unknown>, fieldPath: string): string[] {
     const [head, ...rest] = fieldPath.split('.');
     const value = rec[head];
     if (rest.length === 0) {
+      if (typeof value === 'string') return value.trim() ? [value] : [];
       return Array.isArray(value)
         ? value.filter((x): x is string => typeof x === 'string' && x.trim().length > 0)
         : [];

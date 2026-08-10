@@ -566,6 +566,76 @@ describe("PersonaAdapter dual-mode generation", () => {
       expect(mockStreamText.mock.calls[1][0].prompt).toContain("omit rather than invent");
     })
 
+    it("retries the profile batch when a behavioral dimension quote is not verbatim", async () => {
+      const fabricatedDim = [{
+        ...strategyProfile[0],
+        behavioralDimensions: [
+          { name: "risk-tolerance", score: 70, context: "pricing changes", description: "Willing to experiment with packaging", evidence: "they love experimenting with every new pricing idea" },
+          { name: "evidence-need", score: 90, context: "tool adoption", description: "Requires benchmarks before committing", evidence: "decisions must cite numbers" },
+          { name: "speed-bias", score: 75, context: "ship velocity", description: "Prefers shipping fast over perfect", evidence: "favor quick experiments" },
+        ],
+      }];
+      mockStreamText
+        .mockReturnValueOnce({ output: Promise.resolve(fabricatedDim) })
+        .mockReturnValueOnce({ output: Promise.resolve(strategyProfile) });
+      const llm = createMockLlmService();
+      mockBackstories(llm);
+      const adapter = new PersonaAdapter(llm);
+
+      const personas = await adapter.generateStrategyPersonas({
+        count: 1,
+        personaDescription: STRATEGY_INPUT,
+      });
+
+      expect(personas).toHaveLength(1);
+      expect(mockStreamText).toHaveBeenCalledTimes(2);
+      expect(mockStreamText.mock.calls[1][0].prompt).toContain("omit rather than invent");
+    })
+
+    it("retries the profile batch when an evidenceLinks excerpt is not verbatim", async () => {
+      const fabricatedLink = [{
+        ...strategyProfile[0],
+        evidenceLinks: [
+          { transcriptId: "user-input", excerpt: "full autonomy over the roadmap", attribute: "values" },
+          { transcriptId: "user-input", excerpt: "the persona invented this line entirely", attribute: "fears" },
+        ],
+      }];
+      mockStreamText
+        .mockReturnValueOnce({ output: Promise.resolve(fabricatedLink) })
+        .mockReturnValueOnce({ output: Promise.resolve(strategyProfile) });
+      const llm = createMockLlmService();
+      mockBackstories(llm);
+      const adapter = new PersonaAdapter(llm);
+
+      const personas = await adapter.generateStrategyPersonas({
+        count: 1,
+        personaDescription: STRATEGY_INPUT,
+      });
+
+      expect(personas).toHaveLength(1);
+      expect(mockStreamText).toHaveBeenCalledTimes(2);
+      expect(mockStreamText.mock.calls[1][0].prompt).toContain("omit rather than invent");
+    })
+
+    it("accepts quotes wrapped with padding inside the quotation marks", async () => {
+      const padded = [{
+        ...strategyProfile[0],
+        valueEvidence: ['" They asked for full autonomy over the roadmap "', "Decisions must cite numbers"],
+      }];
+      stubStructuredOutput(padded);
+      const llm = createMockLlmService();
+      mockBackstories(llm);
+      const adapter = new PersonaAdapter(llm);
+
+      const personas = await adapter.generateStrategyPersonas({
+        count: 1,
+        personaDescription: STRATEGY_INPUT,
+      });
+
+      expect(personas).toHaveLength(1);
+      expect(mockStreamText).toHaveBeenCalledTimes(1); // padding is formatting, not content
+    })
+
     it("accepts quotes that are verbatim fragments of the input, without retrying", async () => {
       stubStructuredOutput(strategyProfile);
       const llm = createMockLlmService();
