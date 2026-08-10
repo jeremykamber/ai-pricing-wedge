@@ -209,9 +209,9 @@ export class PersonaAdapter {
       case 'required':
         return `\n\nThe previous generation was incomplete: every persona MUST include ALL of these fields with non-empty values: ${options.requiredFields?.join(', ') ?? ''}. A persona missing any of them is invalid.`;
       case 'distinct':
-        return `\n\nThe previous generation repeated the same evidence quote: quotes (${options.distinctFields?.join(', ') ?? ''}) must be DISTINCT — never repeat the same quote for two different values or fears.`;
+        return `\n\nThe previous generation repeated the same evidence quote: quotes (${options.distinctFields?.join(', ') ?? ''}) must be DISTINCT — never repeat the same quote for two different values or fears. If no DISTINCT verbatim fragment of the user's response fits, leave the entry empty instead of repeating or inventing.`;
       case 'verbatim':
-        return `\n\nThe previous generation's evidence quotes were not verbatim: every quote in ${options.verbatim?.fields?.join(', ') ?? ''} MUST be a word-for-word fragment of the user's response, in quotation marks, NEVER the persona's invented voice. If no fragment of the user's response fits, omit rather than invent: leave the quote empty. This applies to evidence QUOTES only — every other field, including attributeConfidence with one entry per attribute, must remain complete.`;
+        return `\n\nThe previous generation's evidence quotes were NOT verbatim and the batch was rejected: every quote in ${options.verbatim?.fields?.join(', ') ?? ''} MUST be a word-for-word fragment of the user's response, in quotation marks, NEVER the persona's invented voice. Fabricated quotes are the worst error — omit rather than invent: leave the quote empty. This applies to evidence QUOTES only — every other field, including attributeConfidence with one entry per attribute, must remain complete.`;
       case 'coverage':
         return `\n\nThe previous generation's ${options.coverage?.listField ?? ''} was incomplete: it MUST include exactly one entry for each of ${options.coverage?.requiredNames?.join(', ') ?? ''} and for every behavioral dimension, using the EXACT attribute names from the structure. Missing entries: ${failure.detail ?? ''}.`;
       default:
@@ -1510,15 +1510,16 @@ Return plain text only. No labels, no markdown, no headers.`;
     const system = `You are a strategic persona generator creating buyer personas for product decision-making.
 
 GUIDELINES:
-- Create vivid, believable personas that help teams empathize with target users.
+- VERBATIM EVIDENCE: every evidence quote — valueEvidence, fearEvidence, behavioralDimensions[].evidence, evidenceLinks[].excerpt — MUST be a word-for-word fragment of the user's response (the text in quotes in the prompt), copied exactly, wrapped in quotation marks. Never write a quote in the persona's invented voice — fabricated quotes are rejected.
+- USE verbatim fragments whenever they fit: quote the fragments of the user's response that support each value, fear, and dimension. The response is the only source of quotes.
+- Omit (leave the entry empty) only when NO fragment of the user's response fits the slot. Omission is a fallback, not a preference — prefer a real verbatim quote.
+- Each valueEvidence/fearEvidence quote MUST be DISTINCT — never reuse the same quote for two different values or fears; leave an entry empty if no distinct fragment fits.
+- Create vivid, believable personas that help teams empathize with target users. Vividness never overrides the verbatim evidence rule.
 - Synthetic details are ALLOWED when they help explain behavior.
 - Do NOT add details that would CHANGE product decisions if they were false (counterfactual test).
 - Do NOT invent names — names are assigned separately from a curated pool.
 - MANDATORY: every persona must include ALL fields in the structure below with non-empty values. A persona missing any field is invalid.
 - Every persona MUST include 3-5 behavioralDimensions.
-- VERBATIM EVIDENCE (non-negotiable): every evidence quote — valueEvidence, fearEvidence, behavioralDimensions[].evidence, evidenceLinks[].excerpt — MUST be a word-for-word fragment of the user's response (the text in quotes in the prompt), copied exactly, wrapped in quotation marks. NEVER write a quote in the persona's invented voice. If no fragment of the user's response fits, OMIT the quote (leave it empty) rather than invent one — an honest gap beats a fabricated quote.
-- It is better to leave a quote empty than to repeat a fragment or invent one — not every value or fear needs a quote; entries in valueEvidence/fearEvidence may be empty strings.
-- Each valueEvidence/fearEvidence quote MUST be DISTINCT — never reuse the same quote for two different values or fears.
 - evidenceLinks MUST quote the user's response; set attribute to the persona fields the quote supports.
 - attributeConfidence MUST include exactly ONE entry per attribute — values, fears, goals, backstory, and every behavioral dimension (by its EXACT name). Confidence 0-1 rates how directly the user's response supports the attribute: high (0.8+) when stated, moderate (0.6-0.8) when implied, low (<0.6) when mostly inferred. rationale: one short sentence.
 
