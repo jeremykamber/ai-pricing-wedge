@@ -460,12 +460,16 @@ export function PersonaDetailSheet({
                                                 <h4 className="text-xs font-bold text-muted-foreground uppercase tracking-widest">MOTIVATIONS</h4>
                                             </div>
                                             <div className="flex flex-col gap-5">
-                                                {persona.values.map((v, i) => (
-                                                    <div key={i} className="flex flex-col">
-                                                        <span className="text-sm text-foreground/80">{v}</span>
-                                                        {persona.valueEvidence?.[i] && <details className="mt-1.5 group"><summary className="text-xs text-muted-foreground/80 cursor-pointer hover:text-foreground transition-colors list-none flex items-center gap-1.5 font-sans"><span className="text-xs text-muted-foreground/30 group-open:text-foreground/60 transition-colors">▶</span> Source</summary><p className="text-xs text-foreground/70 mt-1.5 leading-relaxed border-l-2 border-border/30 pl-3">{persona.valueEvidence[i]}</p></details>}
-                                                    </div>
-                                                ))}
+                                                {persona.values.map((v, i) => {
+                                                    const quote = persona.valueEvidence?.[i];
+                                                    const question = quote ? persona.evidenceQuestions?.[quote] : undefined;
+                                                    return (
+                                                        <div key={i} className="flex flex-col">
+                                                            <span className="text-sm text-foreground/80">{v}</span>
+                                                            {quote && <details className="mt-1.5 group"><summary className="text-xs text-muted-foreground/80 cursor-pointer hover:text-foreground transition-colors list-none flex items-center gap-1.5 font-sans"><span className="text-xs text-muted-foreground/30 group-open:text-foreground/60 transition-colors">▶</span>{persona.generationMode === 'strategy' ? 'Your response' : 'Source'}</summary><p className="text-xs text-foreground/70 mt-1.5 leading-relaxed border-l-2 border-border/30 pl-3">“{quote}”{question ? <span className="text-muted-foreground/60"> (Answer to “{question}” in audience description)</span> : null}</p></details>}
+                                                        </div>
+                                                    );
+                                                })}
                                             </div>
                                         </div>
                                     )}
@@ -476,15 +480,19 @@ export function PersonaDetailSheet({
                                                 <h4 className="text-xs font-bold text-muted-foreground uppercase tracking-widest">FRICTIONS</h4>
                                             </div>
                                             <ul className="space-y-5">
-                                                {persona.fears.map((f, i) => (
-                                                    <li key={i} className="flex flex-col">
-                                                        <div className="flex items-center gap-2.5 text-xs text-foreground/70 leading-relaxed">
-                                                            <span className="text-destructive/60 shrink-0 mt-0.5">/</span>
-                                                            {f}
-                                                        </div>
-                                                        {persona.fearEvidence?.[i] && <details className="mt-1.5 group ml-4"><summary className="text-xs text-muted-foreground/80 cursor-pointer hover:text-foreground transition-colors list-none flex items-center gap-1.5 font-sans"><span className="text-xs text-muted-foreground/30 group-open:text-foreground/60 transition-colors">▶</span> Source</summary><p className="text-xs text-foreground/70 mt-1.5 leading-relaxed border-l-2 border-border/30 pl-3">{persona.fearEvidence[i]}</p></details>}
-                                                    </li>
-                                                ))}
+                                                {persona.fears.map((f, i) => {
+                                                    const quote = persona.fearEvidence?.[i];
+                                                    const question = quote ? persona.evidenceQuestions?.[quote] : undefined;
+                                                    return (
+                                                        <li key={i} className="flex flex-col">
+                                                            <div className="flex items-center gap-2.5 text-xs text-foreground/70 leading-relaxed">
+                                                                <span className="text-destructive/60 shrink-0 mt-0.5">/</span>
+                                                                {f}
+                                                            </div>
+                                                            {quote && <details className="mt-1.5 group ml-4"><summary className="text-xs text-muted-foreground/80 cursor-pointer hover:text-foreground transition-colors list-none flex items-center gap-1.5 font-sans"><span className="text-xs text-muted-foreground/30 group-open:text-foreground/60 transition-colors">▶</span>{persona.generationMode === 'strategy' ? 'Your response' : 'Source'}</summary><p className="text-xs text-foreground/70 mt-1.5 leading-relaxed border-l-2 border-border/30 pl-3">“{quote}”{question ? <span className="text-muted-foreground/60"> (Answer to “{question}” in audience description)</span> : null}</p></details>}
+                                                        </li>
+                                                    );
+                                                })}
                                             </ul>
                                         </div>
                                     )}
@@ -508,9 +516,10 @@ export function PersonaDetailSheet({
                                                                         <span className="text-foreground/80 truncate">{attr.attribute}</span>
                                                                         <span className="text-muted-foreground/80 text-xs font-mono">{attr.confidence >= 0.8 ? 'High' : attr.confidence >= 0.6 ? 'Moderate' : 'Low'}</span>
                                                                     </div>
-                                                                    {attr.evidence && (
+                                                                    {(attr.rationale || attr.evidence) && (
                                                                         <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-64 p-3 rounded-lg border border-border bg-card text-xs text-foreground/80 leading-relaxed opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50 pointer-events-none shadow-lg">
-                                                                            {attr.evidence}
+                                                                            {attr.rationale && <p>{attr.rationale}</p>}
+                                                                            {attr.evidence && <p className={attr.rationale ? 'mt-1 text-muted-foreground/70' : ''}>“{attr.evidence}”</p>}
                                                                         </div>
                                                                     )}
                                                                 </div>
@@ -530,15 +539,18 @@ export function PersonaDetailSheet({
                                         <div className="flex flex-col gap-4">
                                             <h4 className="text-xs font-bold text-muted-foreground uppercase tracking-widest">SOURCES</h4>
                                             <div className="flex flex-col gap-5">
-                                                {persona.evidenceLinks.map((link, i) => (
-                                                    <div key={i} className="relative pl-4 border-l-2 border-border/40">
-                                                        <div className="flex items-center gap-2 mb-1.5">
-                                                            <span className="text-xs font-medium text-primary/70 uppercase tracking-wider">{link.attribute}</span>
-                                                            <span className="text-xs text-muted-foreground/70">{link.transcriptId}</span>
+                                                {persona.evidenceLinks.map((link, i) => {
+                                                    const question = persona.evidenceQuestions?.[link.excerpt];
+                                                    return (
+                                                        <div key={i} className="relative pl-4 border-l-2 border-border/40">
+                                                            <div className="flex items-center gap-2 mb-1.5">
+                                                                <span className="text-xs font-medium text-primary/70 uppercase tracking-wider">{link.attribute}</span>
+                                                                <span className="text-xs text-muted-foreground/70">{persona.generationMode === 'strategy' ? 'Your response' : link.transcriptId}</span>
+                                                            </div>
+                                                            <p className="text-sm text-foreground/70 leading-relaxed">“{link.excerpt}”{question ? <span className="text-muted-foreground/60"> (Answer to “{question}” in audience description)</span> : null}</p>
                                                         </div>
-                                                        <p className="text-sm text-foreground/70 leading-relaxed">{link.excerpt}</p>
-                                                    </div>
-                                                ))}
+                                                    );
+                                                })}
                                             </div>
                                         </div>
                                     )}

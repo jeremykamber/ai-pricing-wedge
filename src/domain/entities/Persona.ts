@@ -96,6 +96,13 @@ export interface Persona {
   // Evidence links: direct interview/source excerpts backing persona attributes
   evidenceLinks?: EvidenceLink[];
 
+  // Maps each evidence quote (exact string) to the guided-form question it
+  // answers, e.g. "save time" -> "Goals they are trying to accomplish".
+  // Computed at strategy generation from the user's labeled input; the UI
+  // renders "(Answer to <question> in audience description)". Absent for
+  // research/cluster personas and for older persisted batches.
+  evidenceQuestions?: Record<string, string>;
+
   // Cluster info: for personas representing a group of interview subjects
   clusterInfo?: ClusterInfo;
 
@@ -174,6 +181,8 @@ export const PersonaSchema = z.object({
     .describe("Per-attribute confidence and tier labeling"),
   evidenceLinks: z.array(EvidenceLinkSchema).optional()
     .describe("Direct interview/source excerpts backing persona attributes"),
+  evidenceQuestions: z.record(z.string(), z.string()).optional()
+    .describe("Maps each evidence quote to the guided-form question it answers (strategy mode)"),
   clusterInfo: ClusterInfoSchema.optional()
     .describe("Cluster info for personas representing a group of interview subjects"),
   identityContext: z.string().optional()

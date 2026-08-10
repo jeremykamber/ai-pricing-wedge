@@ -10,6 +10,8 @@ export interface AttributeProvenance {
   confidence: number;
   evidence?: string;
   source?: string;
+  /** LLM's one-sentence justification (strategy mode, attributeConfidence). */
+  rationale?: string;
 }
 
 export interface PersonaProvenance {
@@ -41,6 +43,7 @@ export const AttributeProvenanceSchema = z.object({
   confidence: z.number().min(0).max(1),
   evidence: z.string().optional(),
   source: z.string().optional(),
+  rationale: z.string().optional(),
 });
 
 export const PersonaProvenanceSchema = z.object({

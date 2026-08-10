@@ -137,3 +137,67 @@ describe('PersonaDetailSheet edit mode', () => {
     }))
   })
 })
+
+describe('PersonaDetailSheet evidence rendering', () => {
+  // Strategy personas quote the user's own response; the disclosure must say
+  // so and show the quote verbatim (evidence-integrity contract).
+  const evidencePersona: Persona = {
+    ...basePersona,
+    generationMode: 'strategy',
+    valueEvidence: ['asked for full autonomy over the roadmap'],
+    fearEvidence: ['A churn spike would end the runway'],
+    evidenceLinks: [{ transcriptId: 'user-input', excerpt: 'full autonomy over the roadmap', attribute: 'values' }],
+  }
+
+  it('labels strategy-mode sources "Your response" and renders quotes verbatim', () => {
+    render(
+      <PersonaDetailSheet
+        persona={evidencePersona}
+        isOpen={true}
+        onClose={vi.fn()}
+      />
+    )
+    // value evidence, fear evidence, and the evidenceLinks label
+    expect(screen.getAllByText('Your response').length).toBe(3)
+    expect(screen.getByText('“asked for full autonomy over the roadmap”')).toBeTruthy()
+    expect(screen.getByText('“A churn spike would end the runway”')).toBeTruthy()
+    expect(screen.getByText('“full autonomy over the roadmap”')).toBeTruthy()
+    // the raw transcriptId is not shown for strategy — the source is the user's response
+    expect(screen.queryByText('user-input')).toBeNull()
+  })
+
+  it('renders the guided-form question the quote answers in parentheses', () => {
+    const withQuestions: Persona = {
+      ...evidencePersona,
+      evidenceQuestions: {
+        'asked for full autonomy over the roadmap': 'Goals they are trying to accomplish',
+        'A churn spike would end the runway': 'Biggest frustration',
+        'full autonomy over the roadmap': 'Goals they are trying to accomplish',
+      },
+    }
+    render(
+      <PersonaDetailSheet
+        persona={withQuestions}
+        isOpen={true}
+        onClose={vi.fn()}
+      />
+    )
+    expect(screen.getByText('“asked for full autonomy over the roadmap”')).toBeTruthy()
+    expect(screen.getByText('“A churn spike would end the runway”')).toBeTruthy()
+    expect(screen.getByText('“full autonomy over the roadmap”')).toBeTruthy()
+    // the parenthetical is a nested span; match it by its own content
+    expect(screen.getAllByText(/^\(Answer to “Goals they are trying to accomplish” in audience description\)$/).length).toBe(2) // values + links
+    expect(screen.getByText('(Answer to “Biggest frustration” in audience description)')).toBeTruthy()
+  })
+
+  it('keeps the generic "Source" label for research-mode personas', () => {
+    render(
+      <PersonaDetailSheet
+        persona={{ ...evidencePersona, generationMode: 'research' }}
+        isOpen={true}
+        onClose={vi.fn()}
+      />
+    )
+    expect(screen.getAllByText('Source').length).toBe(2) // value + fear evidence
+  })
+})

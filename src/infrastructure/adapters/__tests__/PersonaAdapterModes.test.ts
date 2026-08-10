@@ -258,6 +258,12 @@ describe("PersonaAdapter dual-mode generation", () => {
   })
 
   describe("generateStrategyPersonas", () => {
+    // Fixture input whose text contains every evidence quote below verbatim —
+    // the strategy evidence contract requires quotes to be fragments of the
+    // user's response, so tests must generate from an input that contains them.
+    const STRATEGY_INPUT = "They asked for full autonomy over the roadmap. Decisions must cite numbers. Being overridden by investors worries them. A churn spike would end the runway. They run pricing experiments quarterly. Favor quick experiments.";
+    const OTHER_INPUT = "Different audience. They asked for full autonomy over the roadmap. Decisions must cite numbers. Being overridden by investors worries them. A churn spike would end the runway. They run pricing experiments quarterly. Favor quick experiments.";
+
     // Profile-phase fixture: matches the omitted profile schema (no id/name/backstory).
     const strategyProfile = [
       {
@@ -285,10 +291,19 @@ describe("PersonaAdapter dual-mode generation", () => {
         evidenceLinks: [
           { transcriptId: "user-input", excerpt: "full autonomy over the roadmap", attribute: "values" },
         ],
+        attributeConfidence: [
+          { attribute: "values", confidence: 0.8, rationale: "Stated directly in the response" },
+          { attribute: "fears", confidence: 0.7, rationale: "Implied by the described pressures" },
+          { attribute: "goals", confidence: 0.9, rationale: "Explicit goals in the input" },
+          { attribute: "backstory", confidence: 0.5, rationale: "Thin input; mostly inferred" },
+          { attribute: "risk-tolerance", confidence: 0.6, rationale: "Inferred from experimentation habit" },
+          { attribute: "evidence-need", confidence: 0.9, rationale: "Directly stated" },
+          { attribute: "speed-bias", confidence: 0.75, rationale: "Partially stated" },
+        ],
         behavioralDimensions: [
           { name: "risk-tolerance", score: 70, context: "pricing changes", description: "Willing to experiment with packaging", evidence: "they run pricing experiments quarterly" },
           { name: "evidence-need", score: 90, context: "tool adoption", description: "Requires benchmarks before committing", evidence: "decisions must cite numbers" },
-          { name: "speed-bias", score: 75, context: "ship velocity", description: "Prefers shipping fast over perfect", evidence: "favors quick experiments" },
+          { name: "speed-bias", score: 75, context: "ship velocity", description: "Prefers shipping fast over perfect", evidence: "favor quick experiments" },
         ],
       },
     ];
@@ -307,7 +322,7 @@ describe("PersonaAdapter dual-mode generation", () => {
 
       const personas = await adapter.generateStrategyPersonas({
         count: 1,
-        personaDescription: "Enterprise buyer",
+        personaDescription: STRATEGY_INPUT,
         allowSyntheticBackstory: true,
         storytellingLevel: "rich",
       });
@@ -332,7 +347,7 @@ describe("PersonaAdapter dual-mode generation", () => {
 
       const personas = await adapter.generateStrategyPersonas({
         count: 1,
-        personaDescription: "Enterprise buyer",
+        personaDescription: STRATEGY_INPUT,
       });
 
       expect(personas[0].valueEvidence).toEqual(["They asked for full autonomy over the roadmap", "Decisions must cite numbers"]);
@@ -346,7 +361,7 @@ describe("PersonaAdapter dual-mode generation", () => {
       ]);
     })
 
-    it("derives per-attribute provenance and a computed overall confidence", async () => {
+    it("feeds LLM-decided confidence through, with derived tiers and rationale", async () => {
       stubStructuredOutput(strategyProfile);
       const llm = createMockLlmService();
       mockBackstories(llm);
@@ -354,21 +369,36 @@ describe("PersonaAdapter dual-mode generation", () => {
 
       const personas = await adapter.generateStrategyPersonas({
         count: 1,
-        personaDescription: "Enterprise buyer",
+        personaDescription: STRATEGY_INPUT,
       });
 
       const attrs = personas[0].provenance?.attributes ?? [];
-      // Dimensions with evidence quotes are observed/0.9, not blanket 0.7
-      expect(attrs).toContainEqual({ attribute: "evidence-need", tier: "observed", confidence: 0.9, evidence: "decisions must cite numbers" });
-      // 3 evidence dims pull the computed mean to 0.8: (0.7*3 + 0.5 + 0.9*3) / 7
-      expect(personas[0].provenance?.overallConfidence).toBe(0.8);
+      // Confidence comes from the LLM's attributeConfidence, not hardcoded bands
+      expect(attrs).toContainEqual({ attribute: "values", tier: "observed", confidence: 0.8, rationale: "Stated directly in the response", evidence: "They asked for full autonomy over the roadmap", source: "your response" });
+      expect(attrs).toContainEqual({ attribute: "fears", tier: "interpreted", confidence: 0.7, rationale: "Implied by the described pressures", evidence: "Being overridden by investors worries them", source: "your response" });
+      expect(attrs).toContainEqual({ attribute: "goals", tier: "observed", confidence: 0.9, rationale: "Explicit goals in the input" });
+      expect(attrs).toContainEqual({ attribute: "backstory", tier: "synthetic", confidence: 0.5, rationale: "Thin input; mostly inferred" });
+      // Dimensions use the LLM rating too; evidence + source pass through
+      expect(attrs).toContainEqual({ attribute: "evidence-need", tier: "observed", confidence: 0.9, rationale: "Directly stated", evidence: "decisions must cite numbers", source: "your response" });
+      expect(attrs).toContainEqual({ attribute: "speed-bias", tier: "interpreted", confidence: 0.75, rationale: "Partially stated", evidence: "favor quick experiments", source: "your response" });
+      // The old blanket 0.7/0.9 is gone — only fears lands at 0.7, from the LLM
+      expect(attrs.filter((a) => a.confidence === 0.7)).toHaveLength(1);
+      // Overall is the mean of the LLM ratings: (0.8+0.7+0.9+0.5+0.6+0.9+0.75)/7
+      expect(personas[0].provenance?.overallConfidence).toBe(0.7);
     })
 
-    it("marks dimensions without evidence as interpreted with lower confidence", async () => {
+    it("carries LLM-decided confidence for dimensions without quotes", async () => {
       const dimlessEvidence = [{
         ...strategyProfile[0],
         behavioralDimensions: [
           { name: "gut-call", score: 60, context: "hiring", description: "Decides on instinct", evidence: undefined },
+        ],
+        attributeConfidence: [
+          { attribute: "values", confidence: 0.8 },
+          { attribute: "fears", confidence: 0.7 },
+          { attribute: "goals", confidence: 0.9 },
+          { attribute: "backstory", confidence: 0.5 },
+          { attribute: "gut-call", confidence: 0.3, rationale: "Mostly inferred; no direct statement" },
         ],
       }];
       stubStructuredOutput(dimlessEvidence);
@@ -378,13 +408,14 @@ describe("PersonaAdapter dual-mode generation", () => {
 
       const personas = await adapter.generateStrategyPersonas({
         count: 1,
-        personaDescription: "Enterprise buyer",
+        personaDescription: STRATEGY_INPUT,
       });
 
       const attrs = personas[0].provenance?.attributes ?? [];
-      expect(attrs).toContainEqual({ attribute: "gut-call", tier: "interpreted", confidence: 0.6, evidence: undefined });
-      // Overall reflects the lower per-attribute confidence, not a blanket value
-      expect(personas[0].provenance?.overallConfidence).not.toBe(0.7);
+      // Absent quote no longer forces a hardcoded 0.6/interpreted — the LLM's
+      // low rating stands, and the tier derives from it
+      expect(attrs).toContainEqual({ attribute: "gut-call", tier: "synthetic", confidence: 0.3, rationale: "Mostly inferred; no direct statement", evidence: undefined });
+      expect(personas[0].provenance?.overallConfidence).toBe(0.6); // (0.8+0.7+0.9+0.5+0.3)/5
     })
 
     it("enumerates psychographic fields in the profile prompt, with no backstory", async () => {
@@ -395,20 +426,23 @@ describe("PersonaAdapter dual-mode generation", () => {
 
       await adapter.generateStrategyPersonas({
         count: 1,
-        personaDescription: "Enterprise buyer",
+        personaDescription: STRATEGY_INPUT,
       });
 
       const system = mockStreamText.mock.calls[0][0].system;
       expect(system).toContain("values: string[]");
       expect(system).toContain("fears: string[]");
       expect(system).toContain("interests: string[]");
-      expect(system).not.toContain("backstory");
+      // Profile phase produces no backstory FIELD — the backstory comes per-persona in phase 2
+      expect(system).not.toContain("backstory: string");
       // Evidence contract is enumerated so the LLM fills it
       expect(system).toContain("valueEvidence: string[]");
       expect(system).toContain("evidenceLinks");
       expect(system).toContain("bestFor: string[]");
       // Distinctness rule: no quote reused across values/fears
       expect(system).toContain("DISTINCT");
+      // LLM-decided confidence contract is enumerated
+      expect(system).toContain("attributeConfidence");
     })
 
     it("retries the profile batch when evidence quotes are duplicated across values", async () => {
@@ -426,7 +460,7 @@ describe("PersonaAdapter dual-mode generation", () => {
 
       const personas = await adapter.generateStrategyPersonas({
         count: 1,
-        personaDescription: "Enterprise buyer",
+        personaDescription: STRATEGY_INPUT,
       });
 
       expect(personas).toHaveLength(1);
@@ -441,9 +475,9 @@ describe("PersonaAdapter dual-mode generation", () => {
       llm.createChatCompletion.mockResolvedValue("Backstory text.");
       const adapter = new PersonaAdapter(llm);
 
-      const first = await adapter.generateStrategyPersonas({ count: 1, personaDescription: "Enterprise buyer" });
-      const repeat = await adapter.generateStrategyPersonas({ count: 1, personaDescription: "Enterprise buyer" });
-      const different = await adapter.generateStrategyPersonas({ count: 1, personaDescription: "Different audience" });
+      const first = await adapter.generateStrategyPersonas({ count: 1, personaDescription: STRATEGY_INPUT });
+      const repeat = await adapter.generateStrategyPersonas({ count: 1, personaDescription: STRATEGY_INPUT });
+      const different = await adapter.generateStrategyPersonas({ count: 1, personaDescription: OTHER_INPUT });
 
       expect(GENDERLESS_NAMES).toContain(first[0].name);
       expect(repeat[0].name).toBe(first[0].name);
@@ -458,7 +492,7 @@ describe("PersonaAdapter dual-mode generation", () => {
 
       const personas = await adapter.generateStrategyPersonas({
         count: 1,
-        personaDescription: "Enterprise buyer",
+        personaDescription: STRATEGY_INPUT,
         storytellingLevel: "rich",
       });
 
@@ -481,7 +515,7 @@ describe("PersonaAdapter dual-mode generation", () => {
 
       const personas = await adapter.generateStrategyPersonas({
         count: 1,
-        personaDescription: "Enterprise buyer",
+        personaDescription: STRATEGY_INPUT,
       });
 
       expect(personas).toHaveLength(1);
@@ -499,14 +533,134 @@ describe("PersonaAdapter dual-mode generation", () => {
 
       const personas = await adapter.generateStrategyPersonas({
         count: 1,
-        personaDescription: "Enterprise buyer",
+        personaDescription: STRATEGY_INPUT,
       });
 
       expect(personas).toHaveLength(1);
       expect(mockStreamText).toHaveBeenCalledTimes(2);
       // The retry nudge names the missing fields in the prompt
       expect(mockStreamText.mock.calls[1][0].prompt).toContain("behavioralDimensions");
-      expect(mockStreamText.mock.calls[1][0].prompt).toContain("valueEvidence"); // evidence contract is enforced too
+      expect(mockStreamText.mock.calls[1][0].prompt).toContain("evidenceLinks"); // evidence contract is enforced too
+    })
+
+    it("retries the profile batch when evidence quotes are not verbatim fragments of the input", async () => {
+      const fabricated = [{
+        ...strategyProfile[0],
+        valueEvidence: ["They value total autonomy above all else", "Decisions must cite numbers"],
+      }];
+      mockStreamText
+        .mockReturnValueOnce({ output: Promise.resolve(fabricated) })
+        .mockReturnValueOnce({ output: Promise.resolve(strategyProfile) });
+      const llm = createMockLlmService();
+      mockBackstories(llm);
+      const adapter = new PersonaAdapter(llm);
+
+      const personas = await adapter.generateStrategyPersonas({
+        count: 1,
+        personaDescription: STRATEGY_INPUT,
+      });
+
+      expect(personas).toHaveLength(1);
+      expect(mockStreamText).toHaveBeenCalledTimes(2);
+      // The retry nudge tells the model to quote the input verbatim, not invent voice
+      expect(mockStreamText.mock.calls[1][0].prompt).toContain("omit rather than invent");
+    })
+
+    it("accepts quotes that are verbatim fragments of the input, without retrying", async () => {
+      stubStructuredOutput(strategyProfile);
+      const llm = createMockLlmService();
+      mockBackstories(llm);
+      const adapter = new PersonaAdapter(llm);
+
+      const personas = await adapter.generateStrategyPersonas({
+        count: 1,
+        personaDescription: STRATEGY_INPUT,
+      });
+
+      expect(personas).toHaveLength(1);
+      expect(mockStreamText).toHaveBeenCalledTimes(1); // verbatim passes on the first attempt
+    })
+
+    it("accepts absent or empty evidence quotes instead of retrying (honest omission)", async () => {
+      const terse = [{
+        ...strategyProfile[0],
+        valueEvidence: [],
+        fearEvidence: [],
+      }];
+      stubStructuredOutput(terse);
+      const llm = createMockLlmService();
+      mockBackstories(llm);
+      const adapter = new PersonaAdapter(llm);
+
+      const personas = await adapter.generateStrategyPersonas({
+        count: 1,
+        personaDescription: STRATEGY_INPUT,
+      });
+
+      expect(personas).toHaveLength(1);
+      expect(mockStreamText).toHaveBeenCalledTimes(1); // an honest gap must not retry-loop
+      expect(personas[0].valueEvidence).toEqual([]);
+    })
+
+    it("retries the profile batch when attributeConfidence misses an attribute", async () => {
+      const incomplete = [{
+        ...strategyProfile[0],
+        attributeConfidence: strategyProfile[0].attributeConfidence.filter((c) => c.attribute !== "speed-bias"),
+      }];
+      mockStreamText
+        .mockReturnValueOnce({ output: Promise.resolve(incomplete) })
+        .mockReturnValueOnce({ output: Promise.resolve(strategyProfile) });
+      const llm = createMockLlmService();
+      mockBackstories(llm);
+      const adapter = new PersonaAdapter(llm);
+
+      const personas = await adapter.generateStrategyPersonas({
+        count: 1,
+        personaDescription: STRATEGY_INPUT,
+      });
+
+      expect(personas).toHaveLength(1);
+      expect(mockStreamText).toHaveBeenCalledTimes(2);
+      // The retry nudge names the missing attribute
+      expect(mockStreamText.mock.calls[1][0].prompt).toContain("attributeConfidence");
+      expect(mockStreamText.mock.calls[1][0].prompt).toContain("speed-bias");
+    })
+
+    it("maps evidence quotes to the guided-form question they answer", async () => {
+      const labeledInput = "Target audience: Small business owners.\n\nGoals they are trying to accomplish: Save time, Reduce costs.\n\nBiggest frustration: Existing tools are confusing.\n\nCurrent solution: Spreadsheet.";
+      const labeledProfile = [{
+        ...strategyProfile[0],
+        values: ["Efficiency", "Cost-consciousness"],
+        valueEvidence: ["save time", "reduce costs"],
+        fears: ["Confusing tools"],
+        fearEvidence: ["confusing"],
+        evidenceLinks: [{ transcriptId: "user-input", excerpt: "spreadsheet", attribute: "current solution" }],
+        behavioralDimensions: [
+          { name: "time-sensitivity", score: 80, context: "tool adoption", description: "Values time savings", evidence: "save time" },
+        ],
+        attributeConfidence: [
+          { attribute: "values", confidence: 0.8 },
+          { attribute: "fears", confidence: 0.7 },
+          { attribute: "goals", confidence: 0.9 },
+          { attribute: "backstory", confidence: 0.5 },
+          { attribute: "time-sensitivity", confidence: 0.8 },
+        ],
+      }];
+      stubStructuredOutput(labeledProfile);
+      const llm = createMockLlmService();
+      mockBackstories(llm);
+      const adapter = new PersonaAdapter(llm);
+
+      const personas = await adapter.generateStrategyPersonas({
+        count: 1,
+        personaDescription: labeledInput,
+      });
+
+      const questions = personas[0].evidenceQuestions ?? {};
+      expect(questions["save time"]).toBe("Goals they are trying to accomplish");
+      expect(questions["reduce costs"]).toBe("Goals they are trying to accomplish");
+      expect(questions["confusing"]).toBe("Biggest frustration");
+      expect(questions["spreadsheet"]).toBe("Current solution");
     })
 
     it("retries a backstory call once, then succeeds", async () => {
@@ -519,7 +673,7 @@ describe("PersonaAdapter dual-mode generation", () => {
 
       const personas = await adapter.generateStrategyPersonas({
         count: 1,
-        personaDescription: "Enterprise buyer",
+        personaDescription: STRATEGY_INPUT,
       });
 
       expect(personas[0].backstory).toBe("Recovered story.");
@@ -534,7 +688,7 @@ describe("PersonaAdapter dual-mode generation", () => {
 
       const promise = adapter.generateStrategyPersonas({
         count: 1,
-        personaDescription: "Enterprise buyer",
+        personaDescription: STRATEGY_INPUT,
       });
 
       await expect(promise).rejects.toThrow(/Failed to generate backstory for persona/);
@@ -550,7 +704,7 @@ describe("PersonaAdapter dual-mode generation", () => {
       const progress: { completed: number; total: number; personaName?: string }[] = [];
 
       await adapter.generateStrategyPersonas(
-        { count: 1, personaDescription: "Enterprise buyer" },
+        { count: 1, personaDescription: STRATEGY_INPUT },
         (phase, p) => {
           phases.push(phase);
           if (p) progress.push(p);

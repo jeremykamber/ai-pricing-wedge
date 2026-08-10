@@ -59,6 +59,14 @@ const PersonaProfileSchema = z.object({
     excerpt: z.string().min(1),
     attribute: z.string().min(1),
   })).optional(),
+  // LLM-decided per-attribute confidence (strategy only; optional so the
+  // shared schema tolerates research, whose prompt never asks for it).
+  // Strategy enforces presence via the coverage check.
+  attributeConfidence: z.array(z.object({
+    attribute: z.string().min(1),
+    confidence: z.number().min(0).max(1),
+    rationale: z.string().optional(),
+  })).optional(),
 });
 
 export class PersonaAdapter {
@@ -121,6 +129,103 @@ export class PersonaAdapter {
       [copy[i], copy[j]] = [copy[j], copy[i]];
     }
     return copy.slice(0, count);
+  }
+
+  /**
+   * Normalizes a quote or source text for the verbatim substring check:
+   * lowercase, whitespace collapsed, surrounding quotation marks stripped.
+   * The prompt asks the model to wrap fragments in quotes — the marks are
+   * formatting, not content, and must not cause a false rejection.
+   */
+  private static normalizeVerbatim(s: string): string {
+    const collapsed = s.toLowerCase().replace(/\s+/g, ' ').trim();
+    return collapsed.replace(/^["'«»“”‘’]+|["'«»“”‘’]+$/g, '');
+  }
+
+  /**
+   * Collects the non-empty quote values a record holds at a dot path, e.g.
+   * 'valueEvidence' (top-level string array) or 'behavioralDimensions.evidence'
+   * (a string field inside each record of an array).
+   */
+  private static collectQuoteValues(rec: Record<string, unknown>, fieldPath: string): string[] {
+    const [head, ...rest] = fieldPath.split('.');
+    const value = rec[head];
+    if (rest.length === 0) {
+      return Array.isArray(value)
+        ? value.filter((x): x is string => typeof x === 'string' && x.trim().length > 0)
+        : [];
+    }
+    if (!Array.isArray(value)) return [];
+    return value.flatMap((item) =>
+      item && typeof item === 'object'
+        ? PersonaAdapter.collectQuoteValues(item as Record<string, unknown>, rest.join('.'))
+        : [],
+    );
+  }
+
+  /**
+   * Builds the retry nudge for the specific client-side rule the previous
+   * attempt violated (diagnostic-driven, not a static list). Empty string
+   * when the failure was structural (parse/schema), where no content nudge
+   * applies.
+   */
+  private static retryNudgeFor(
+    failure: { rule: 'required' | 'distinct' | 'verbatim' | 'coverage'; detail?: string } | undefined,
+    options: {
+      requiredFields?: readonly string[];
+      distinctFields?: readonly string[];
+      verbatim?: { sourceText: string; fields: readonly string[] };
+      coverage?: {
+        listField: string;
+        nameField: string;
+        requiredNames: readonly string[];
+        dynamicNamesField?: string;
+      };
+    },
+  ): string {
+    switch (failure?.rule) {
+      case 'required':
+        return `\n\nThe previous generation was incomplete: every persona MUST include ALL of these fields with non-empty values: ${options.requiredFields?.join(', ') ?? ''}. A persona missing any of them is invalid.`;
+      case 'distinct':
+        return `\n\nThe previous generation repeated the same evidence quote: quotes (${options.distinctFields?.join(', ') ?? ''}) must be DISTINCT — never repeat the same quote for two different values or fears.`;
+      case 'verbatim':
+        return `\n\nThe previous generation's evidence quotes were not verbatim: every quote in ${options.verbatim?.fields?.join(', ') ?? ''} MUST be a word-for-word fragment of the user's response, in quotation marks, NEVER the persona's invented voice. If no fragment of the user's response fits, omit rather than invent: leave the quote empty.`;
+      case 'coverage':
+        return `\n\nThe previous generation's ${options.coverage?.listField ?? ''} was incomplete: it MUST include exactly one entry for each of ${options.coverage?.requiredNames?.join(', ') ?? ''} and for every behavioral dimension, using the EXACT attribute names from the structure. Missing entries: ${failure.detail ?? ''}.`;
+      default:
+        return '';
+    }
+  }
+
+  /**
+   * Maps each evidence quote on a strategy profile to the guided-form
+   * question it answers — the label of the input section containing the
+   * quote, e.g. "save time" → "Goals they are trying to accomplish". The UI
+   * renders "(Answer to <question> in audience description)". Quotes in
+   * unlabeled input get no entry, so the UI omits the parenthetical rather
+   * than inventing a question.
+   */
+  private static evidenceQuestionsFor(description: string, p: Record<string, unknown>): Record<string, string> | undefined {
+    const sections = description.split(/\n\s*\n/).filter(Boolean);
+    const labelOf = (quote: string): string | undefined => {
+      const normalized = quote.toLowerCase();
+      const section = sections.find((s) => s.toLowerCase().includes(normalized));
+      return section?.match(/^([^:\n]+):/)?.[1]?.trim();
+    };
+    const map: Record<string, string> = {};
+    const add = (quote: unknown) => {
+      if (typeof quote === 'string' && quote.trim()) {
+        const label = labelOf(quote);
+        if (label) map[quote] = label;
+      }
+    };
+    (Array.isArray(p.valueEvidence) ? p.valueEvidence : []).forEach(add);
+    (Array.isArray(p.fearEvidence) ? p.fearEvidence : []).forEach(add);
+    (Array.isArray(p.behavioralDimensions) ? p.behavioralDimensions : [])
+      .forEach((d) => add((d as Record<string, unknown>).evidence));
+    (Array.isArray(p.evidenceLinks) ? p.evidenceLinks : [])
+      .forEach((l) => add((l as Record<string, unknown>).excerpt));
+    return Object.keys(map).length > 0 ? map : undefined;
   }
 
   /**
@@ -199,16 +304,50 @@ export class PersonaAdapter {
        * reused across values); duplicates trigger a retry with a nudge.
        */
       distinctFields?: readonly string[];
+      /**
+       * Verbatim integrity contract: dot-path fields whose non-empty values
+       * must each be a word-for-word fragment of `sourceText` (the user's
+       * input). Empty/absent quotes are ACCEPTED — omitting a quote is
+       * honest, inventing one is not. Supports top-level string arrays
+       * ('valueEvidence') and nested record-array strings
+       * ('behavioralDimensions.evidence'). Violations trigger a retry with
+       * an omit-rather-than-invent nudge.
+       */
+      verbatim?: {
+        sourceText: string;
+        fields: readonly string[];
+      };
+      /**
+       * Coverage contract: every record's list field must contain one entry
+       * per required name plus one per entry in the dynamic record array
+       * (matched by exact name). Used to force the LLM to rate every
+       * attribute it produced. Violations trigger a retry with a
+       * use-exact-names nudge.
+       */
+      coverage?: {
+        /** Record key holding the list (e.g. 'attributeConfidence'). */
+        listField: string;
+        /** Name field within each list entry (e.g. 'attribute'). */
+        nameField: string;
+        /** Names that must be present in every record's list. */
+        requiredNames: readonly string[];
+        /** Record array whose entry names must also be covered (name field 'name'). */
+        dynamicNamesField?: string;
+      };
     } = {},
   ): Promise<Record<string, unknown>[]> {
-    const { schema = PersonaSchema, requiredFields, distinctFields } = options;
+    const { schema = PersonaSchema, requiredFields, distinctFields, verbatim, coverage } = options;
     const attempts = 2;
     let lastError: unknown;
+    // Which client-side rule the previous attempt violated, plus the failing
+    // detail; the retry nudge is built from this so it names the actual
+    // failure (diagnostic-driven, not a static list).
+    let lastFailure: { rule: 'required' | 'distinct' | 'verbatim' | 'coverage'; detail?: string } | undefined;
     for (let attempt = 1; attempt <= attempts; attempt++) {
       console.log(`[PersonaAdapter] [${context}] Generating ${expectedCount} personas (attempt ${attempt}/${attempts})...`);
       try {
-        const retryNudge = attempt > 1 && (requiredFields?.length || distinctFields?.length)
-          ? `\n\nThe previous generation was incomplete: every persona MUST include ALL of these fields with non-empty values: ${requiredFields?.join(', ') ?? ''}. A persona missing any of them is invalid.${distinctFields?.length ? ` Evidence quotes (${distinctFields.join(', ')}) must be DISTINCT — never repeat the same quote for two different values or fears.` : ''}`
+        const retryNudge = attempt > 1
+          ? PersonaAdapter.retryNudgeFor(lastFailure, { requiredFields, distinctFields, verbatim, coverage })
           : '';
         const { output } = streamText({
           // provider.chat() → Chat Completions endpoint. The default
@@ -240,6 +379,7 @@ export class PersonaAdapter {
             return absent.length > 0 ? [`persona #${i + 1} missing: ${absent.join(', ')}`] : [];
           });
           if (incomplete.length > 0) {
+            lastFailure = { rule: 'required' };
             throw new Error(`[PersonaAdapter] ${context} incomplete output: ${incomplete.join('; ')}`);
           }
         }
@@ -254,7 +394,49 @@ export class PersonaAdapter {
             }),
           );
           if (duplicated.length > 0) {
+            lastFailure = { rule: 'distinct' };
             throw new Error(`[PersonaAdapter] ${context} duplicated evidence: ${duplicated.join('; ')}`);
+          }
+        }
+        if (verbatim) {
+          const source = PersonaAdapter.normalizeVerbatim(verbatim.sourceText);
+          // An empty input cannot be quoted; skip the check rather than
+          // retry-looping over something the model had no text to quote.
+          if (source.length > 0) {
+            const nonVerbatim = slice.flatMap((rec, i) =>
+              verbatim.fields.flatMap((field) =>
+                PersonaAdapter.collectQuoteValues(rec, field)
+                  .filter((q) => !source.includes(PersonaAdapter.normalizeVerbatim(q)))
+                  .map((q) => `persona #${i + 1} ${field} "${q}" is not a verbatim fragment of the input`),
+              ),
+            );
+            if (nonVerbatim.length > 0) {
+              lastFailure = { rule: 'verbatim' };
+              throw new Error(`[PersonaAdapter] ${context} non-verbatim evidence: ${nonVerbatim.join('; ')}`);
+            }
+          }
+        }
+        if (coverage) {
+          const missing = slice.flatMap((rec, i) => {
+            const list = Array.isArray(rec[coverage.listField])
+              ? rec[coverage.listField] as Record<string, unknown>[]
+              : [];
+            const covered = new Set(list.map((e) => String(e?.[coverage.nameField] ?? '')));
+            const needed = new Set([...coverage.requiredNames]);
+            if (coverage.dynamicNamesField) {
+              const dims = Array.isArray(rec[coverage.dynamicNamesField])
+                ? rec[coverage.dynamicNamesField] as Record<string, unknown>[]
+                : [];
+              for (const d of dims) needed.add(String(d?.name ?? ''));
+            }
+            const uncovered = [...needed].filter((n) => n && !covered.has(n));
+            return uncovered.length > 0
+              ? [`persona #${i + 1} ${coverage.listField} missing entries for: ${uncovered.join(', ')}`]
+              : [];
+          });
+          if (missing.length > 0) {
+            lastFailure = { rule: 'coverage', detail: missing.join('; ') };
+            throw new Error(`[PersonaAdapter] ${context} incomplete coverage: ${missing.join('; ')}`);
           }
         }
         return slice;
@@ -1183,6 +1365,7 @@ Return plain text only. No labels, no markdown, no headers.`;
       id: `strategy-persona-${idx}`,
       generationMode: "strategy" as const,
       behavioralDimensions: PersonaAdapter.extractBehavioralDimensions(p),
+      evidenceQuestions: PersonaAdapter.evidenceQuestionsFor(config.personaDescription, p),
       bestFor: Array.isArray(p.bestFor) ? p.bestFor as string[] : undefined,
       lessReliableFor: Array.isArray(p.lessReliableFor) ? p.lessReliableFor as string[] : undefined,
       identityContext: typeof p.identityContext === 'string' ? p.identityContext : undefined,
@@ -1213,17 +1396,47 @@ Return plain text only. No labels, no markdown, no headers.`;
 
     return profiles.map((profile, idx) => {
       const dims = profile.behavioralDimensions ?? [];
+      // LLM-decided per-attribute confidence (decisions.md —
+      // persona-evidence-integrity): no hardcoded bands. The tier is derived
+      // from the confidence purely for UI colors. `records` and `profiles`
+      // are index-aligned (profiles = records.map), so the raw record is the
+      // source of attributeConfidence.
+      const confidenceFor = (name: string): { confidence: number; rationale?: string } => {
+        const raw = records[idx];
+        const list = Array.isArray(raw?.attributeConfidence)
+          ? raw.attributeConfidence as { attribute: string; confidence: number; rationale?: string }[]
+          : [];
+        const entry = list.find((c) => c.attribute === name);
+        return entry ? { confidence: entry.confidence, rationale: entry.rationale } : { confidence: 0.5 };
+      };
+      const tierFor = (confidence: number): 'observed' | 'interpreted' | 'synthetic' =>
+        confidence >= 0.8 ? 'observed' : confidence >= 0.6 ? 'interpreted' : 'synthetic';
       const attrProvenance = [
-        { attribute: 'values', tier: 'interpreted' as const, confidence: 0.7 },
-        { attribute: 'fears', tier: 'interpreted' as const, confidence: 0.7 },
-        { attribute: 'goals', tier: 'interpreted' as const, confidence: 0.7 },
-        { attribute: 'backstory', tier: 'synthetic' as const, confidence: 0.5 },
-        ...dims.map((d) => ({
-          attribute: d.name,
-          tier: (d.evidence ? 'observed' : 'interpreted') as 'observed' | 'interpreted',
-          confidence: d.evidence ? 0.9 : 0.6,
-          evidence: d.evidence,
-        })),
+        ...(['values', 'fears', 'goals', 'backstory'] as const).map((name) => {
+          const { confidence, rationale } = confidenceFor(name);
+          const evidence = name === 'values'
+            ? profile.valueEvidence?.[0]
+            : name === 'fears' ? profile.fearEvidence?.[0] : undefined;
+          return {
+            attribute: name,
+            tier: tierFor(confidence),
+            confidence,
+            rationale,
+            evidence,
+            source: evidence ? 'your response' as const : undefined,
+          };
+        }),
+        ...dims.map((d) => {
+          const { confidence, rationale } = confidenceFor(d.name);
+          return {
+            attribute: d.name,
+            tier: tierFor(confidence),
+            confidence,
+            rationale,
+            evidence: d.evidence,
+            source: d.evidence ? 'your response' as const : undefined,
+          };
+        }),
       ];
       const computedConfidence = attrProvenance.length > 0
         ? Math.round(attrProvenance.reduce((sum, a) => sum + a.confidence, 0) / attrProvenance.length * 10) / 10
@@ -1252,8 +1465,9 @@ Return plain text only. No labels, no markdown, no headers.`;
    * validation covers everything the verify judge needs minus the fields
    * assigned after generation (id, name, backstory), plus behavioralDimensions
    * (must be non-empty at profile time) and the evidence contract
-   * (valueEvidence/fearEvidence quote the input description;
-   * identityContext/situationContext are part of research parity).
+   * (valueEvidence/fearEvidence are NOT required here — an empty quote is an
+   * honest omission under the verbatim rule; identityContext/situationContext
+   * are part of research parity).
    * evidenceLinks stays optional — the mapping falls back to a whole-input
    * excerpt rather than forcing per-attribute links through a retry.
    */
@@ -1261,7 +1475,7 @@ Return plain text only. No labels, no markdown, no headers.`;
     'age', 'occupation', 'educationLevel', 'interests', 'goals',
     'conscientiousness', 'neuroticism', 'openness', 'extraversion', 'agreeableness',
     'values', 'fears', 'communicationStyle', 'decisionStyle',
-    'behavioralDimensions', 'valueEvidence', 'fearEvidence',
+    'behavioralDimensions',
     'identityContext', 'situationContext', 'evidenceLinks',
   ] as const;
 
@@ -1274,11 +1488,11 @@ GUIDELINES:
 - Do NOT add details that would CHANGE product decisions if they were false (counterfactual test).
 - Do NOT invent names — names are assigned separately from a curated pool.
 - MANDATORY: every persona must include ALL fields in the structure below with non-empty values. A persona missing any field is invalid.
-- Every persona MUST include 3-5 behavioralDimensions, each with a direct evidence quote drawn from the input description.
-- valueEvidence and fearEvidence MUST quote the input description (the user's own words), one quote per value/fear.
+- Every persona MUST include 3-5 behavioralDimensions.
+- VERBATIM EVIDENCE (non-negotiable): every evidence quote — valueEvidence, fearEvidence, behavioralDimensions[].evidence, evidenceLinks[].excerpt — MUST be a word-for-word fragment of the user's response (the text in quotes in the prompt), copied exactly, wrapped in quotation marks. NEVER write a quote in the persona's invented voice. If no fragment of the user's response fits, OMIT the quote (leave it empty) rather than invent one — an honest gap beats a fabricated quote.
 - Each valueEvidence/fearEvidence quote MUST be DISTINCT — never reuse the same quote for two different values or fears.
-- Quotes should carry a few words of context so they read like the user's reasoning, e.g. "evaluate software on ROI — every dollar has to come back".
-- evidenceLinks MUST quote the input description; set attribute to the persona fields the quote supports.
+- evidenceLinks MUST quote the user's response; set attribute to the persona fields the quote supports.
+- attributeConfidence MUST include exactly ONE entry per attribute — values, fears, goals, backstory, and every behavioral dimension (by its EXACT name). Confidence 0-1 rates how directly the user's response supports the attribute: high (0.8+) when stated, moderate (0.6-0.8) when implied, low (<0.6) when mostly inferred. rationale: one short sentence.
 
 Generate a JSON array of EXACTLY ${config.count} DISTINCT personas with this structure:
 {
@@ -1293,18 +1507,19 @@ Generate a JSON array of EXACTLY ${config.count} DISTINCT personas with this str
   extraversion: number (0-100);
   agreeableness: number (0-100);
   values: string[];                 // Core values driving decisions (2-4 items)
-  valueEvidence: string[];          // Evidence quote for each value, parallel to values
+  valueEvidence: string[];          // VERBATIM fragment of the user's response per value, parallel to values; omit (empty) rather than invent
   fears: string[];                  // Anxieties and risk concerns (2-3 items)
-  fearEvidence: string[];           // Evidence quote for each fear, parallel to fears
+  fearEvidence: string[];           // VERBATIM fragment of the user's response per fear, parallel to fears; omit (empty) rather than invent
   communicationStyle: string;       // e.g. "direct", "analytical", "warm", "cautious"
   decisionStyle: string;            // e.g. "data-driven", "gut-driven", "consensus-seeking"
   domainExpertise: string[];        // Domains the persona knows well
-  behavioralDimensions: { name: string; score: number (0-100); context: string; description: string; evidence: string }[];  // 3-5 dimensions, each with a direct evidence quote from the input description
+  behavioralDimensions: { name: string; score: number (0-100); context: string; description: string; evidence: string }[];  // 3-5 dimensions; evidence is a VERBATIM quote from the user's response or empty
   bestFor: string[];                // What this persona model is good at predicting (2-4 items)
   lessReliableFor: string[];        // What this persona model is less reliable for (1-3 items)
   identityContext: string;          // Stable traits that apply across domains
   situationContext: string;         // Contextual behavior specific to this domain
-  evidenceLinks: { transcriptId: string; excerpt: string; attribute: string }[];  // Direct quotes from the input description
+  evidenceLinks: { transcriptId: string; excerpt: string; attribute: string }[];  // VERBATIM quotes from the user's response; transcriptId is "user-input"
+  attributeConfidence: { attribute: string; confidence: number (0-1); rationale?: string }[];  // ONE entry per attribute: values, fears, goals, backstory, and each behavioral dimension by exact name
 }`;
 
     const user = `Generate ${config.count} strategy-mode personas for: "${config.personaDescription}"
@@ -1321,6 +1536,16 @@ ${config.contextNotes ? `Additional context: ${config.contextNotes}` : ""}`;
         schema: PersonaProfileSchema,
         requiredFields: PersonaAdapter.STRATEGY_PROFILE_REQUIRED_FIELDS,
         distinctFields: ['valueEvidence', 'fearEvidence'],
+        verbatim: {
+          sourceText: config.personaDescription,
+          fields: ['valueEvidence', 'fearEvidence', 'behavioralDimensions.evidence', 'evidenceLinks.excerpt'],
+        },
+        coverage: {
+          listField: 'attributeConfidence',
+          nameField: 'attribute',
+          requiredNames: ['values', 'fears', 'goals', 'backstory'],
+          dynamicNamesField: 'behavioralDimensions',
+        },
       },
     );
   }
