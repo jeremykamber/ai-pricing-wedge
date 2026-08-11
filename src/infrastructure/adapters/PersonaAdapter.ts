@@ -29,9 +29,9 @@ const attributeConfidenceSchema = z.array(z.object({
  * observed/0.9 when the quote is present and interpreted/0.6 when not, so
  * confidence stays honest rather than blanket-high. evidenceLinks is optional
  * in the schema: strategy enforces it via the required-fields nudge, research
- * keeps its interview-derived fallback. attributeConfidence is optional here
- * because research's prompt never produces it; strategy requires it via
- * StrategyProfileSchema.
+ * keeps its interview-derived fallback. attributeConfidence is required here
+ * (min 1) because both strategy and research prompts instruct it — a required
+ * field cannot be silently dropped under retry pressure.
  */
 const PersonaProfileSchema = z.object({
   age: z.number().min(0).max(100),
@@ -71,20 +71,9 @@ const PersonaProfileSchema = z.object({
     excerpt: z.string().min(1),
     attribute: z.string().min(1),
   })).optional(),
-  // LLM-decided per-attribute confidence (strategy only; optional so the
-  // shared schema tolerates research, whose prompt never asks for it).
-  // Strategy enforces presence via StrategyProfileSchema + the coverage check.
-  attributeConfidence: attributeConfidenceSchema.optional(),
-});
-
-/**
- * Strategy profile schema: attributeConfidence is REQUIRED (min 1 entry).
- * Empirically, when the schema left it optional the model could drop the
- * whole block on a retry after a verbatim-nudge (over-correction), failing
- * the run via the coverage check; a required field turns that silent drop
- * into a parse rejection the model self-corrects on the next attempt.
- */
-const StrategyProfileSchema = PersonaProfileSchema.extend({
+  // LLM-decided per-attribute confidence (strategy + research). Required
+  // (min 1) so the model cannot silently drop the block under retry pressure;
+  // coverage in generatePersonaArray validates the exact names.
   attributeConfidence: attributeConfidenceSchema.min(1),
 });
 
@@ -1260,16 +1249,35 @@ Base your analysis on explicit life experiences, attitudes toward money/risk, an
 
     return profiles.map((profile, idx) => {
       const dims = profile.behavioralDimensions ?? [];
+      // LLM-decided per-attribute confidence (same contract as strategy —
+      // decisions.md persona-evidence-integrity): no hardcoded bands. Tier is
+      // derived from the confidence for UI colors. `records` and `profiles`
+      // are index-aligned (profiles = records.map), so the raw record is the
+      // source of attributeConfidence. Research leaves `source` unset — the
+      // quotes come from the source material, and the sheet's disclosure
+      // label already distinguishes modes.
+      const confidenceFor = (name: string): { confidence: number; rationale?: string } => {
+        const raw = records[idx];
+        const list = Array.isArray(raw?.attributeConfidence)
+          ? raw.attributeConfidence as { attribute: string; confidence: number; rationale?: string }[]
+          : [];
+        const entry = list.find((c) => c.attribute === name);
+        return entry ? { confidence: entry.confidence, rationale: entry.rationale } : { confidence: 0.5 };
+      };
+      const tierFor = (confidence: number): 'observed' | 'interpreted' | 'synthetic' =>
+        confidence >= 0.8 ? 'observed' : confidence >= 0.6 ? 'interpreted' : 'synthetic';
       const attrProvenance = [
-        { attribute: "values", tier: "interpreted" as const, confidence: 0.7 },
-        { attribute: "fears", tier: "interpreted" as const, confidence: 0.7 },
-        { attribute: "backstory", tier: "synthetic" as const, confidence: 0.4 },
-        ...dims.map((d) => ({
-          attribute: d.name,
-          tier: (d.evidence ? "observed" : "interpreted") as "observed" | "interpreted",
-          confidence: d.evidence ? 0.9 : 0.6,
-          evidence: d.evidence,
-        })),
+        ...(['values', 'fears', 'goals', 'backstory'] as const).map((name) => {
+          const { confidence, rationale } = confidenceFor(name);
+          const evidence = name === 'values'
+            ? profile.valueEvidence?.[0]
+            : name === 'fears' ? profile.fearEvidence?.[0] : undefined;
+          return { attribute: name, tier: tierFor(confidence), confidence, rationale, evidence };
+        }),
+        ...dims.map((d) => {
+          const { confidence, rationale } = confidenceFor(d.name);
+          return { attribute: d.name, tier: tierFor(confidence), confidence, rationale, evidence: d.evidence };
+        }),
       ];
       const computedConfidence = attrProvenance.length > 0
         ? Math.round(attrProvenance.reduce((sum, a) => sum + a.confidence, 0) / attrProvenance.length * 10) / 10
@@ -1319,6 +1327,7 @@ CRITICAL RULES:
 - VERBATIM EVIDENCE: every evidence quote — valueEvidence, fearEvidence, behavioralDimensions[].evidence, evidenceLinks[].excerpt — MUST be a word-for-word fragment of the provided description (the text in quotes in the prompt), copied exactly, wrapped in quotation marks. NEVER write a quote in the persona's invented voice — fabricated quotes are rejected.
 - USE verbatim fragments whenever they fit; omit (leave the entry empty) only when no fragment fits. Each valueEvidence/fearEvidence quote MUST be DISTINCT — never reuse the same quote for two different values or fears.
 - For each behavioral dimension, include a direct quote from the source material as evidence.
+- attributeConfidence MUST include exactly ONE entry per attribute — values, fears, goals, backstory, and every behavioral dimension (by its EXACT name). Confidence 0-1 rates how directly the source material supports the attribute: high (0.8+) when stated, moderate (0.6-0.8) when implied, low (<0.6) when mostly inferred. rationale: one short sentence.
 - If the evidence is thin, say so rather than inventing details.
 - MANDATORY: every persona must include ALL fields in the structure below with non-empty values. A persona missing any field is invalid.
 - Do NOT invent names — names are assigned separately from a curated pool.
@@ -1348,6 +1357,7 @@ Generate a JSON array of EXACTLY ${config.count} DISTINCT personas with this str
   bestFor: string[]; // What this persona model is good at predicting (2-4 items)
   lessReliableFor: string[]; // What this persona model is less reliable for (1-3 items)
   evidenceLinks: { transcriptId: string; excerpt: string; attribute: string }[]; // VERBATIM quotes from the provided description
+  attributeConfidence: { attribute: string; confidence: number (0-1); rationale?: string }[]; // ONE entry per attribute: values, fears, goals, backstory, and each behavioral dimension by exact name
 }`;
 
     const user = `Generate ${config.count} research-mode personas for: "${config.personaDescription}"
@@ -1368,6 +1378,12 @@ ${config.contextNotes ? `\nAdditional context: ${config.contextNotes}` : ""}`;
         verbatim: {
           sourceText: config.personaDescription,
           fields: ['valueEvidence', 'fearEvidence', 'behavioralDimensions.evidence', 'evidenceLinks.excerpt'],
+        },
+        coverage: {
+          listField: 'attributeConfidence',
+          nameField: 'attribute',
+          requiredNames: ['values', 'fears', 'goals', 'backstory'],
+          dynamicNamesField: 'behavioralDimensions',
         },
       },
     );
@@ -1602,7 +1618,7 @@ ${config.contextNotes ? `Additional context: ${config.contextNotes}` : ""}`;
       "strategy-profiles",
       0.6,
       {
-        schema: StrategyProfileSchema,
+        schema: PersonaProfileSchema,
         requiredFields: PersonaAdapter.STRATEGY_PROFILE_REQUIRED_FIELDS,
         distinctFields: ['valueEvidence', 'fearEvidence'],
         verbatim: {

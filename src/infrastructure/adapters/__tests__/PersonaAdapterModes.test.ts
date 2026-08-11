@@ -91,6 +91,14 @@ describe("PersonaAdapter dual-mode generation", () => {
         evidenceLinks: [
           { transcriptId: "interview-0", excerpt: "Efficiency is core to their workflow", attribute: "values" },
         ],
+        attributeConfidence: [
+          { attribute: "values", confidence: 0.8, rationale: "Stated in the description" },
+          { attribute: "fears", confidence: 0.7, rationale: "Implied by the described frustrations" },
+          { attribute: "goals", confidence: 0.9, rationale: "Explicit goals in the input" },
+          { attribute: "backstory", confidence: 0.4, rationale: "Thin source; mostly inferred" },
+          { attribute: "friction-tolerance", confidence: 0.9, rationale: "Directly stated" },
+          { attribute: "recency-sensitivity", confidence: 0.6, rationale: "Partially stated" },
+        ],
         behavioralDimensions: [
           { name: "friction-tolerance", score: 85, context: "job search", description: "Low tolerance for unnecessary clicks", evidence: "Efficiency is core to their workflow" },
           { name: "recency-sensitivity", score: 90, context: "job search", description: "Prefers recently posted opportunities", evidence: "Transparency builds trust" },
@@ -148,6 +156,30 @@ describe("PersonaAdapter dual-mode generation", () => {
 
       expect(GENDERLESS_NAMES).toContain(first[0].name);
       expect(repeat[0].name).toBe(first[0].name);
+    })
+
+    it("feeds LLM-decided confidence through research provenance, with derived tiers", async () => {
+      stubStructuredOutput(researchProfile);
+      const llm = createMockLlmService();
+      mockBackstories(llm);
+      const adapter = new PersonaAdapter(llm);
+
+      const personas = await adapter.generateResearchPersonas({
+        count: 1,
+        personaDescription: RESEARCH_INPUT,
+        interviewIds: ["int-1"],
+      });
+
+      const attrs = personas[0].provenance?.attributes ?? [];
+      expect(attrs).toContainEqual({ attribute: "values", tier: "observed", confidence: 0.8, rationale: "Stated in the description", evidence: "Efficiency is core to their workflow" });
+      expect(attrs).toContainEqual({ attribute: "fears", tier: "interpreted", confidence: 0.7, rationale: "Implied by the described frustrations", evidence: "Wasted effort frustrates them" });
+      expect(attrs).toContainEqual({ attribute: "goals", tier: "observed", confidence: 0.9, rationale: "Explicit goals in the input" });
+      expect(attrs).toContainEqual({ attribute: "backstory", tier: "synthetic", confidence: 0.4, rationale: "Thin source; mostly inferred" });
+      expect(attrs).toContainEqual({ attribute: "friction-tolerance", tier: "observed", confidence: 0.9, rationale: "Directly stated", evidence: "Efficiency is core to their workflow" });
+      expect(attrs).toContainEqual({ attribute: "recency-sensitivity", tier: "interpreted", confidence: 0.6, rationale: "Partially stated", evidence: "Transparency builds trust" });
+      // No hardcoded bands: only fears lands at 0.7, from the LLM
+      expect(attrs.filter((a) => a.confidence === 0.7)).toHaveLength(1);
+      expect(personas[0].provenance?.overallConfidence).toBe(0.7); // (0.8+0.7+0.9+0.4+0.9+0.6)/6
     })
 
     it("uses evidence-first prompts with no fabricated memories", async () => {
