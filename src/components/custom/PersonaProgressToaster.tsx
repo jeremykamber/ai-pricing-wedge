@@ -38,11 +38,12 @@ const STEP_PROGRESS: Record<string, number> = {
 }
 
 /**
- * Module-level Map for toast IDs so they survive component remounts — the
- * sonner toast API is imperative and doesn't care which component instance
- * called it.
+ * Deterministic toast id per run. poll() can overlap itself (async interval,
+ * slow server-action round trips), so two executions may both try to create
+ * the toast for the same run — sonner dedupes by id, so a stable id derived
+ * from the runId guarantees exactly one toast per run, never a duplicate.
  */
-const toastIdMap = new Map<string, string | number>()
+const toastIdFor = (runId: string) => `persona-toast-${runId}`
 const removedSet = new Set<string>()
 const completedSet = new Set<string>()
 
@@ -52,7 +53,6 @@ export function PersonaProgressToaster() {
 
   const persistDismiss = (runId: string) => {
     removedSet.add(runId)
-    toastIdMap.delete(runId)
     usePersonaStore.getState().removeActiveGeneration(runId)
   }
 
@@ -72,8 +72,6 @@ export function PersonaProgressToaster() {
 
       for (const runId of runIds) {
         if (removedSet.has(runId)) continue
-
-        const existingToastId = toastIdMap.get(runId)
 
         // 1. Check for a final result (completed/error)
         const result = await getPersonaGenerationResultAction(runId)
@@ -114,21 +112,12 @@ export function PersonaProgressToaster() {
             />
           )
 
-          if (existingToastId) {
-            toast.custom(() => content, {
-              id: existingToastId,
-              dismissible: true,
-              onDismiss: () => persistDismiss(runId),
-              duration: 8000,
-            })
-          } else {
-            const id = toast.custom(() => content, {
-              dismissible: true,
-              onDismiss: () => persistDismiss(runId),
-              duration: 8000,
-            })
-            toastIdMap.set(runId, id)
-          }
+          toast.custom(() => content, {
+            id: toastIdFor(runId),
+            dismissible: true,
+            onDismiss: () => persistDismiss(runId),
+            duration: 8000,
+          })
           continue
         }
 
@@ -151,16 +140,12 @@ export function PersonaProgressToaster() {
           />
         )
 
-        if (existingToastId) {
-          toast.custom(() => content, { id: existingToastId })
-        } else {
-          const id = toast.custom(() => content, {
-            dismissible: true,
-            onDismiss: () => persistDismiss(runId),
-            duration: Infinity,
-          })
-          toastIdMap.set(runId, id)
-        }
+        toast.custom(() => content, {
+          id: toastIdFor(runId),
+          dismissible: true,
+          onDismiss: () => persistDismiss(runId),
+          duration: Infinity,
+        })
       }
     }
 
