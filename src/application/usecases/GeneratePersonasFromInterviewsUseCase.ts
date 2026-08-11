@@ -166,17 +166,23 @@ export class GeneratePersonasFromInterviewsUseCase {
 
 Key signals extracted from this interview:
 Pain points:
-${signals.painPoints.map(s => `- ${s.text}`).join('\n')}
+${signals.painPoints.map(s => `- ${s.text} (quote: "${s.quote}")`).join('\n')}
 Goals:
-${signals.goals.map(s => `- ${s.text}`).join('\n')}
+${signals.goals.map(s => `- ${s.text} (quote: "${s.quote}")`).join('\n')}
 Values:
-${signals.values.map(s => `- ${s.text}`).join('\n')}
+${signals.values.map(s => `- ${s.text} (quote: "${s.quote}")`).join('\n')}
 Feature desires:
-${signals.featureDesires.map(s => `- ${s.text}`).join('\n')}
+${signals.featureDesires.map(s => `- ${s.text} (quote: "${s.quote}")`).join('\n')}
 Decision patterns:
-${signals.decisionPatterns.map(s => `- ${s.text}`).join('\n')}
+${signals.decisionPatterns.map(s => `- ${s.text} (quote: "${s.quote}")`).join('\n')}
 Context: role=${signals.context.role ?? 'unknown'}, industry=${signals.context.industry ?? 'unknown'}
 Communication style: ${signals.communicationStyle}`;
+
+            // The verbatim check runs against the FULL transcript, so quotes
+            // must be transcript fragments — the signal quotes extracted in
+            // the EXTRACTING phase are those fragments, attached here exactly
+            // like synthesized mode (formatPersonaDescription) so the model
+            // can quote them instead of paraphrasing the summaries.
 
             const personas = await this.llmService.generateResearchPersonas({
                 count: personasPerInterview,

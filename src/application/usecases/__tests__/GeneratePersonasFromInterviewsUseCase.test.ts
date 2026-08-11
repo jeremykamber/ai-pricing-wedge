@@ -305,6 +305,28 @@ describe('GeneratePersonasFromInterviewsUseCase', () => {
     });
   });
 
+  it('attaches the verbatim signal quotes to individual-mode descriptions (same as synthesized)', async () => {
+    const onProgress = vi.fn();
+    await useCase.execute(transcripts, onProgress, 2, 'individual');
+
+    const calls = mockLlmService.generateResearchPersonas.mock
+      .calls as unknown as [ResearchPersonaConfig][];
+    expect(calls).toHaveLength(3); // one per transcript
+    for (const [config] of calls) {
+      const d = config.personaDescription;
+      // The paraphrase texts are present AND their verbatim transcript quotes
+      // are attached — `- <text> (quote: "<quote>")` — exactly like the
+      // synthesized mode, so the model can quote real transcript fragments
+      // and the verbatim check (against the full transcript) can pass.
+      expect(d).toContain('Interview transcript excerpt:');
+      expect(d).toContain('- High costs (quote: "it is too expensive")');
+      expect(d).toContain('- Save money (quote: "want to reduce spend")');
+      expect(d).toContain('- Efficiency (quote: "value efficiency above all")');
+      expect(d).toContain('- Better reporting (quote: "wish reports were clearer")');
+      expect(d).toContain('- Data-driven (quote: "I always check the numbers")');
+    }
+  });
+
   it('passes all raw transcripts as verbatimSource in synthesized mode', async () => {
     await useCase.execute(transcripts);
 
