@@ -104,4 +104,50 @@ describe('PersonaProgressToaster', () => {
       vi.useRealTimers()
     }
   })
+
+  it('flips the toast to the error state when progress reports the failure', async () => {
+    vi.useFakeTimers()
+    try {
+      render(<PersonaProgressToaster />)
+
+      act(() => {
+        usePersonaStore.getState().addActiveGeneration('err-run')
+      })
+
+      // Poll #1: the result store has no entry yet (stale-poll race, or the
+      // 30-min cleanup), but the progress store carries the failure forever.
+      // The toast must still settle in the error state — not stay
+      // "Generating personas" at step DONE.
+      await act(async () => {
+        resultDeferreds[0]?.resolve({ found: false })
+        await Promise.resolve()
+      })
+      await act(async () => {
+        progressDeferreds[0]?.resolve({
+          found: true,
+          progress: { step: 'DONE', hasCompleted: true, error: 'A'.repeat(500) },
+        })
+        await Promise.resolve()
+      })
+
+      const call = toastCustom.mock.calls.at(-1)!
+      const element = (call[0] as () => React.ReactNode)()
+      expect(element).toMatchObject({
+        props: expect.objectContaining({
+          title: 'Generation Failed',
+          variant: 'error',
+          progress: 1,
+        }),
+      })
+      // The multi-KB error string is truncated in the toast, not dumped raw.
+      const subtext = (element as { props: { subtext?: string } }).props.subtext
+      expect(subtext).toBeTruthy()
+      expect(subtext!.length).toBeLessThan(300)
+
+      // The run is settled: the store no longer tracks it as active.
+      expect(usePersonaStore.getState().activeGenerationRunIds).not.toContain('err-run')
+    } finally {
+      vi.useRealTimers()
+    }
+  })
 })

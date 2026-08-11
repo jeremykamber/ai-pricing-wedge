@@ -44,6 +44,18 @@ const STEP_PROGRESS: Record<string, number> = {
  * from the runId guarantees exactly one toast per run, never a duplicate.
  */
 const toastIdFor = (runId: string) => `persona-toast-${runId}`
+
+/**
+ * Failure reasons (e.g. a rejected verbatim-evidence batch) can be many KB
+ * long. The toast shows a preview; the full error lives on the generating
+ * page (/dashboard/generating/<runId>).
+ */
+const ERROR_PREVIEW_CHARS = 200
+function truncateError(message: string): string {
+  if (message.length <= ERROR_PREVIEW_CHARS) return message
+  return `${message.slice(0, ERROR_PREVIEW_CHARS)}…`
+}
+
 const removedSet = new Set<string>()
 const completedSet = new Set<string>()
 
@@ -76,7 +88,8 @@ export function PersonaProgressToaster() {
         // 1. Check for a final result (completed/error)
         const result = await getPersonaGenerationResultAction(runId)
         if (result.found) {
-          if (completedSet.has(runId)) continue
+          // A concurrent poll may have settled this run while we were awaiting.
+          if (completedSet.has(runId) || removedSet.has(runId)) continue
 
           completedSet.add(runId)
           removedSet.add(runId)
@@ -103,10 +116,12 @@ export function PersonaProgressToaster() {
           const content = (
             <PersonaToastContent
               title={isError ? 'Generation Failed' : `${personaCount} Personas Ready`}
-              subtext={isError ? result.error : undefined}
+              subtext={isError ? truncateError(result.error!) : undefined}
               progress={1}
               onView={() => {
-                if (!isError) window.location.href = '/dashboard'
+                // The generating page carries the full error; the toast only
+                // shows a preview.
+                window.location.href = isError ? `/dashboard/generating/${runId}` : '/dashboard'
               }}
               variant={isError ? 'error' : 'completed'}
             />
@@ -124,6 +139,46 @@ export function PersonaProgressToaster() {
         // 2. Still in progress — poll progress details
         const p = await getProgressAction(runId)
         if (!p.found) continue
+
+        // The progress store keeps failures forever (the result store entry
+        // expires after 30 min), so a poll that misses the result must still
+        // settle the run in the error state — otherwise the toast stays
+        // "Generating personas" indefinitely.
+        const failed = !!p.progress?.error
+
+        if (failed) {
+          if (completedSet.has(runId) || removedSet.has(runId)) continue
+
+          completedSet.add(runId)
+          removedSet.add(runId)
+          usePersonaStore.getState().removeActiveGeneration(runId)
+
+          toast.custom(
+            () => (
+              <PersonaToastContent
+                title="Generation Failed"
+                subtext={truncateError(p.progress!.error!)}
+                progress={1}
+                onView={() => {
+                  window.location.href = `/dashboard/generating/${runId}`
+                }}
+                variant="error"
+              />
+            ),
+            {
+              id: toastIdFor(runId),
+              dismissible: true,
+              onDismiss: () => persistDismiss(runId),
+              duration: 8000,
+            },
+          )
+          continue
+        }
+
+        // A concurrent poll may have settled the run (error/completed) while
+        // we were awaiting — never overwrite its toast with a stale
+        // in-progress render.
+        if (removedSet.has(runId)) continue
 
         const step = p.progress?.step
         const progress = STEP_PROGRESS[step ?? ''] ?? 0
