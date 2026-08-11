@@ -112,6 +112,59 @@ describe("PersonaAdapter dual-mode generation", () => {
       }
     }
 
+    it("rejects quotes drawn from the summary when the transcript is the verbatim source (verbatimSource)", async () => {
+      // personaDescription is the pipeline's synthesized summary — it contains
+      // the paraphrased signal text. verbatimSource is the raw interview
+      // transcript. A quote taken from the summary paraphrase must be rejected
+      // (previously the check ran against the description, so the paraphrase
+      // passed as "verbatim").
+      const paraphraseQuoted = [
+        { ...researchProfile[0], valueEvidence: ["scans feed by first checking names and profiles"] },
+      ];
+      const transcript =
+        "Sarah scans the feed daily by first checking names and profiles. " +
+        "Efficiency is core to their workflow. Transparency builds trust. " +
+        "Wasted effort frustrates them. Outdated postings waste time.";
+      mockStreamText
+        .mockReturnValueOnce({ output: Promise.resolve(paraphraseQuoted) })
+        .mockReturnValueOnce({ output: Promise.resolve(researchProfile) });
+      const llm = createMockLlmService();
+      mockBackstories(llm);
+      const adapter = new PersonaAdapter(llm);
+
+      const personas = await adapter.generateResearchPersonas({
+        count: 1,
+        personaDescription:
+          "Summary: scans feed by first checking names and profiles. " +
+          "Efficiency is core to their workflow. Transparency builds trust. " +
+          "Wasted effort frustrates them. Outdated postings waste time.",
+        verbatimSource: transcript,
+        interviewIds: ["interview-0"],
+      });
+
+      expect(personas).toHaveLength(1);
+      // The paraphrase was rejected, so the batch had to retry with real
+      // transcript fragments.
+      expect(mockStreamText).toHaveBeenCalledTimes(2);
+      expect(personas[0].valueEvidence).toEqual(researchProfile[0].valueEvidence);
+    });
+
+    it("falls back to the description as verbatim source when verbatimSource is absent", async () => {
+      mockStreamText.mockReturnValue({ output: Promise.resolve(researchProfile) });
+      const llm = createMockLlmService();
+      mockBackstories(llm);
+      const adapter = new PersonaAdapter(llm);
+
+      const personas = await adapter.generateResearchPersonas({
+        count: 1,
+        personaDescription: RESEARCH_INPUT,
+      });
+
+      expect(personas).toHaveLength(1);
+      expect(mockStreamText).toHaveBeenCalledTimes(1); // no retry — quotes are verbatim of the description
+      expect(personas[0].valueEvidence).toEqual(researchProfile[0].valueEvidence);
+    });
+
     it("runs phased: one profile batch call, then a per-persona backstory call", async () => {
       stubStructuredOutput(researchProfile);
       const llm = createMockLlmService();

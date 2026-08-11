@@ -137,7 +137,7 @@ export class GeneratePersonasFromInterviewsUseCase {
 
         // Mode: Synthesized — existing pool/sample/generate pipeline (default)
         return this.generateSynthesized(
-            successfulExtractions.map(e => e.signals),
+            successfulExtractions,
             onProgress,
             count,
         );
@@ -182,6 +182,10 @@ Communication style: ${signals.communicationStyle}`;
                 count: personasPerInterview,
                 personaDescription: description,
                 interviewIds: [interviewId],
+                // The verbatim check runs against the FULL transcript, not the
+                // excerpt+summary in personaDescription — so quotes must be
+                // word-for-word transcript fragments, never paraphrases.
+                verbatimSource: content,
                 evidenceThreshold: 0.7,
             });
 
@@ -201,13 +205,13 @@ Communication style: ${signals.communicationStyle}`;
     }
 
     private async generateSynthesized(
-        extractedSignals: ExtractedInterviewSignals[],
+        successfulExtractions: { signals: ExtractedInterviewSignals; content: string }[],
         onProgress?: (progress: InterviewPipelineProgress) => void,
         count: number = 5,
     ): Promise<Persona[]> {
         // Phase 2: Pool — aggregate signals into weighted distribution
         onProgress?.({ step: 'POOLING' });
-        const distribution = poolSignals(extractedSignals);
+        const distribution = poolSignals(successfulExtractions.map(e => e.signals));
 
         // Phase 3: Sample — weighted draw with LLM-based coherence validation
         onProgress?.({ step: 'SAMPLING' });
@@ -231,7 +235,11 @@ Communication style: ${signals.communicationStyle}`;
         const personas = await this.llmService.generateResearchPersonas({
             count: targetCount,
             personaDescription: combinedDescription,
-            interviewIds: extractedSignals.map((_, i) => `interview-${i}`),
+            interviewIds: successfulExtractions.map((_, i) => `interview-${i}`),
+            // Verbatim source is the raw transcripts (check-only, not in the
+            // prompt) — the model can only quote the transcript fragments it
+            // sees in the summary, and paraphrased signal texts are rejected.
+            verbatimSource: successfulExtractions.map(e => e.content).join('\n\n'),
             evidenceThreshold: 0.7,
         });
 
@@ -242,8 +250,8 @@ Communication style: ${signals.communicationStyle}`;
                 persona.id,
                 persona.backstory ?? '',
             );
-            const interviewChunks = extractedSignals.flatMap(
-                (signals) => chunkInterviewSignals(signals, persona.id),
+            const interviewChunks = successfulExtractions.flatMap(
+                (e) => chunkInterviewSignals(e.signals, persona.id),
             );
             const allChunks: Chunk[] = [...backstoryChunks, ...interviewChunks];
             this.idRagStore.ingestChunks(persona.id, allChunks);

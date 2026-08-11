@@ -4,6 +4,7 @@ import { poolSignals } from '@/application/interviewPipeline/pooling';
 import { samplePersonas } from '@/application/interviewPipeline/sampling';
 import { chunkInterviewSignals } from '@/application/interviewPipeline/chunkInterviewSignals';
 import type { PooledDistributionSummary, SampledPersonaSignal, ExtractedInterviewSignals } from '@/application/interviewPipeline/types';
+import type { ResearchPersonaConfig } from '@/domain/dtos/PersonaGenerationConfig';
 
 vi.mock('@/application/interviewPipeline/pooling', () => ({ poolSignals: vi.fn() }));
 vi.mock('@/application/interviewPipeline/sampling', () => ({ samplePersonas: vi.fn() }));
@@ -285,6 +286,32 @@ describe('GeneratePersonasFromInterviewsUseCase', () => {
 
     // Separator between personas
     expect(descriptionArg).toContain('---');
+  });
+
+  // ---------------------------------------------------------------------------
+  // 6) Verbatim source: the raw transcript is the evidence source, not the
+  //    synthesized summary (fixes third-person paraphrase quotes)
+  // ---------------------------------------------------------------------------
+  it('passes the raw transcript as verbatimSource in individual mode', async () => {
+    const onProgress = vi.fn();
+    await useCase.execute(transcripts, onProgress, 2, 'individual');
+
+    expect(mockLlmService.generateResearchPersonas).toHaveBeenCalledTimes(3); // one per transcript
+    const calls = mockLlmService.generateResearchPersonas.mock
+      .calls as unknown as [ResearchPersonaConfig][];
+    calls.forEach(([config], i) => {
+      expect(config.verbatimSource).toBe(transcripts[i].content);
+      expect(config.interviewIds).toEqual([`interview-${i}`]);
+    });
+  });
+
+  it('passes all raw transcripts as verbatimSource in synthesized mode', async () => {
+    await useCase.execute(transcripts);
+
+    const call = mockLlmService.generateResearchPersonas.mock.calls[0][0];
+    expect(call.verbatimSource).toBe(
+      transcripts.map((t) => t.content).join('\n\n'),
+    );
   });
 
   // ---------------------------------------------------------------------------

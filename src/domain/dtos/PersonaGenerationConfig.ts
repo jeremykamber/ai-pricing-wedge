@@ -10,6 +10,7 @@ export const ResearchPersonaConfigSchema = BasePersonaConfigSchema.extend({
   interviewIds: z.array(z.string()).optional().describe("Interview transcript IDs to ground the personas"),
   evidenceThreshold: z.number().min(0).max(1).optional().describe("Minimum confidence (0-1) to include an attribute"),
   preserveUncertainty: z.boolean().optional().describe("Explicitly mark low-confidence attributes"),
+  verbatimSource: z.string().optional().describe("Raw interview transcript text that evidence quotes must be verbatim fragments of; distinct from the prompt description"),
 });
 
 export const StrategyPersonaConfigSchema = BasePersonaConfigSchema.extend({

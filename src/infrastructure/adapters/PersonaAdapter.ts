@@ -1330,7 +1330,7 @@ Base your analysis on explicit life experiences, attitudes toward money/risk, an
 CRITICAL RULES:
 - Base all claims on the provided interview/description evidence.
 - Do NOT fabricate specific life events, purchases, or trauma unless explicitly stated.
-- VERBATIM EVIDENCE: every evidence quote — valueEvidence, fearEvidence, behavioralDimensions[].evidence, evidenceLinks[].excerpt — MUST be a word-for-word fragment of the provided description (the text in quotes in the prompt), copied exactly, wrapped in quotation marks. NEVER write a quote in the persona's invented voice — fabricated quotes are rejected.
+- VERBATIM EVIDENCE: every evidence quote — valueEvidence, fearEvidence, behavioralDimensions[].evidence, evidenceLinks[].excerpt — MUST be a word-for-word fragment of the source material (the interview transcript fragments quoted in the signal summaries, or the provided description), copied exactly, wrapped in quotation marks. NEVER paraphrase or write in the persona's invented voice — paraphrased quotes are rejected.
 - USE verbatim fragments whenever they fit; omit (leave the entry empty) only when no fragment fits. Each valueEvidence/fearEvidence quote MUST be DISTINCT — never reuse the same quote for two different values or fears.
 - For each behavioral dimension, include a direct quote from the source material as evidence.
 - attributeConfidence MUST include exactly ONE entry per attribute — values, fears, goals, backstory, and every behavioral dimension (by its EXACT name). Confidence 0-1 rates how directly the source material supports the attribute: high (0.8+) when stated, moderate (0.6-0.8) when implied, low (<0.6) when mostly inferred. rationale: one short sentence.
@@ -1362,7 +1362,7 @@ Generate a JSON array of EXACTLY ${config.count} DISTINCT personas with this str
   situationContext: string; // Contextual behavior specific to this domain
   bestFor: string[]; // What this persona model is good at predicting (2-4 items)
   lessReliableFor: string[]; // What this persona model is less reliable for (1-3 items)
-  evidenceLinks: { transcriptId: string; excerpt: string; attribute: string }[]; // VERBATIM quotes from the provided description
+  evidenceLinks: { transcriptId: string; excerpt: string; attribute: string }[]; // VERBATIM quotes from the source material (transcript/description)
   attributeConfidence: { attribute: string; confidence: number (0-1); rationale?: string }[]; // ONE entry per attribute: values, fears, goals, backstory, and each behavioral dimension by exact name
 }`;
 
@@ -1382,7 +1382,10 @@ ${config.contextNotes ? `\nAdditional context: ${config.contextNotes}` : ""}`;
         requiredFields: PersonaAdapter.RESEARCH_PROFILE_REQUIRED_FIELDS,
         distinctFields: ['valueEvidence', 'fearEvidence'],
         verbatim: {
-          sourceText: config.personaDescription,
+          // Interview pipelines pass the raw transcript as verbatimSource so
+          // quotes must be word-for-word transcript fragments — paraphrased
+          // signal summaries in personaDescription no longer satisfy the check.
+          sourceText: config.verbatimSource ?? config.personaDescription,
           fields: ['valueEvidence', 'fearEvidence', 'behavioralDimensions.evidence', 'evidenceLinks.excerpt'],
         },
         coverage: {
