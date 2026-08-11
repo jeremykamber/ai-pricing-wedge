@@ -57,3 +57,67 @@ IOUs: 08-08 thin-fragments squawk retired; research squawks open.
 
 Next step: user spot-checks deployed guided-form strategy output; then merge
 PR #65, VPS back to main. Context: .ai/contexts/persona-pipeline/
+
+## Round 3 — quote cleaning + research consistency (ac3917d)
+
+Debug: the prompt's "wrapped in quotation marks" made deepseek literalize
+the marks into stored values → UI double-wrapped ("Save time" → “"Save time"”)
+and dim rows rendered raw marks with a generic "Source" label. Fix:
+cleanQuote strips surrounding marks at mapping time (strategy + research);
+dim rows render identically to values/fears. Research joined the verbatim-
+or-honest contract (grounded in the persona description; interviews enter
+the call by ID only) + distinct rule; prompt updated. Release gate 410
+tests; live + deployed strategy/research all verbatim, stored values clean.
+Open: research confidence still derived (LLM-decided extension is a call).
+
+## Round 4 — research LLM-decided confidence (8b8c0c7)
+
+User asked to extend attributeConfidence to research; double-check first
+confirmed it was NOT there (research provenance still hardcoded 0.7/0.7/0.4,
+dims 0.9/0.6). Research now reads attributeConfidence like strategy (tier
+derived, rationale, coverage-enforced); attributeConfidence required in the
+shared PersonaProfileSchema (both prompts instruct it) — StrategyProfileSchema
+extension deleted. Live + deployed research: backstory 0.3-0.4 synthetic,
+values 0.85-0.9, no bands. Release gate 411 tests.
+
+## Debrief — 2026-08-11 (session 2, thread persona-evidence-integrity)
+
+Set out (continuation): ship the evidence-integrity work; then user spot-check
+surfaced issues.
+
+Landed (branch fix/strategy-persona-empty-fields → 8b8c0c7, PR #65):
+- Verbatim-or-honest evidence (all modes), answer-to-question disclosure,
+  LLM-decided confidence for strategy AND research, quote-cleaning, research
+  joins the contract; VPS deployed; release gate 411 tests green.
+- Earlier rounds in this thread: plan 05 slices 1-3, verification fixes.
+
+Airborne — user-reported on the deployed preview (2026-08-11, NOT debugged,
+first work for the fresh session):
+1. [bug] Duplicate sonner progress toast on generate (seen on research and
+   ICP personas) — one per job expected. Hypothesis: generation triggered
+   twice (would ALSO explain #2).
+2. [perf] Generation took ~10 min. My deployed tests were ~2-4 min. If #1 is
+   a double trigger, two jobs explain the doubling. Otherwise check retry
+   chains (3 attempts) and the interview pipeline's extra calls.
+3. [bug] Every ICP quote renders "(Answer to "Target audience" in audience
+   description)" — the wrong question. Hypothesis: the ICP flow builds the
+   description as ONE unlabelled block (no blank-line sections), so
+   evidenceQuestionsFor's section split fails and labelOf returns the first
+   label. Repro path: find how the ICP/guided-form description is assembled
+   (SetupView / PersonaSurveyForm / surveyToPrompt callers), then unit-test
+   the exact string.
+4. [integrity] Interview-based personas: quotes are third-person PARAPHRASES
+   ("scans feed by first checking names and profiles..."), not verbatim
+   transcript fragments. The interview pipeline passes a summary (not the raw
+   transcript) as the verbatim source — check GeneratePersonasFromInterviews-
+   UseCase's personaDescription construction. Some SOURCES excerpts ARE raw
+   transcript lines (interview-0) — mixed.
+5. [feature] Click a source quote → jump to the highlighted spot in the
+   original interview file (context view).
+
+Squawks carried: VPS on fix branch → back to main after PR merge; research
+backstory/dim-count (08-08); design open items (relevance axis, goalEvidence).
+
+Next step (pickup): read this file; reproduce #1/#2 together (toast dup +
+timing), then #3 (question mapping), then #4 (interview verbatim), #5 as
+design. Context: .ai/contexts/persona-pipeline/
