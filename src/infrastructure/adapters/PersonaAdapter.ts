@@ -220,6 +220,18 @@ export class PersonaAdapter {
   }
 
   /**
+   * Strips surrounding quotation marks from an evidence quote and trims
+   * padding. The prompt asks the model to wrap fragments in marks, which
+   * deepseek literalizes INTO the string; the UI wraps quotes itself, so a
+   * stored value must be clean or it double-wraps. Applied at mapping time
+   * in strategy and research (the verbatim check normalizes the same way,
+   * so check and stored value stay consistent).
+   */
+  private static cleanQuote(s: string): string {
+    return s.replace(/^["'«»“”‘’]+|["'«»“”‘’]+$/g, '').trim();
+  }
+
+  /**
    * Maps each evidence quote on a strategy profile to the guided-form
    * question it answers — the label of the input section containing the
    * quote, e.g. "save time" → "Goals they are trying to accomplish". The UI
@@ -1204,20 +1216,30 @@ Base your analysis on explicit life experiences, attitudes toward money/risk, an
     onPhase?.("profiles", { completed: 1, total: 1 });
 
     const chosenNames = PersonaAdapter.neutralNames(config.personaDescription, records.length);
-    const profiles = records.map((p, idx) => ({
-      ...PersonaAdapter.extractBaseFields(p),
-      name: chosenNames[idx % chosenNames.length] ?? "Persona",
-      id: `research-persona-${idx}`,
-      generationMode: "research" as const,
-      behavioralDimensions: PersonaAdapter.extractBehavioralDimensions(p),
-      bestFor: Array.isArray(p.bestFor) ? p.bestFor as string[] : undefined,
-      lessReliableFor: Array.isArray(p.lessReliableFor) ? p.lessReliableFor as string[] : undefined,
-      identityContext: typeof p.identityContext === 'string' ? p.identityContext : undefined,
-      situationContext: typeof p.situationContext === 'string' ? p.situationContext : undefined,
-      evidenceLinks: Array.isArray(p.evidenceLinks)
-        ? p.evidenceLinks as { transcriptId: string; excerpt: string; attribute: string }[]
-        : undefined,
-    })) as Persona[];
+    const profiles = records.map((p, idx) => {
+      const valueEvidence = Array.isArray(p.valueEvidence) ? (p.valueEvidence as string[]).map(PersonaAdapter.cleanQuote) : undefined;
+      const fearEvidence = Array.isArray(p.fearEvidence) ? (p.fearEvidence as string[]).map(PersonaAdapter.cleanQuote) : undefined;
+      const behavioralDimensions = PersonaAdapter.extractBehavioralDimensions(p)
+        .map((d) => ({ ...d, evidence: d.evidence ? PersonaAdapter.cleanQuote(d.evidence) : undefined }));
+      const evidenceLinks = Array.isArray(p.evidenceLinks)
+        ? (p.evidenceLinks as { transcriptId: string; excerpt: string; attribute: string }[])
+            .map((l) => ({ ...l, excerpt: PersonaAdapter.cleanQuote(l.excerpt) }))
+        : undefined;
+      return {
+        ...PersonaAdapter.extractBaseFields(p),
+        name: chosenNames[idx % chosenNames.length] ?? "Persona",
+        id: `research-persona-${idx}`,
+        generationMode: "research" as const,
+        valueEvidence,
+        fearEvidence,
+        behavioralDimensions,
+        evidenceLinks,
+        bestFor: Array.isArray(p.bestFor) ? p.bestFor as string[] : undefined,
+        lessReliableFor: Array.isArray(p.lessReliableFor) ? p.lessReliableFor as string[] : undefined,
+        identityContext: typeof p.identityContext === 'string' ? p.identityContext : undefined,
+        situationContext: typeof p.situationContext === 'string' ? p.situationContext : undefined,
+      };
+    }) as Persona[];
 
     const limit = pLimit(4);
     let completedBackstories = 0;
@@ -1294,6 +1316,8 @@ Base your analysis on explicit life experiences, attitudes toward money/risk, an
 CRITICAL RULES:
 - Base all claims on the provided interview/description evidence.
 - Do NOT fabricate specific life events, purchases, or trauma unless explicitly stated.
+- VERBATIM EVIDENCE: every evidence quote — valueEvidence, fearEvidence, behavioralDimensions[].evidence, evidenceLinks[].excerpt — MUST be a word-for-word fragment of the provided description (the text in quotes in the prompt), copied exactly, wrapped in quotation marks. NEVER write a quote in the persona's invented voice — fabricated quotes are rejected.
+- USE verbatim fragments whenever they fit; omit (leave the entry empty) only when no fragment fits. Each valueEvidence/fearEvidence quote MUST be DISTINCT — never reuse the same quote for two different values or fears.
 - For each behavioral dimension, include a direct quote from the source material as evidence.
 - If the evidence is thin, say so rather than inventing details.
 - MANDATORY: every persona must include ALL fields in the structure below with non-empty values. A persona missing any field is invalid.
@@ -1312,9 +1336,9 @@ Generate a JSON array of EXACTLY ${config.count} DISTINCT personas with this str
   extraversion: number (0-100);
   agreeableness: number (0-100);
   values: string[];
-  valueEvidence: string[]; // Evidence quote for each value, parallel to values array
+  valueEvidence: string[]; // VERBATIM fragment of the provided description per value, parallel to values; empty when no fragment fits
   fears: string[];
-  fearEvidence: string[]; // Evidence quote for each fear, parallel to fears array
+  fearEvidence: string[]; // VERBATIM fragment of the provided description per fear, parallel to fears; empty when no fragment fits
   communicationStyle: string;
   decisionStyle: string;
   domainExpertise: string[];
@@ -1323,7 +1347,7 @@ Generate a JSON array of EXACTLY ${config.count} DISTINCT personas with this str
   situationContext: string; // Contextual behavior specific to this domain
   bestFor: string[]; // What this persona model is good at predicting (2-4 items)
   lessReliableFor: string[]; // What this persona model is less reliable for (1-3 items)
-  evidenceLinks: { transcriptId: string; excerpt: string; attribute: string }[]; // Direct quotes from source material
+  evidenceLinks: { transcriptId: string; excerpt: string; attribute: string }[]; // VERBATIM quotes from the provided description
 }`;
 
     const user = `Generate ${config.count} research-mode personas for: "${config.personaDescription}"
@@ -1340,6 +1364,11 @@ ${config.contextNotes ? `\nAdditional context: ${config.contextNotes}` : ""}`;
       {
         schema: PersonaProfileSchema,
         requiredFields: PersonaAdapter.RESEARCH_PROFILE_REQUIRED_FIELDS,
+        distinctFields: ['valueEvidence', 'fearEvidence'],
+        verbatim: {
+          sourceText: config.personaDescription,
+          fields: ['valueEvidence', 'fearEvidence', 'behavioralDimensions.evidence', 'evidenceLinks.excerpt'],
+        },
       },
     );
   }
@@ -1386,21 +1415,32 @@ Return plain text only. No labels, no markdown, no headers.`;
     // Names are assigned between the phases, so the backstory call knows the
     // persona's name and can write a named third-person narrative.
     const chosenNames = PersonaAdapter.neutralNames(config.personaDescription, records.length);
-    const profiles = records.map((p, idx) => ({
-      ...PersonaAdapter.extractBaseFields(p),
-      name: chosenNames[idx % chosenNames.length] ?? "Persona",
-      id: `strategy-persona-${idx}`,
-      generationMode: "strategy" as const,
-      behavioralDimensions: PersonaAdapter.extractBehavioralDimensions(p),
-      evidenceQuestions: PersonaAdapter.evidenceQuestionsFor(config.personaDescription, p),
-      bestFor: Array.isArray(p.bestFor) ? p.bestFor as string[] : undefined,
-      lessReliableFor: Array.isArray(p.lessReliableFor) ? p.lessReliableFor as string[] : undefined,
-      identityContext: typeof p.identityContext === 'string' ? p.identityContext : undefined,
-      situationContext: typeof p.situationContext === 'string' ? p.situationContext : undefined,
-      evidenceLinks: Array.isArray(p.evidenceLinks)
-        ? p.evidenceLinks as { transcriptId: string; excerpt: string; attribute: string }[]
-        : undefined,
-    })) as Persona[];
+    const profiles = records.map((p, idx) => {
+      const valueEvidence = Array.isArray(p.valueEvidence) ? (p.valueEvidence as string[]).map(PersonaAdapter.cleanQuote) : undefined;
+      const fearEvidence = Array.isArray(p.fearEvidence) ? (p.fearEvidence as string[]).map(PersonaAdapter.cleanQuote) : undefined;
+      const behavioralDimensions = PersonaAdapter.extractBehavioralDimensions(p)
+        .map((d) => ({ ...d, evidence: d.evidence ? PersonaAdapter.cleanQuote(d.evidence) : undefined }));
+      const evidenceLinks = Array.isArray(p.evidenceLinks)
+        ? (p.evidenceLinks as { transcriptId: string; excerpt: string; attribute: string }[])
+            .map((l) => ({ ...l, excerpt: PersonaAdapter.cleanQuote(l.excerpt) }))
+        : undefined;
+      return {
+        ...PersonaAdapter.extractBaseFields(p),
+        name: chosenNames[idx % chosenNames.length] ?? "Persona",
+        id: `strategy-persona-${idx}`,
+        generationMode: "strategy" as const,
+        valueEvidence,
+        fearEvidence,
+        behavioralDimensions,
+        evidenceLinks,
+        // Keys are the CLEANED quotes — the sheet looks up by the stored value.
+        evidenceQuestions: PersonaAdapter.evidenceQuestionsFor(config.personaDescription, { valueEvidence, fearEvidence, behavioralDimensions, evidenceLinks }),
+        bestFor: Array.isArray(p.bestFor) ? p.bestFor as string[] : undefined,
+        lessReliableFor: Array.isArray(p.lessReliableFor) ? p.lessReliableFor as string[] : undefined,
+        identityContext: typeof p.identityContext === 'string' ? p.identityContext : undefined,
+        situationContext: typeof p.situationContext === 'string' ? p.situationContext : undefined,
+      };
+    }) as Persona[];
 
     // Phase 2: per-persona parallel backstories. p-limit caps concurrent calls
     // so a slow provider doesn't fan out unboundedly.

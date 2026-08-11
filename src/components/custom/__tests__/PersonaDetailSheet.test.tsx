@@ -200,4 +200,39 @@ describe('PersonaDetailSheet evidence rendering', () => {
     )
     expect(screen.getAllByText('Source').length).toBe(2) // value + fear evidence
   })
+
+  it('renders behavioral-dimension evidence the same way as value/fear sources', () => {
+    const withDims: Persona = {
+      ...evidencePersona,
+      behavioralDimensions: [
+        { name: 'Time-sensitivity', score: 85, context: 'tool adoption', description: 'Cuts hours', evidence: 'Save time' },
+      ],
+      evidenceQuestions: {
+        'asked for full autonomy over the roadmap': 'Goals they are trying to accomplish',
+        'A churn spike would end the runway': 'Biggest frustration',
+        'full autonomy over the roadmap': 'Goals they are trying to accomplish',
+        'Save time': 'Goals they are trying to accomplish',
+      },
+    }
+    const { rerender } = render(
+      <PersonaDetailSheet
+        persona={withDims}
+        isOpen={true}
+        onClose={vi.fn()}
+      />
+    )
+    // strategy mode: "Your response" label + single curly wrap + question
+    expect(screen.getAllByText('Your response').length).toBe(4) // value + fear + link + dim
+    expect(screen.getByText('“Save time”')).toBeTruthy()
+    expect(screen.getAllByText(/^\(Answer to “Goals they are trying to accomplish” in audience description\)$/).length).toBe(3) // values + link + dim
+
+    rerender(
+      <PersonaDetailSheet
+        persona={{ ...withDims, generationMode: 'research' }}
+        isOpen={true}
+        onClose={vi.fn()}
+      />
+    )
+    expect(screen.getAllByText('Source').length).toBe(3) // value + fear + dim
+  })
 })

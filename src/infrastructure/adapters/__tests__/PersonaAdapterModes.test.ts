@@ -59,6 +59,9 @@ describe("PersonaAdapter dual-mode generation", () => {
   beforeEach(() => mockStreamText.mockReset());
 
   describe("generateResearchPersonas", () => {
+    // Fixture input containing every evidence quote below verbatim — research
+    // now enforces the same verbatim contract as strategy.
+    const RESEARCH_INPUT = "Junior backend engineer. Efficiency is core to their workflow. Transparency builds trust. Wasted effort frustrates them. Outdated postings waste time.";
     // Profile-phase fixture: evidence fields kept, no id/name/backstory.
     const researchProfile = [
       {
@@ -89,8 +92,8 @@ describe("PersonaAdapter dual-mode generation", () => {
           { transcriptId: "interview-0", excerpt: "Efficiency is core to their workflow", attribute: "values" },
         ],
         behavioralDimensions: [
-          { name: "friction-tolerance", score: 85, context: "job search", description: "Low tolerance for unnecessary clicks", evidence: "quotes from the interview" },
-          { name: "recency-sensitivity", score: 90, context: "job search", description: "Prefers recently posted opportunities", evidence: "quotes from the interview" },
+          { name: "friction-tolerance", score: 85, context: "job search", description: "Low tolerance for unnecessary clicks", evidence: "Efficiency is core to their workflow" },
+          { name: "recency-sensitivity", score: 90, context: "job search", description: "Prefers recently posted opportunities", evidence: "Transparency builds trust" },
         ],
       },
     ];
@@ -109,7 +112,7 @@ describe("PersonaAdapter dual-mode generation", () => {
 
       const personas = await adapter.generateResearchPersonas({
         count: 1,
-        personaDescription: "Junior backend engineer who values automation",
+        personaDescription: RESEARCH_INPUT,
         interviewIds: ["int-1"],
         evidenceThreshold: 0.7,
       });
@@ -134,12 +137,12 @@ describe("PersonaAdapter dual-mode generation", () => {
 
       const first = await adapter.generateResearchPersonas({
         count: 1,
-        personaDescription: "Junior backend engineer who values automation",
+        personaDescription: RESEARCH_INPUT,
         interviewIds: ["int-1"],
       });
       const repeat = await adapter.generateResearchPersonas({
         count: 1,
-        personaDescription: "Junior backend engineer who values automation",
+        personaDescription: RESEARCH_INPUT,
         interviewIds: ["int-1"],
       });
 
@@ -155,7 +158,7 @@ describe("PersonaAdapter dual-mode generation", () => {
 
       await adapter.generateResearchPersonas({
         count: 1,
-        personaDescription: "Test user",
+        personaDescription: RESEARCH_INPUT,
         interviewIds: ["int-1"],
       });
 
@@ -180,11 +183,55 @@ describe("PersonaAdapter dual-mode generation", () => {
 
       const personas = await adapter.generateResearchPersonas({
         count: 1,
-        personaDescription: "Test user",
+        personaDescription: RESEARCH_INPUT,
         interviewIds: ["int-1", "int-2"],
       });
 
       expect(personas[0].evidenceLinks?.map((l) => l.transcriptId)).toEqual(["int-1", "int-2"]);
+    })
+
+    it("retries the profile batch when research quotes are not verbatim", async () => {
+      const fabricated = [{
+        ...researchProfile[0],
+        valueEvidence: ["Efficiency is core to their workflow", "The persona invented this value"],
+      }];
+      mockStreamText
+        .mockReturnValueOnce({ output: Promise.resolve(fabricated) })
+        .mockReturnValueOnce({ output: Promise.resolve(researchProfile) });
+      const llm = createMockLlmService();
+      mockBackstories(llm);
+      const adapter = new PersonaAdapter(llm);
+
+      const personas = await adapter.generateResearchPersonas({
+        count: 1,
+        personaDescription: RESEARCH_INPUT,
+        interviewIds: ["int-1"],
+      });
+
+      expect(personas).toHaveLength(1);
+      expect(mockStreamText).toHaveBeenCalledTimes(2);
+      expect(mockStreamText.mock.calls[1][0].prompt).toContain("omit rather than invent");
+    })
+
+    it("cleans literal quotation marks out of stored evidence quotes", async () => {
+      const quoted = [{
+        ...researchProfile[0],
+        valueEvidence: ['"Efficiency is core to their workflow"', "Transparency builds trust"],
+        evidenceLinks: [{ transcriptId: "interview-0", excerpt: '"Efficiency is core to their workflow"', attribute: "values" }],
+      }];
+      stubStructuredOutput(quoted);
+      const llm = createMockLlmService();
+      mockBackstories(llm);
+      const adapter = new PersonaAdapter(llm);
+
+      const personas = await adapter.generateResearchPersonas({
+        count: 1,
+        personaDescription: RESEARCH_INPUT,
+        interviewIds: ["int-1"],
+      });
+
+      expect(personas[0].valueEvidence?.[0]).toBe("Efficiency is core to their workflow");
+      expect(personas[0].evidenceLinks?.[0].excerpt).toBe("Efficiency is core to their workflow");
     })
 
     it("retries once when structured output fails, then succeeds", async () => {
@@ -197,7 +244,7 @@ describe("PersonaAdapter dual-mode generation", () => {
 
       const personas = await adapter.generateResearchPersonas({
         count: 1,
-        personaDescription: "Test",
+        personaDescription: RESEARCH_INPUT,
       });
 
       expect(personas).toHaveLength(1);
@@ -213,7 +260,7 @@ describe("PersonaAdapter dual-mode generation", () => {
 
       await expect(adapter.generateResearchPersonas({
         count: 1,
-        personaDescription: "Test",
+        personaDescription: RESEARCH_INPUT,
       })).rejects.toThrow("No object generated");
       expect(mockStreamText).toHaveBeenCalledTimes(3);
     })
@@ -224,7 +271,7 @@ describe("PersonaAdapter dual-mode generation", () => {
 
       await expect(adapter.generateResearchPersonas({
         count: 3,
-        personaDescription: "Test",
+        personaDescription: RESEARCH_INPUT,
       })).rejects.toThrow("count mismatch");
       expect(mockStreamText).toHaveBeenCalledTimes(3);
     })
@@ -237,7 +284,7 @@ describe("PersonaAdapter dual-mode generation", () => {
 
       await expect(adapter.generateResearchPersonas({
         count: 1,
-        personaDescription: "Test user",
+        personaDescription: RESEARCH_INPUT,
       })).rejects.toThrow(/Failed to generate backstory for persona/);
       expect(llm.createChatCompletion).toHaveBeenCalledTimes(2);
     })
@@ -250,7 +297,7 @@ describe("PersonaAdapter dual-mode generation", () => {
       const phases: string[] = [];
 
       await adapter.generateResearchPersonas(
-        { count: 1, personaDescription: "Test user" },
+        { count: 1, personaDescription: RESEARCH_INPUT },
         (phase) => phases.push(phase),
       );
 
@@ -542,6 +589,27 @@ describe("PersonaAdapter dual-mode generation", () => {
       // The retry nudge names the missing fields in the prompt
       expect(mockStreamText.mock.calls[1][0].prompt).toContain("behavioralDimensions");
       expect(mockStreamText.mock.calls[1][0].prompt).toContain("evidenceLinks"); // evidence contract is enforced too
+    })
+
+    it("cleans literal quotation marks out of strategy evidence quotes and keeps question keys aligned", async () => {
+      const labeled = "Target audience: Enterprise buyer.\n\nGoals they are trying to accomplish: They asked for full autonomy over the roadmap; Decisions must cite numbers.\n\nBiggest frustration: Being overridden by investors worries them; a churn spike would end the runway.\n\nThey run pricing experiments quarterly; favor quick experiments.";
+      const quoted = [{
+        ...strategyProfile[0],
+        valueEvidence: ['"They asked for full autonomy over the roadmap"', "Decisions must cite numbers"],
+      }];
+      stubStructuredOutput(quoted);
+      const llm = createMockLlmService();
+      mockBackstories(llm);
+      const adapter = new PersonaAdapter(llm);
+
+      const personas = await adapter.generateStrategyPersonas({
+        count: 1,
+        personaDescription: labeled,
+      });
+
+      expect(personas[0].valueEvidence?.[0]).toBe("They asked for full autonomy over the roadmap");
+      // The evidenceQuestions key is the CLEANED quote, so the sheet lookup matches
+      expect(personas[0].evidenceQuestions?.["They asked for full autonomy over the roadmap"]).toBe("Goals they are trying to accomplish");
     })
 
     it("retries the profile batch when evidence quotes are not verbatim fragments of the input", async () => {
