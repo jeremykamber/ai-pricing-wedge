@@ -85,20 +85,17 @@ export function surveyToPrompt(survey: PersonaSurvey): string {
 
   return [
     `Target audience: ${survey.targetAudience}`,
-    ``,
     `Goals they are trying to accomplish: ${survey.goals.join(", ")}`,
-    ``,
     `Biggest frustration: ${survey.frustration}`,
-    ``,
     `Current solution: ${survey.currentSolution}`,
-    ``,
     `Top factors when choosing a product: ${survey.decisionFactors.join(", ")}`,
-    ``,
     `Audience knowledge confidence: ${confidence}`,
-    ``,
     `Primary decisions to model: ${survey.decisionTypes.join(", ")}`,
-    survey.additionalNotes ? `\nAdditional context: ${survey.additionalNotes}` : "",
+    survey.additionalNotes ? `Additional context: ${survey.additionalNotes}` : "",
   ]
     .filter(Boolean)
-    .join("\n");
+    // Blank line between sections — the question-attribution mapping
+    // (evidenceQuestionsFor) splits on blank lines, and the LLM sees clearer
+    // structure too. (filter(Boolean) only drops the optional empty tail.)
+    .join("\n\n");
 }

@@ -230,6 +230,12 @@ export class PersonaAdapter {
    */
   private static evidenceQuestionsFor(description: string, p: Record<string, unknown>): Record<string, string> | undefined {
     const sections = description.split(/\n\s*\n/).filter(Boolean);
+    // A single section means the input had no blank-line structure (freeform
+    // textarea, or newline-separated lines without blank lines). There is no
+    // reliable section to attribute a quote to — treat it as unlabeled input
+    // so the UI omits the parenthetical instead of answering every quote with
+    // the first line's label.
+    if (sections.length < 2) return undefined;
     const labelOf = (quote: string): string | undefined => {
       const normalized = quote.toLowerCase();
       const section = sections.find((s) => s.toLowerCase().includes(normalized));
