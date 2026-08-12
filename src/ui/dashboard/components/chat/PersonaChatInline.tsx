@@ -26,9 +26,24 @@ export function PersonaChatInline({ persona }: PersonaChatInlineProps) {
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const chatRef = useRef<HTMLDivElement>(null)
 
+  // Scroll to the newest message only when the conversation changes.
+  // Runs per-token during streaming, so an instant (non-smooth) scroll keeps
+  // up with the stream; smooth scrolling here stacks animations and jitters.
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
-  })
+    const el = messagesEndRef.current
+    if (!el) return
+    const frame = requestAnimationFrame(() => {
+      el.scrollIntoView({ behavior: "auto", block: "end" })
+    })
+    return () => cancelAnimationFrame(frame)
+  }, [messages])
+
+  // Keep the chat pane pinned to the newest message while streaming.
+  useEffect(() => {
+    const el = chatRef.current
+    if (!el) return
+    el.scrollTop = el.scrollHeight
+  }, [isPending])
 
   const handleSend = (overrideMessage?: string) => {
     const messageToSend = (overrideMessage || input).trim()

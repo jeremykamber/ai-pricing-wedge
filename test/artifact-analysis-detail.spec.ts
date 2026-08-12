@@ -189,8 +189,9 @@ describe('Artifact Analysis Detail — E2E', { timeout: TEST_TIMEOUT }, () => {
     await page.goto(`${BASE_URL}/dashboard/simulations/${SIM_ID}`, { waitUntil: 'networkidle', timeout: TEST_TIMEOUT });
 
     await page.locator('button:has-text("Ask the whole audience")').first().click();
-    expect(await isVisible(page, 'text=Ask your whole audience')).toBe(true);
-    expect(await isVisible(page, 'text=We\'re thinking of adding a free tier — what would you all think?')).toBe(true);
+    expect(await isVisible(page, 'text=Ask the simulated users')).toBe(true);
+    expect(await isVisible(page, 'text=Show me the dissenting opinions.')).toBe(true);
+    expect(await isVisible(page, 'text=Findings describe simulated users — hypotheses to test, not proof about real users.')).toBe(true);
     await page.close();
   });
 

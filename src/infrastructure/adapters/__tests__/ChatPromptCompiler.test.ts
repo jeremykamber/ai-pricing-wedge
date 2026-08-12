@@ -327,6 +327,14 @@ describe("ChatPromptCompiler", () => {
 
     const system = messages[0].content as string;
     expect(system).toContain("user-research synthesizer");
+    // Epistemic discipline: simulated ≠ empirical, four-layer answers.
+    expect(system).toContain("SIMULATED users");
+    expect(system).toContain("hypothesis to test");
+    expect(system).toContain("FINDING");
+    expect(system).toContain("EVIDENCE");
+    expect(system).toContain("INTERPRETATION");
+    expect(system).toContain("VALIDATION");
+    expect(system).toContain("DISSENT");
     expect(system).toContain("Sarah Chen");
     expect(system).toContain("Wants a monthly plan");
     expect(system).toContain("No monthly option");

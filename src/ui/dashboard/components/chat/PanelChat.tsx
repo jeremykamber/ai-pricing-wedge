@@ -40,10 +40,26 @@ export function PanelChat({ responses, synthesis, personaNames, isOpen, onClose 
   const [input, setInput] = useState("")
   const [isPending, startTransition] = useTransition()
   const messagesEndRef = useRef<HTMLDivElement>(null)
+  const chatRef = useRef<HTMLDivElement>(null)
 
+  // Scroll to the newest message only when the conversation changes.
+  // Runs per-token during streaming, so an instant (non-smooth) scroll keeps
+  // up with the stream; smooth scrolling here stacks animations and jitters.
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
-  })
+    const el = messagesEndRef.current
+    if (!el) return
+    const frame = requestAnimationFrame(() => {
+      el.scrollIntoView({ behavior: "auto", block: "end" })
+    })
+    return () => cancelAnimationFrame(frame)
+  }, [messages])
+
+  // Keep the chat pane pinned to the newest message while streaming.
+  useEffect(() => {
+    const el = chatRef.current
+    if (!el) return
+    el.scrollTop = el.scrollHeight
+  }, [isPending])
 
   const handleSend = (overrideMessage?: string) => {
     const messageToSend = (overrideMessage || input).trim()
@@ -108,7 +124,7 @@ export function PanelChat({ responses, synthesis, personaNames, isOpen, onClose 
                 <UsersIcon className="h-5 w-5" />
               </div>
               <div>
-                <DialogTitle className="text-base">Ask your whole audience</DialogTitle>
+                <DialogTitle className="text-base">Ask the simulated users</DialogTitle>
                 <DialogDescription className="text-xs">
                   One question, synthesized across {names}
                 </DialogDescription>
@@ -116,21 +132,25 @@ export function PanelChat({ responses, synthesis, personaNames, isOpen, onClose 
             </div>
           </DialogHeader>
 
-          <div className="flex-1 overflow-y-auto p-6 flex flex-col gap-6 custom-scrollbar">
+          <div
+            ref={chatRef}
+            className="flex-1 overflow-y-auto p-6 flex flex-col gap-6 custom-scrollbar"
+          >
             {messages.length === 0 ? (
               <div className="flex-1 flex flex-col items-center justify-center text-center gap-4 text-muted-foreground">
                 <div className="w-16 h-16 rounded-full bg-secondary flex items-center justify-center text-xl">
                   🎯
                 </div>
                 <p className="text-sm max-w-[280px] text-balance">
-                  Testing a new feature or message? Ask what your personas would
-                  think — get the pattern across everyone, not just one opinion.
+                  Ask the simulated users about what they experienced — what
+                  they saw, what stopped them, what they'd want changed.
                 </p>
                 <div className="flex flex-col gap-2 w-full max-w-[280px]">
                   {[
-                    "We're thinking of adding a free tier — what would you all think?",
-                    "Which part of the page turned most of you off?",
-                    "What would make you actually sign up today?",
+                    "We're thinking of adding a free tier — what would the simulated users think?",
+                    "What stopped people from signing up?",
+                    "Where did the simulated users disagree?",
+                    "Show me the dissenting opinions.",
                   ].map((suggestion) => (
                     <button
                       key={suggestion}
@@ -141,6 +161,10 @@ export function PanelChat({ responses, synthesis, personaNames, isOpen, onClose 
                     </button>
                   ))}
                 </div>
+                <p className="text-[10px] text-muted-foreground/60 max-w-[280px]">
+                  Findings describe simulated users — hypotheses to test, not
+                  proof about real users.
+                </p>
               </div>
             ) : (
               messages.map((m, i) => (
