@@ -1,15 +1,24 @@
 import { Persona } from "@/domain/entities/Persona";
-import { PricingAnalysis } from "@/domain/entities/PricingAnalysis";
+import { PersonaResponse } from "@/domain/entities/PersonaResponse";
+import { ArtifactSynthesis } from "@/domain/entities/ArtifactSynthesis";
+import { ChatAnalysisContext } from "@/domain/ports/LlmServicePort";
 import { PersonaPromptCompiler } from "./PersonaPromptCompiler";
 import OpenAI from "openai";
 
 export interface ChatPromptParams {
   persona: Persona;
-  analysis: PricingAnalysis | null;
+  analysis: ChatAnalysisContext;
   message: string;
   history: { role: "user" | "assistant"; content: string }[];
   ragContext: { contextString: string; chunkCount: number };
   needsRegrounding: boolean;
+}
+
+export interface PanelChatPromptParams {
+  responses: PersonaResponse[];
+  synthesis: ArtifactSynthesis | null;
+  message: string;
+  history: { role: "user" | "assistant"; content: string }[];
 }
 
 export class ChatPromptCompiler {
@@ -48,21 +57,30 @@ export class ChatPromptCompiler {
     ];
   }
 
-  private buildAnalysisContext(analysis: PricingAnalysis | null): string {
-    return analysis
-      ? `\nCONTEXT OF YOUR RECENT PRICING ANALYSIS:\n` +
-          `Structured Insights: ${JSON.stringify(
-            {
-              gutReaction: analysis.gutReaction,
-              scores: analysis.scores,
-              risks: analysis.risks,
-            },
-            null,
-            2,
-          )}\n` +
-          `Your Raw Thoughts During Analysis: "${analysis.rawAnalysis || analysis.thoughts}"\n\n` +
-          `A developer is interviewing you about your thoughts on this pricing page.`
-      : `\nYou are currently chatting with a developer who wants to get to know you better before showing you a pricing page for evaluation.`;
+  private buildAnalysisContext(analysis: ChatAnalysisContext): string {
+    if (!analysis) {
+      return `\nYou are currently chatting with a developer who wants to get to know you better before showing you a website for evaluation.`;
+    }
+
+    if (isPersonaResponse(analysis)) {
+      return buildPersonaResponseContext(analysis);
+    }
+
+    // Legacy pricing-analysis grounding — kept for the old results flow.
+    return (
+      `\nCONTEXT OF YOUR RECENT ANALYSIS:\n` +
+      `Structured Insights: ${JSON.stringify(
+        {
+          gutReaction: analysis.gutReaction,
+          scores: analysis.scores,
+          risks: analysis.risks,
+        },
+        null,
+        2,
+      )}\n` +
+      `Your Raw Thoughts During Analysis: "${analysis.rawAnalysis || analysis.thoughts}"\n\n` +
+      `A developer is interviewing you about your thoughts on this page.`
+    );
   }
 
   private buildRegroundingInstruction(persona: Persona, needsRegrounding: boolean): string {
@@ -90,4 +108,128 @@ CORE INSTRUCTIONS:
 4. <% "statement" | "backstory memory explaining why" %> — Use this syntax when referencing your past.
 STAY IN CHARACTER.`;
   }
+
+  /**
+   * Panel synthesis chat — the user questions the whole cohort at once.
+   * Grounds every answer in the personas' actual simulation responses and the
+   * cross-persona synthesis, so "what would our users think of X?" gets an
+   * evidence-backed answer, not a guess.
+   */
+  compilePanelMessages(params: PanelChatPromptParams): OpenAI.Chat.ChatCompletionMessageParam[] {
+    const { responses, synthesis, message, history } = params;
+
+    const personaSection = responses
+      .map((r) => {
+        const name = r.personaProfile?.name ?? r.id;
+        const lines = [
+          `--- ${name} (${r.personaProfile?.occupation ?? "unknown role"}) ---`,
+          `Overview: ${r.overview || "—"}`,
+        ];
+        if (r.customerJourney?.length) {
+          lines.push(`Journey: ${r.customerJourney.map((s) => `${s.stage} (${s.sentiment}, ${s.outcome})`).join(" → ")}`);
+        }
+        if (r.majorFindings?.length) {
+          lines.push(`Findings: ${r.majorFindings.map((f) => f.observation).join("; ")}`);
+        }
+        if (r.pointsOfFriction?.length) {
+          lines.push(`Friction: ${r.pointsOfFriction.join("; ")}`);
+        }
+        if (r.unansweredQuestions?.length) {
+          lines.push(`Open questions: ${r.unansweredQuestions.join("; ")}`);
+        }
+        return lines.join("\n");
+      })
+      .join("\n\n");
+
+    const synthesisSection = synthesis
+      ? [
+          `TOP CROSS-PERSONA FINDINGS:`,
+          ...synthesis.topFindings.slice(0, 5).map(
+            (f) => `- ${f.observation} (${f.confidence}; ${f.affectedPersonaCount}/${f.totalPersonaCount} personas) — ${f.evidence}`,
+          ),
+          synthesis.disagreements?.length
+            ? `DISAGREEMENTS: ${synthesis.disagreements.map((d) => `${d.topic} (${d.split.map((s) => `${s.personaCount} ${s.personaCount === 1 ? "persona" : "personas"}: ${s.view}`).join(", ")})`).join("; ")}`
+            : null,
+          synthesis.biggestFrictions?.length
+            ? `BIGGEST FRICTIONS: ${synthesis.biggestFrictions.join("; ")}`
+            : null,
+          synthesis.researchQuestionAnswer
+            ? `RESEARCH QUESTION ANSWER: ${synthesis.researchQuestionAnswer}`
+            : null,
+        ]
+          .filter(Boolean)
+          .join("\n")
+      : "";
+
+    const system = `You are a user-research synthesizer for a product team. A cohort of AI personas just
+interacted with the team's product and reported what they saw, felt, and did.
+Your job: answer the team's questions by SYNTHESIZING across the whole cohort —
+name patterns, surface disagreements, and say what it means for the product.
+
+Rules:
+1. GROUND: Every claim must trace back to the persona responses below. Quote or name personas when you cite them. If the cohort is silent on something, say so instead of inventing.
+2. SYNTHESIZE: Weigh how many personas shared a reaction — a pattern across several beats a single strong opinion.
+3. ACTION: End with what the team should do about it (fix, test, or ask further).
+4. VOICE: Clear, direct, plain language. No marketing fluff, no generic AI filler.
+
+<<COHORT RESPONSES>>
+${personaSection}
+
+${synthesisSection}
+`;
+
+    return [
+      { role: "system", content: system },
+      ...(history as OpenAI.Chat.ChatCompletionMessageParam[]),
+      { role: "user", content: message },
+    ];
+  }
+}
+
+/** Narrow a chat context to the modern simulation-response type. */
+function isPersonaResponse(analysis: ChatAnalysisContext): analysis is PersonaResponse {
+  return !!analysis && "customerJourney" in analysis;
+}
+
+/**
+ * "What you saw" grounding — renders a persona's own simulation response as
+ * first-person context so the chat can talk about the artifact they just
+ * experienced, not generic personality.
+ */
+function buildPersonaResponseContext(analysis: PersonaResponse): string {
+  const journey =
+    analysis.customerJourney?.length
+      ? analysis.customerJourney
+          .map(
+            (s) =>
+              `- ${s.stage}: ${s.description} (felt ${s.sentiment}, ${s.outcome})` +
+              (s.transition ? ` — ${s.transition}` : ""),
+          )
+          .join("\n")
+      : "—";
+
+  const findings = analysis.majorFindings?.length
+    ? analysis.majorFindings.map((f) => `- ${f.observation} (${f.evidence}; ${f.impact})`).join("\n")
+    : "—";
+
+  const frictions = analysis.pointsOfFriction?.length
+    ? analysis.pointsOfFriction.map((f) => `- ${f}`).join("\n")
+    : "—";
+
+  const questions = analysis.unansweredQuestions?.length
+    ? analysis.unansweredQuestions.map((q) => `- ${q}`).join("\n")
+    : "—";
+
+  return (
+    `\nCONTEXT OF WHAT YOU JUST EXPERIENCED IN THE SIMULATION:\n` +
+    `Your overall takeaway: "${analysis.overview || "—"}"\n\n` +
+    `Your journey through the artifact:\n${journey}\n\n` +
+    `What you noticed:\n${findings}\n\n` +
+    `Where you got stuck / what bothered you:\n${frictions}\n\n` +
+    `Questions you still have:\n${questions}\n\n` +
+    (analysis.researchQuestionAnswer
+      ? `Your direct answer to the research question: "${analysis.researchQuestionAnswer}"\n\n`
+      : "") +
+    `A developer is interviewing you about what you just saw and experienced. Answer as yourself — react to your own experience, not a script.`
+  );
 }

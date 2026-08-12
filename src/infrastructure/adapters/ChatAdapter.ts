@@ -1,5 +1,7 @@
 import { Persona } from "@/domain/entities/Persona";
-import { PricingAnalysis } from "@/domain/entities/PricingAnalysis";
+import type { PersonaResponse } from "@/domain/entities/PersonaResponse";
+import type { ArtifactSynthesis } from "@/domain/entities/ArtifactSynthesis";
+import { ChatAnalysisContext } from "@/domain/ports/LlmServicePort";
 import { LlmServiceImpl } from "./LlmServiceImpl";
 import { ChatPromptCompiler } from "./ChatPromptCompiler";
 import { IdRagStore } from "./IdRagStore";
@@ -29,7 +31,7 @@ export class ChatAdapter {
    */
   async * chatWithPersonaStream(
     persona: Persona,
-    analysis: PricingAnalysis | null,
+    analysis: ChatAnalysisContext,
     message: string,
     history: { role: "user" | "assistant"; content: string }[],
   ): AsyncIterable<string> {
@@ -103,6 +105,32 @@ export class ChatAdapter {
     } catch (err) {
       console.error("[ChatAdapter] Guardrail check failed:", err);
       return { isValid: true };
+    }
+  }
+
+  /**
+   * Panel synthesis chat — one question, grounded in the whole cohort.
+   * No persona identity/anchoring (it's a research-synthesis voice, not a
+   * single persona); just the compiled panel prompt streamed token by token.
+   */
+  async *chatWithPanelStream(
+    responses: PersonaResponse[],
+    synthesis: ArtifactSynthesis | null,
+    message: string,
+    history: { role: "user" | "assistant"; content: string }[],
+  ): AsyncIterable<string> {
+    const messages = this.chatPromptCompiler.compilePanelMessages({
+      responses,
+      synthesis,
+      message,
+      history,
+    });
+
+    for await (const chunk of this.llmService.createChatCompletionStream(messages, {
+      temperature: 0.7,
+      purpose: "Panel Synthesis Chat",
+    })) {
+      yield chunk;
     }
   }
 }

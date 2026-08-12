@@ -1,28 +1,33 @@
 "use server"
 
-import { ChatWithPersonaUseCase } from "@/application/usecases/ChatWithPersonaUseCase";
+import { ChatWithPanelUseCase } from "@/application/usecases/ChatWithPanelUseCase";
 import { LlmServiceImpl } from "@/infrastructure/adapters/LlmServiceImpl";
-import { Persona } from "@/domain/entities/Persona";
-import { ChatAnalysisContext } from "@/domain/ports/LlmServicePort";
+import type { PersonaResponse } from "@/domain/entities/PersonaResponse";
+import type { ArtifactSynthesis } from "@/domain/entities/ArtifactSynthesis";
 
 import { createStreamableValue } from "@ai-sdk/rsc";
 
 import { shouldRunLocally, VPS_BACKEND_URL, getVpsAuthToken } from "@/infrastructure/config";
 
+interface ChatHistoryEntry {
+  role: 'user' | 'assistant'
+  content: string
+}
+
 async function runLocally(
-  persona: Persona,
-  analysis: ChatAnalysisContext,
+  responses: PersonaResponse[],
+  synthesis: ArtifactSynthesis | null,
   message: string,
-  history: { role: 'user' | 'assistant', content: string }[]
+  history: ChatHistoryEntry[],
 ) {
-  const stream = createStreamableValue<any>("");
+  const stream = createStreamableValue<string | { step: string; error: string }>("");
 
   (async () => {
     try {
       const llmService = LlmServiceImpl.createFromEnv("openrouter");
-      const useCase = new ChatWithPersonaUseCase(llmService);
+      const useCase = new ChatWithPanelUseCase(llmService);
 
-      const responseStream = useCase.executeStream(persona, analysis, message, history);
+      const responseStream = useCase.executeStream(responses, synthesis, message, history);
 
       let fullText = "";
       for await (const chunk of responseStream) {
@@ -32,7 +37,7 @@ async function runLocally(
 
       stream.done(fullText);
     } catch (error) {
-      console.error("Error in chatWithPersonaAction:", error);
+      console.error("Error in chatWithPanelAction:", error);
       stream.done({ step: "ERROR", error: (error as Error).message });
     }
   })();
@@ -41,22 +46,22 @@ async function runLocally(
 }
 
 async function runRemote(
-  persona: Persona,
-  analysis: ChatAnalysisContext,
+  responses: PersonaResponse[],
+  synthesis: ArtifactSynthesis | null,
   message: string,
-  history: { role: 'user' | 'assistant', content: string }[]
+  history: ChatHistoryEntry[],
 ) {
-  const stream = createStreamableValue<any>("");
+  const stream = createStreamableValue<string | { step: string; error: string }>("");
 
   (async () => {
     try {
-      const res = await fetch(`${VPS_BACKEND_URL}/api/vps/chat-with-persona`, {
+      const res = await fetch(`${VPS_BACKEND_URL}/api/vps/chat-with-panel`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${getVpsAuthToken()}`,
         },
-        body: JSON.stringify({ persona, analysis, message, history }),
+        body: JSON.stringify({ responses, synthesis, message, history }),
       });
 
       if (!res.ok) {
@@ -78,7 +83,7 @@ async function runRemote(
 
       stream.done(fullText);
     } catch (error) {
-      console.error("Error in remote chatWithPersona:", error);
+      console.error("Error in remote chatWithPanel:", error);
       stream.done({ step: "ERROR", error: (error as Error).message });
     }
   })();
@@ -86,12 +91,16 @@ async function runRemote(
   return { streamData: stream.value };
 }
 
-export async function chatWithPersonaAction(
-  persona: Persona,
-  analysis: ChatAnalysisContext,
+/**
+ * Panel synthesis chat — question the whole cohort at once. Grounds the
+ * answer in every persona's simulation response + the cross-persona synthesis.
+ */
+export async function chatWithPanelAction(
+  responses: PersonaResponse[],
+  synthesis: ArtifactSynthesis | null,
   message: string,
-  history: { role: 'user' | 'assistant', content: string }[]
+  history: ChatHistoryEntry[],
 ) {
-  if (shouldRunLocally()) return runLocally(persona, analysis, message, history);
-  return runRemote(persona, analysis, message, history);
+  if (shouldRunLocally()) return runLocally(responses, synthesis, message, history);
+  return runRemote(responses, synthesis, message, history);
 }

@@ -37,7 +37,7 @@ export class PersonaPromptCompiler {
     const parts: string[] = [
       "<<PERSONA IDENTITY>>",
       `Name: ${persona.name ?? "—"}`,
-      `Age: ${persona.age ?? "—"}`,
+      `Age: ${persona.age || "—"}`,
       `Occupation: ${persona.occupation ?? "—"}`,
       `Education: ${persona.educationLevel ?? "—"}`,
       `Interests: ${join(persona.interests)}`,
