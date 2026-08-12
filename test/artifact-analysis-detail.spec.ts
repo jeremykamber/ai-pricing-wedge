@@ -177,6 +177,20 @@ describe('Artifact Analysis Detail — E2E', { timeout: TEST_TIMEOUT }, () => {
     expect(await isVisible(page, 'text=Individual Persona Reports')).toBe(true);
     expect(await isVisible(page, 'text=Sarah Chen')).toBe(true);
     expect(await isVisible(page, 'text=Marcus Lee')).toBe(true);
+
+    // Chat-after-simulation affordances
+    expect(await isVisible(page, 'text=Ask the whole audience')).toBe(true);
+    await page.close();
+  });
+
+  it('opens the panel chat and offers suggested questions', async () => {
+    const page = await browser.newPage({ viewport: { width: 1280, height: 900 } });
+    await seedSimulationStore(page);
+    await page.goto(`${BASE_URL}/dashboard/simulations/${SIM_ID}`, { waitUntil: 'networkidle', timeout: TEST_TIMEOUT });
+
+    await page.locator('button:has-text("Ask the whole audience")').first().click();
+    expect(await isVisible(page, 'text=Ask your whole audience')).toBe(true);
+    expect(await isVisible(page, 'text=We\'re thinking of adding a free tier — what would you all think?')).toBe(true);
     await page.close();
   });
 
@@ -187,6 +201,7 @@ describe('Artifact Analysis Detail — E2E', { timeout: TEST_TIMEOUT }, () => {
 
     await page.locator('button:has-text("Sarah Chen")').first().click();
     expect(await isVisible(page, 'text=Sarah Chen found the page clear but hesitated on price transparency.')).toBe(true);
+    expect(await isVisible(page, 'text=Ask Sarah Chen about what they saw')).toBe(true);
     await page.close();
   });
 

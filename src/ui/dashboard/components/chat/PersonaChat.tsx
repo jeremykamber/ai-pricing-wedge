@@ -3,6 +3,7 @@
 import React, { useState, useTransition, useRef, useEffect } from "react"
 import { Persona } from "@/domain/entities/Persona"
 import { chatWithPersonaAction } from "@/actions/chatWithPersona"
+import type { ChatAnalysisContext } from "@/domain/ports/LlmServicePort"
 import { useLocalStorage } from "@/ui/hooks/useLocalStorage"
 import { Send, Loader2 } from "lucide-react"
 import { readStreamableValue } from "@ai-sdk/rsc"
@@ -25,9 +26,12 @@ interface PersonaChatProps {
   persona: Persona
   isOpen: boolean
   onClose: () => void
+  /** Grounding context — what the persona saw/experienced. Pass the simulation
+   *  response so chat stays anchored to the artifact they just reviewed. */
+  analysis?: ChatAnalysisContext
 }
 
-export function PersonaChat({ persona, isOpen, onClose }: PersonaChatProps) {
+export function PersonaChat({ persona, isOpen, onClose, analysis = null }: PersonaChatProps) {
   const storageKey = `persona_chat_${persona.id}`
   const [messages, setMessages] = useLocalStorage<Message[]>(storageKey, [])
   const [input, setInput] = useState("")
@@ -53,7 +57,7 @@ export function PersonaChat({ persona, isOpen, onClose }: PersonaChatProps) {
       try {
         const { streamData } = await chatWithPersonaAction(
           persona,
-          null,
+          analysis,
           messageToSend,
           messages
         )
@@ -113,7 +117,9 @@ export function PersonaChat({ persona, isOpen, onClose }: PersonaChatProps) {
                   💬
                 </div>
                 <p className="text-sm max-w-[250px] text-balance">
-                  Start a conversation with {persona.name}. Ask them about your product, pricing, or their pain points.
+                  {analysis
+                    ? `Ask ${persona.name} about what they just experienced — their reaction to your site, what stopped them, and what would have won them over.`
+                    : `Start a conversation with ${persona.name}. Ask them about your product, pricing, or their pain points.`}
                 </p>
               </div>
             ) : (

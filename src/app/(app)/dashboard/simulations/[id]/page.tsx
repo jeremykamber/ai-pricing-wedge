@@ -2,14 +2,19 @@
 
 import { use, useEffect, useRef, useState, useCallback, useMemo } from 'react'
 import { useSimulationStore } from '@/ui/stores/simulationStore'
+import { usePersonaStore } from '@/ui/stores/personaStore'
 import { useRouter } from 'next/navigation'
 import { getSimulationResultAction } from '@/actions/getSimulationResult'
 import { getProgressAction } from '@/actions/getProgress'
 import { StepIndicator } from '@/components/custom/StepIndicator'
-import { ArrowLeftIcon, ClockIcon, CheckCircleIcon, XCircleIcon, ThumbsUpIcon, ThumbsDownIcon, AlertTriangleIcon, ChevronDownIcon, ChevronRightIcon, UsersIcon } from 'lucide-react'
+import { ArrowLeftIcon, ClockIcon, CheckCircleIcon, XCircleIcon, ThumbsUpIcon, ThumbsDownIcon, AlertTriangleIcon, ChevronDownIcon, ChevronRightIcon, UsersIcon, MessageCircleIcon } from 'lucide-react'
+import type { Persona } from '@/domain/entities/Persona'
 import type { PersonaResponse } from '@/domain/entities/PersonaResponse'
 import type { MajorFinding } from '@/domain/entities/MajorFinding'
 import { computeSynthesis } from '@/ui/dashboard/utils/computeSynthesis'
+import { resolveChatPersona } from '@/ui/dashboard/utils/resolveChatPersona'
+import { PersonaChat } from '@/ui/dashboard/components/chat/PersonaChat'
+import { PanelChat } from '@/ui/dashboard/components/chat/PanelChat'
 
 const ANALYSIS_STEPS = [
   { title: 'Starting', description: 'Initializing analysis' },
@@ -372,6 +377,9 @@ function CompletedView({
 }) {
   const analyses = simulation.analyses as PersonaResponse[] | undefined
   const [expandedPersonas, setExpandedPersonas] = useState<Set<number>>(new Set())
+  const [chatTarget, setChatTarget] = useState<{ persona: Persona; analysis: PersonaResponse } | null>(null)
+  const [isPanelChatOpen, setIsPanelChatOpen] = useState(false)
+  const batches = usePersonaStore((s) => s.batches)
 
   const synthesis = useMemo(
     () => {
@@ -381,6 +389,13 @@ function CompletedView({
       return computeSynthesis(analyses)
     },
     [analyses, simulation.synthesis]
+  )
+
+  // Resolve each response back to a full Persona once — chat needs the
+  // psychometrics/backstory, not just the display projection.
+  const resolvedPersonas = useMemo(
+    () => (analyses ?? []).map((a) => resolveChatPersona(a, batches)),
+    [analyses, batches]
   )
 
   const togglePersona = (index: number) => {
@@ -406,11 +421,20 @@ function CompletedView({
       {synthesis && (
         <div className="flex flex-col gap-6">
           {/* Persona completion status */}
-          <div className="flex items-center gap-4 text-sm text-muted-foreground">
-            <span>Completed: {synthesis.completedCount}/{synthesis.totalPersonaCount}</span>
-            {synthesis.failedCount > 0 && (
-              <span className="text-destructive">Failed: {synthesis.failedCount}</span>
-            )}
+          <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+            <div className="flex items-center gap-4 text-sm text-muted-foreground">
+              <span>Completed: {synthesis.completedCount}/{synthesis.totalPersonaCount}</span>
+              {synthesis.failedCount > 0 && (
+                <span className="text-destructive">Failed: {synthesis.failedCount}</span>
+              )}
+            </div>
+            <button
+              onClick={() => setIsPanelChatOpen(true)}
+              className="inline-flex h-9 items-center justify-center gap-2 rounded-md bg-primary px-4 text-xs font-semibold text-primary-foreground transition-colors hover:bg-primary/90 w-fit"
+            >
+              <UsersIcon className="h-3.5 w-3.5" />
+              Ask the whole audience
+            </button>
           </div>
 
           {/* Research Question Answer */}
@@ -494,6 +518,7 @@ function CompletedView({
           {analyses.map((analysis, index) => {
             const personaName = analysis.personaProfile?.name ?? `Persona ${index + 1}`
             const isExpanded = expandedPersonas.has(index)
+            const chatPersona = resolvedPersonas[index]
 
             return (
             <div
@@ -528,6 +553,15 @@ function CompletedView({
 
               {isExpanded && (
                 <div className="px-4 pb-4 flex flex-col gap-4">
+                  {chatPersona && (
+                    <button
+                      onClick={() => setChatTarget({ persona: chatPersona, analysis })}
+                      className="inline-flex h-9 items-center justify-center gap-2 rounded-md border border-border bg-background px-4 text-xs font-semibold text-foreground transition-colors hover:bg-muted/40 w-fit"
+                    >
+                      <MessageCircleIcon className="h-3.5 w-3.5" />
+                      Ask {personaName} about what they saw
+                    </button>
+                  )}
                   {analysis.personaProfile && <PersonaIdentityCard profile={analysis.personaProfile} />}
 
                   {analysis.overview && (
@@ -616,6 +650,23 @@ function CompletedView({
           />
         </div>
       )}
+
+      {chatTarget && (
+        <PersonaChat
+          persona={chatTarget.persona}
+          analysis={chatTarget.analysis}
+          isOpen={!!chatTarget}
+          onClose={() => setChatTarget(null)}
+        />
+      )}
+
+      <PanelChat
+        responses={analyses}
+        synthesis={synthesis}
+        personaNames={simulation.personaNames ?? []}
+        isOpen={isPanelChatOpen}
+        onClose={() => setIsPanelChatOpen(false)}
+      />
     </div>
   )
 }
