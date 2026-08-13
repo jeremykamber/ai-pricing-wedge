@@ -120,8 +120,8 @@ export function PersonaChatInline({ persona }: PersonaChatInlineProps) {
                       ? 'var(--chat-user-bubble)'
                       : 'var(--chat-assistant-bubble)',
                   }}
-                  className={`px-4 py-3 rounded-2xl text-sm leading-relaxed whitespace-pre-wrap text-foreground ${
-                    m.role === 'user' ? 'rounded-tr-sm' : 'rounded-tl-sm border border-border/40'
+                  className={`px-4 py-3 rounded-2xl text-sm leading-relaxed text-foreground ${
+                    m.role === 'user' ? 'rounded-tr-sm whitespace-pre-wrap' : 'rounded-tl-sm border border-border/40'
                   }`}
                 >
                   {parseMessageContent(m.content)}
