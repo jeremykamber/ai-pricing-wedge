@@ -1,6 +1,6 @@
 import OpenAI from "openai";
 import pLimit from "p-limit";
-import { LlmServicePort, PricingLocation, PersonaPhaseCallback } from "@/domain/ports/LlmServicePort";
+import { LlmServicePort, PricingLocation, PersonaPhaseCallback, ChatAnalysisContext } from "@/domain/ports/LlmServicePort";
 import { createOpenAI, OpenAIProvider } from "@ai-sdk/openai";
 import { PersonaAdapter } from "./PersonaAdapter";
 import { VisionAnalysisAdapter } from "./VisionAnalysisAdapter";
@@ -11,6 +11,7 @@ import { PsychographicRationalizer } from "./PsychographicRationalizer";
 import { Persona } from "@/domain/entities/Persona";
 import { PricingAnalysis } from "@/domain/entities/PricingAnalysis";
 import type { PersonaResponse } from "@/domain/entities/PersonaResponse";
+import type { ArtifactSynthesis } from "@/domain/entities/ArtifactSynthesis";
 import type { ArtifactIntake } from "@/domain/entities/ArtifactIntake";
 import { StreamOfConsciousness } from "@/domain/entities/StreamOfConsciousness";
 import { ExtractedInterviewSignals } from "@/application/interviewPipeline/types";
@@ -667,7 +668,7 @@ export class LlmServiceImpl implements LlmServicePort {
 
     async *chatWithPersonaStream(
         persona: Persona,
-        analysis: PricingAnalysis | null,
+        analysis: ChatAnalysisContext,
         message: string,
         history: { role: "user" | "assistant"; content: string }[],
     ): AsyncIterable<string> {
@@ -684,6 +685,15 @@ export class LlmServiceImpl implements LlmServicePort {
         prompt: string,
     ): Promise<{ isValid: boolean; reason?: string }> {
         return this.chatAdapter.validatePromptDomain(persona, prompt);
+    }
+
+    async *chatWithPanelStream(
+        responses: PersonaResponse[],
+        synthesis: ArtifactSynthesis | null,
+        message: string,
+        history: { role: "user" | "assistant"; content: string }[],
+    ): AsyncIterable<string> {
+        yield* this.chatAdapter.chatWithPanelStream(responses, synthesis, message, history);
     }
 
     // --- Legacy / Compatibility ---
@@ -714,7 +724,7 @@ export class LlmServiceImpl implements LlmServicePort {
 
     async chatWithPersona(
         persona: Persona,
-        analysis: PricingAnalysis | null,
+        analysis: ChatAnalysisContext,
         msg: string,
         history: any,
     ): Promise<string> {

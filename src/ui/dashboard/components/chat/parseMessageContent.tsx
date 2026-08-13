@@ -1,6 +1,7 @@
 import React from "react"
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip"
 import { ThinkingBlock } from "@/components/custom/ThinkingBlock"
+import { ChatMarkdown } from "./ChatMarkdown"
 
 const REASONING_REGEX = new RegExp("<<REASONING>>([\\s\\S]*?)<</REASONING>>", "g")
 
@@ -15,7 +16,7 @@ export function parseMessageContent(content: string): React.ReactNode[] {
   let lastIndex = 0
 
   const reasoningMatch = content.match(REASONING_REGEX)
-  let textWithoutReasoning = content.replace(REASONING_REGEX, "").trim()
+  const textWithoutReasoning = content.replace(REASONING_REGEX, "").trim()
 
   if (reasoningMatch) {
     const reasoningText = reasoningMatch[0].replace("<<REASONING>>", "").replace("<</REASONING>>", "").trim()
@@ -32,7 +33,9 @@ export function parseMessageContent(content: string): React.ReactNode[] {
 
   while (match !== null) {
     if (match.index > lastIndex) {
-      parts.push(textWithoutReasoning.slice(lastIndex, match.index))
+      parts.push(
+        <ChatMarkdown key={`md-${lastIndex}`} content={textWithoutReasoning.slice(lastIndex, match.index)} />
+      )
     }
 
     if (match[1]) {
@@ -76,7 +79,9 @@ export function parseMessageContent(content: string): React.ReactNode[] {
   }
 
   if (lastIndex < textWithoutReasoning.length) {
-    parts.push(textWithoutReasoning.slice(lastIndex))
+    parts.push(
+      <ChatMarkdown key={`md-${lastIndex}`} content={textWithoutReasoning.slice(lastIndex)} />
+    )
   }
 
   if (memories.length > 0) {

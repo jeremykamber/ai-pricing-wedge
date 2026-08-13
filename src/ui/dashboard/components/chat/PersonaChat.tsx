@@ -3,6 +3,7 @@
 import React, { useState, useTransition, useRef, useEffect } from "react"
 import { Persona } from "@/domain/entities/Persona"
 import { chatWithPersonaAction } from "@/actions/chatWithPersona"
+import type { ChatAnalysisContext } from "@/domain/ports/LlmServicePort"
 import { useLocalStorage } from "@/ui/hooks/useLocalStorage"
 import { Send, Loader2 } from "lucide-react"
 import { readStreamableValue } from "@ai-sdk/rsc"
@@ -25,9 +26,12 @@ interface PersonaChatProps {
   persona: Persona
   isOpen: boolean
   onClose: () => void
+  /** Grounding context — what the persona saw/experienced. Pass the simulation
+   *  response so chat stays anchored to the artifact they just reviewed. */
+  analysis?: ChatAnalysisContext
 }
 
-export function PersonaChat({ persona, isOpen, onClose }: PersonaChatProps) {
+export function PersonaChat({ persona, isOpen, onClose, analysis = null }: PersonaChatProps) {
   const storageKey = `persona_chat_${persona.id}`
   const [messages, setMessages] = useLocalStorage<Message[]>(storageKey, [])
   const [input, setInput] = useState("")
@@ -35,9 +39,24 @@ export function PersonaChat({ persona, isOpen, onClose }: PersonaChatProps) {
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const chatRef = useRef<HTMLDivElement>(null)
 
+  // Scroll to the newest message only when the conversation changes.
+  // Runs per-token during streaming, so an instant (non-smooth) scroll keeps
+  // up with the stream; smooth scrolling here stacks animations and jitters.
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
-  })
+    const el = messagesEndRef.current
+    if (!el) return
+    const frame = requestAnimationFrame(() => {
+      el.scrollIntoView({ behavior: "auto", block: "end" })
+    })
+    return () => cancelAnimationFrame(frame)
+  }, [messages])
+
+  // Keep the chat pane pinned to the newest message while streaming.
+  useEffect(() => {
+    const el = chatRef.current
+    if (!el) return
+    el.scrollTop = el.scrollHeight
+  }, [isPending])
 
   const handleSend = (overrideMessage?: string) => {
     const messageToSend = (overrideMessage || input).trim()
@@ -53,7 +72,7 @@ export function PersonaChat({ persona, isOpen, onClose }: PersonaChatProps) {
       try {
         const { streamData } = await chatWithPersonaAction(
           persona,
-          null,
+          analysis,
           messageToSend,
           messages
         )
@@ -113,7 +132,9 @@ export function PersonaChat({ persona, isOpen, onClose }: PersonaChatProps) {
                   💬
                 </div>
                 <p className="text-sm max-w-[250px] text-balance">
-                  Start a conversation with {persona.name}. Ask them about your product, pricing, or their pain points.
+                  {analysis
+                    ? `Ask ${persona.name} about what they just experienced — their reaction to your site, what stopped them, and what would have won them over.`
+                    : `Start a conversation with ${persona.name}. Ask them about your product, pricing, or their pain points.`}
                 </p>
               </div>
             ) : (
@@ -128,8 +149,8 @@ export function PersonaChat({ persona, isOpen, onClose }: PersonaChatProps) {
                       ? 'var(--chat-user-bubble)' 
                       : 'var(--chat-assistant-bubble)',
                   }}
-                  className={`px-4 py-3 rounded-2xl text-sm leading-relaxed whitespace-pre-wrap text-foreground ${
-                    m.role === 'user' ? 'rounded-tr-sm' : 'rounded-tl-sm border border-border/40'
+                  className={`px-4 py-3 rounded-2xl text-sm leading-relaxed text-foreground ${
+                    m.role === 'user' ? 'rounded-tr-sm whitespace-pre-wrap' : 'rounded-tl-sm border border-border/40'
                   }`}
                 >
                   {parseMessageContent(m.content)}

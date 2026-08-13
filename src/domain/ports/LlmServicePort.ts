@@ -1,6 +1,7 @@
 import { Persona } from "../entities/Persona";
 import { PricingAnalysis } from "../entities/PricingAnalysis";
 import { PersonaResponse } from "../entities/PersonaResponse";
+import { ArtifactSynthesis } from "../entities/ArtifactSynthesis";
 import { ArtifactIntake } from "../entities/ArtifactIntake";
 import { StreamOfConsciousness } from "../entities/StreamOfConsciousness";
 import { ExtractedInterviewSignals } from "@/application/interviewPipeline/types";
@@ -33,6 +34,16 @@ export interface PricingLocation {
     anchorText?: string;
     reasoning?: string;
 }
+
+/**
+ * Context a persona chat can be grounded in.
+ *
+ * `PricingAnalysis` is the legacy pricing-era type (kept for backward
+ * compatibility with the old results flow); `PersonaResponse` is the modern
+ * artifact-agnostic type produced by simulations — it is what "chat with a
+ * persona about what they saw" is grounded in.
+ */
+export type ChatAnalysisContext = PricingAnalysis | PersonaResponse | null;
 
 export interface LlmServicePort {
     /**
@@ -136,7 +147,7 @@ export interface LlmServicePort {
      */
     chatWithPersona(
         persona: Persona,
-        analysis: PricingAnalysis | null,
+        analysis: ChatAnalysisContext,
         message: string,
         history: { role: "user" | "assistant"; content: string }[],
     ): Promise<string>;
@@ -151,7 +162,25 @@ export interface LlmServicePort {
      */
     chatWithPersonaStream(
         persona: Persona,
-        analysis: PricingAnalysis | null,
+        analysis: ChatAnalysisContext,
+        message: string,
+        history: { role: "user" | "assistant"; content: string }[],
+    ): AsyncIterable<string>;
+
+    /**
+     * Chat with the whole cohort at once (panel synthesis). Grounds the
+     * answer in every persona's simulation response plus the cross-persona
+     * synthesis, so questions like "what would our users think of X?" get an
+     * evidence-backed synthesis rather than a single persona's take.
+     * @param responses All persona responses from the simulation.
+     * @param synthesis The cross-persona synthesis (may be null if unavailable).
+     * @param message The user's message.
+     * @param history The chat history.
+     * @returns An AsyncIterable extending string pieces.
+     */
+    chatWithPanelStream(
+        responses: PersonaResponse[],
+        synthesis: ArtifactSynthesis | null,
         message: string,
         history: { role: "user" | "assistant"; content: string }[],
     ): AsyncIterable<string>;

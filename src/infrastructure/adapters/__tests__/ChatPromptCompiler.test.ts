@@ -79,10 +79,53 @@ describe("ChatPromptCompiler", () => {
     });
 
     const system = messages[0].content as string;
-    expect(system).toContain("CONTEXT OF YOUR RECENT PRICING ANALYSIS");
+    expect(system).toContain("CONTEXT OF YOUR RECENT ANALYSIS");
     expect(system).toContain("hidden fees");
     expect(system).toContain("This pricing page is confusing");
     expect(system).toContain("interviewing you about your thoughts");
+  });
+
+  it("includes simulation-response grounding when analysis is a PersonaResponse", () => {
+    const compiler = new ChatPromptCompiler();
+    const messages = compiler.compileChatMessages({
+      persona: basePersona,
+      analysis: {
+        id: "resp-1",
+        screenshotBase64: "",
+        rawAnalysis: "raw stream",
+        overview: "I found the onboarding confusing but the pricing clear.",
+        customerJourney: [
+          { stage: "interpretation", description: "I tried to figure out what this does.", sentiment: "neutral", outcome: "succeeded" },
+          { stage: "understanding", description: "The value prop clicked.", sentiment: "positive", outcome: "succeeded" },
+          { stage: "belief", description: "I started to trust it.", sentiment: "neutral", outcome: "succeeded" },
+          { stage: "motivation", description: "I wanted to sign up.", sentiment: "positive", outcome: "succeeded" },
+          { stage: "action", description: "I hit the paywall.", sentiment: "negative", outcome: "blocked", transition: "Pricing hidden until demo" },
+        ],
+        researchQuestionAnswer: "Pricing visibility is the blocker.",
+        majorFindings: [
+          { observation: "Paywall appears too early", evidence: "Hit signup wall at action stage", impact: "Drop-off" },
+        ],
+        pointsOfFriction: ["Pricing hidden"],
+        unansweredQuestions: ["What does it cost?"],
+        personaProfile: { name: "Jordan Chen", occupation: "Product Manager", bigFive: { conscientiousness: 80, neuroticism: 60, openness: 70, extraversion: 45, agreeableness: 55 }, values: ["Efficiency"], fears: ["Wasted effort"], communicationStyle: "Direct", decisionStyle: "Data-driven" },
+      },
+      message: "What did you think?",
+      history: [],
+      ragContext: { contextString: "", chunkCount: 0 },
+      needsRegrounding: false,
+    });
+
+    const system = messages[0].content as string;
+    expect(system).toContain("CONTEXT OF WHAT YOU JUST EXPERIENCED IN THE SIMULATION");
+    expect(system).toContain("I found the onboarding confusing but the pricing clear.");
+    expect(system).toContain("action: I hit the paywall. (felt negative, blocked) — Pricing hidden until demo");
+    expect(system).toContain("Paywall appears too early");
+    expect(system).toContain("Pricing hidden");
+    expect(system).toContain("What does it cost?");
+    expect(system).toContain("Pricing visibility is the blocker.");
+    expect(system).toContain("interviewing you about what you just saw and experienced");
+    // The legacy pricing branch must NOT leak into simulation grounding.
+    expect(system).not.toContain("CONTEXT OF YOUR RECENT PRICING ANALYSIS");
   });
 
   it("includes introductory framing when no analysis is provided", () => {
@@ -98,7 +141,7 @@ describe("ChatPromptCompiler", () => {
 
     const system = messages[0].content as string;
     expect(system).toContain("chatting with a developer who wants to get to know you");
-    expect(system).not.toContain("CONTEXT OF YOUR RECENT PRICING ANALYSIS");
+    expect(system).not.toContain("CONTEXT OF YOUR RECENT ANALYSIS");
   });
 
   it("includes regrounding instruction when needsRegrounding is true", () => {
@@ -243,5 +286,61 @@ describe("ChatPromptCompiler", () => {
     // The anchor for a conscientious analytical persona should produce a non-empty tag
     expect(frame).toMatch(/\[Frame: [^\]]+\]/);
     expect(frame.toLowerCase()).toContain("product manager");
+  });
+
+  it("compiles a panel synthesis prompt grounded in all responses and the synthesis", () => {
+    const compiler = new ChatPromptCompiler();
+    const messages = compiler.compilePanelMessages({
+      responses: [
+        {
+          id: "r-1",
+          screenshotBase64: "",
+          rawAnalysis: "raw",
+          overview: "Sarah found the pricing clear but wanted a monthly option.",
+          customerJourney: [
+            { stage: "interpretation", description: "d", sentiment: "neutral", outcome: "succeeded" },
+            { stage: "understanding", description: "d", sentiment: "positive", outcome: "succeeded" },
+            { stage: "belief", description: "d", sentiment: "neutral", outcome: "succeeded" },
+            { stage: "motivation", description: "d", sentiment: "positive", outcome: "succeeded" },
+            { stage: "action", description: "d", sentiment: "negative", outcome: "blocked" },
+          ],
+          researchQuestionAnswer: "Pricing visibility is the blocker.",
+          majorFindings: [{ observation: "Wants a monthly plan", evidence: "Asked at action stage", impact: "Conversion drop" }],
+          pointsOfFriction: ["No monthly option"],
+          unansweredQuestions: ["Can I pay monthly?"],
+          personaProfile: { name: "Sarah Chen", occupation: "Senior Engineer", bigFive: { conscientiousness: 80, neuroticism: 30, openness: 70, extraversion: 50, agreeableness: 60 }, values: ["Transparency"], fears: ["Hidden costs"], communicationStyle: "direct", decisionStyle: "data-driven" },
+        },
+      ],
+      synthesis: {
+        overview: "Both personas want pricing flexibility.",
+        researchQuestionAnswer: "Monthly pricing would remove the blocker.",
+        topFindings: [{ observation: "Pricing opacity blocks action", evidence: "Both paused at pricing", impact: "Drop-off", confidence: "strongly supported", affectedPersonaCount: 2, totalPersonaCount: 2 }],
+        disagreements: [],
+        biggestFrictions: ["No monthly option"],
+        completedCount: 2,
+        failedCount: 0,
+        totalPersonaCount: 2,
+      },
+      message: "We're thinking of adding a monthly plan — what would you all think?",
+      history: [],
+    });
+
+    const system = messages[0].content as string;
+    expect(system).toContain("user-research synthesizer");
+    // Epistemic discipline: simulated ≠ empirical, four-layer answers.
+    expect(system).toContain("SIMULATED users");
+    expect(system).toContain("hypothesis to test");
+    expect(system).toContain("FINDING");
+    expect(system).toContain("EVIDENCE");
+    expect(system).toContain("INTERPRETATION");
+    expect(system).toContain("VALIDATION");
+    expect(system).toContain("DISSENT");
+    expect(system).toContain("Sarah Chen");
+    expect(system).toContain("Wants a monthly plan");
+    expect(system).toContain("No monthly option");
+    expect(system).toContain("Pricing opacity blocks action");
+    expect(system).toContain("Monthly pricing would remove the blocker.");
+    expect(messages).toHaveLength(2); // system + user (no history)
+    expect(messages[1].role).toBe("user");
   });
 });
