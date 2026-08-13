@@ -310,17 +310,17 @@ export function PersonaDetailSheet({
                             )}
                             {onEdit && (
                                 <button
-                                    onClick={isEditing ? undefined : handleStartEdit}
+                                    onClick={isEditing ? handleCancelEdit : handleStartEdit}
                                     className={cn(
                                         "inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md transition-colors",
                                         isEditing
                                             ? "bg-primary/10 text-primary"
                                             : "text-muted-foreground hover:text-foreground"
                                     )}
-                                    aria-label={isEditing ? "Editing persona" : "Edit persona"}
+                                    aria-label={isEditing ? "Cancel editing" : "Edit persona"}
                                 >
-                                    <PenIcon className="w-3.5 h-3.5" />
-                                    {isEditing ? "Editing" : "Edit"}
+                                    {isEditing ? <XIcon className="w-3.5 h-3.5" /> : <PenIcon className="w-3.5 h-3.5" />}
+                                    {isEditing ? "Cancel" : "Edit"}
                                 </button>
                             )}
                             {persona.generationMode === 'strategy' && (
@@ -794,15 +794,8 @@ export function PersonaDetailSheet({
                                     </div>
                                 </div>
 
-                                {/* Save / Cancel */}
-                                <div className="flex gap-3 pt-2 pb-4">
-                                    <button
-                                        type="button"
-                                        onClick={handleCancelEdit}
-                                        className="flex-1 inline-flex h-10 items-center justify-center rounded-md border border-border/60 bg-card px-4 text-xs font-medium text-foreground transition-colors hover:bg-muted/30"
-                                    >
-                                        Cancel
-                                    </button>
+                                {/* Save */}
+                                <div className="flex pt-2 pb-4">
                                     <button
                                         type="button"
                                         onClick={handleSaveEdit}
