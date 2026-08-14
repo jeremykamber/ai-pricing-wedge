@@ -1337,6 +1337,12 @@ CRITICAL RULES:
 - If the evidence is thin, say so rather than inventing details.
 - MANDATORY: every persona must include ALL fields in the structure below with non-empty values. A persona missing any field is invalid.
 - Do NOT invent names — names are assigned separately from a curated pool.
+- Write ALL fields in English, even if the source material is in another language.
+
+DIVERSITY REQUIREMENT:
+- Every persona in the array must be a DISTINCT individual. Do NOT produce near-identical personas.
+- All personas share the same evidence pool (the same interviews/audience), but each is a different person within it. Vary across personas: age and career stage, which pain points they emphasize most, priorities, skepticism level, communication style, decision style, and life context.
+- Do not give two personas the same values, fears, or communication style. Two personas may draw on the same interview, but they should weight and interpret that evidence differently.
 
 Generate a JSON array of EXACTLY ${config.count} DISTINCT personas with this structure:
 {
@@ -1583,6 +1589,8 @@ GUIDELINES:
 - Synthetic details are ALLOWED when they help explain behavior.
 - Do NOT add details that would CHANGE product decisions if they were false (counterfactual test).
 - Do NOT invent names — names are assigned separately from a curated pool.
+- Write ALL fields in English, even if the source material is in another language.
+- Every persona must be a DISTINCT individual — do NOT produce near-identical personas. Vary age, career stage, emphasized pain points, values, fears, communication style, and decision style within the shared evidence pool. Do not give two personas the same values, fears, or communication style.
 - MANDATORY: every persona must include ALL fields in the structure below with non-empty values. A persona missing any field is invalid.
 - Every persona MUST include 3-5 behavioralDimensions.
 - evidenceLinks MUST quote the user's response; set attribute to the persona fields the quote supports.

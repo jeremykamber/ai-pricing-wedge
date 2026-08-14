@@ -12,6 +12,18 @@ import { streamObject } from "ai";
 import { PricingLocation } from "@/domain/ports/LlmServicePort";
 import { AnalysisLogger } from "@/infrastructure/AnalysisLogger";
 
+// Matches runs of CJK, Hangul, Kana, Cyrillic, Arabic, and Hebrew. Used to
+// catch personas or formatters that drift out of the report language (English).
+const NON_LATIN_RE = /[\u3040-\u30ff\u3400-\u4dbf\u4e00-\u9fff\uac00-\ud7af\u0600-\u06ff\u0590-\u05ff\u0400-\u04ff]{2,}/g;
+
+function detectNonLatin(text: string): string[] {
+  const found = new Set<string>();
+  for (const m of text.match(NON_LATIN_RE) ?? []) {
+    found.add(m.slice(0, 24));
+  }
+  return [...found];
+}
+
 export class VisionAnalysisAdapter {
     private promptCompiler: PersonaPromptCompiler;
     private ragStore: IdRagStore;
@@ -769,6 +781,8 @@ Convert this into a structured PricingAnalysis JSON object. Return ONLY the JSON
 Each bullet should be one sentence, capturing the most important finding.
 Focus on: what the persona liked, what concerned them, and their overall recommendation.
 
+Write all bullets in English.
+
 Format: Return ONLY a JSON array of strings. No preamble. Example: ["Bullet 1", "Bullet 2", "Bullet 3"]`;
     }
 
@@ -844,8 +858,13 @@ ${ragContextString ? `<<RETRIEVED MEMORY>>\n${ragContextString}\n` : ""}
 
 <<ARTIFACT CONTEXT>>
 You are looking at a user experience — a page, a flow, or a design. You have been provided with:
-1. A screenshot of what the user sees.
-2. A factual summary of the content.
+1. A screenshot of what a user sees on first load.
+2. A factual summary of the page's full content — including content that may be hidden behind interactions you cannot perform (expandable FAQs, dropdowns, menus, modals, pagination).
+
+Treat the summary as the page's full content: if it mentions something not visible in the screenshot, that content exists but is behind an interaction. If you cannot tell whether something is present (for example, whether an FAQ question has an answer), say you couldn't verify it — do not claim it is absent. Only react to details you can actually see or that appear in the summary; do not invent specifics.
+
+<<LANGUAGE>>
+Write everything in English, even if the artifact or the persona's background suggests another language.
 
 <<BUSINESS CONTEXT>>
 The creator of this artifact wants to accomplish: ${businessGoal}
@@ -896,8 +915,13 @@ ${ragContextString ? `<<RETRIEVED MEMORY>>\n${ragContextString}\n` : ""}
 
 <<ARTIFACT CONTEXT>>
 You are looking at a user experience — a page, a flow, or a design. You have been provided with:
-1. A screenshot of what the user sees.
-2. A factual summary of the content.
+1. A screenshot of what a user sees on first load.
+2. A factual summary of the page's full content — including content that may be hidden behind interactions you cannot perform (expandable FAQs, dropdowns, menus, modals, pagination).
+
+Treat the summary as the page's full content: if it mentions something not visible in the screenshot, that content exists but is behind an interaction. If you cannot tell whether something is present (for example, whether an FAQ question has an answer), say you couldn't verify it — do not claim it is absent. Only react to details you can actually see or that appear in the summary; do not invent specifics.
+
+<<LANGUAGE>>
+Write everything in English, even if the artifact or the persona's background suggests another language.
 
 <<BUSINESS CONTEXT>>
 The creator of this artifact wants to accomplish: ${businessGoal}
@@ -954,6 +978,7 @@ CRITICAL RULES — Follow these exactly:
 8. researchQuestionAnswer: describe what evidence was observed from THIS persona only, not what the company should do. Write in first person as the persona.
 9. overview: one paragraph capturing the single most important takeaway from THIS persona's experience.
 10. Do NOT use any persona name (neither this persona's name nor any other persona's name) anywhere in the output. The report is automatically associated with the correct persona by the system.
+11. Write ALL output in English. If the raw reasoning contains another language, translate it to English.
 
 Follow these rules strictly. Findings describe observed behavior, not inferred psychology.`;
     }
@@ -1125,6 +1150,13 @@ Convert this into a structured PersonaResponse JSON object. Return ONLY the JSON
 
         if (!responseObj) {
             throw new Error(`formatPersonaResponse returned null for "${persona.name}"`);
+        }
+
+        const nonLatinFields = detectNonLatin(JSON.stringify(responseObj));
+        if (nonLatinFields.length > 0) {
+            log?.warn("VisionAnalysisAdapter", `Non-English output detected for "${persona.name}"`, {
+                samples: nonLatinFields.slice(0, 3),
+            });
         }
 
         log?.info("VisionAnalysisAdapter", `formatPersonaResponse completed for "${persona.name}"`, {
@@ -1437,6 +1469,7 @@ CRITICAL RULES:
 3. Do NOT assign confidence (computed externally).
 4. Do NOT make recommendations.
 5. Do NOT use persona traits as causal explanations.
+6. Write all output in English.
 
 Return a JSON array of { observation: string, evidence: string, impact: string }`;
 
@@ -1475,6 +1508,7 @@ Your job: Identify where personas had OPPOSING reactions to the same thing. A di
 If most personas agreed on everything, return an empty array.
 
 CRITICAL: Do NOT reference individual persona names. Use group language.
+Write all output in English.
 
 Return a JSON array of { topic: string, split: [{ view: string, personaCount: number }], significance: "High" | "Medium" | "Low" }`;
 
@@ -1508,6 +1542,7 @@ Return a JSON array of { topic: string, split: [{ view: string, personaCount: nu
 Your job: Identify the 2-3 biggest friction points that MULTIPLE personas experienced. A friction point is something that confused, frustrated, or stopped personas.
 
 CRITICAL: Do NOT reference individual persona names. Use group language.
+Write all output in English.
 
 Return a JSON array of strings.`;
 

@@ -7,10 +7,11 @@ import { useRouter } from 'next/navigation'
 import { getSimulationResultAction } from '@/actions/getSimulationResult'
 import { getProgressAction } from '@/actions/getProgress'
 import { StepIndicator } from '@/components/custom/StepIndicator'
-import { ArrowLeftIcon, ClockIcon, CheckCircleIcon, XCircleIcon, ThumbsUpIcon, ThumbsDownIcon, AlertTriangleIcon, ChevronDownIcon, ChevronRightIcon, UsersIcon, MessageCircleIcon } from 'lucide-react'
+import { ArrowLeftIcon, ClockIcon, CheckCircleIcon, XCircleIcon, AlertTriangleIcon, ChevronDownIcon, ChevronRightIcon, UsersIcon, MessageCircleIcon } from 'lucide-react'
 import type { Persona } from '@/domain/entities/Persona'
 import type { PersonaResponse } from '@/domain/entities/PersonaResponse'
 import type { MajorFinding } from '@/domain/entities/MajorFinding'
+import type { StageSentiment, StageOutcome } from '@/domain/entities/StageJourney'
 import { computeSynthesis } from '@/ui/dashboard/utils/computeSynthesis'
 import { resolveChatPersona } from '@/ui/dashboard/utils/resolveChatPersona'
 import { PersonaChat } from '@/ui/dashboard/components/chat/PersonaChat'
@@ -27,6 +28,32 @@ function getCurrentStep(step?: string): number {
   if (step === 'INTAKE') return 1
   if (step === 'ANALYZING') return 2
   return 0
+}
+
+// Journey dots encode how the persona FELT at each stage; the outcome badge
+// encodes whether they progressed. Two separate axes — a persona can stop with
+// positive feelings, so color alone would mislead.
+const SENTIMENT_DOT: Record<StageSentiment, string> = {
+  positive: 'bg-green-500',
+  neutral: 'bg-amber-500',
+  negative: 'bg-red-500',
+}
+
+const OUTCOME_META: Record<StageOutcome, { label: string; icon: typeof CheckCircleIcon; className: string }> = {
+  succeeded: { label: 'Passed', icon: CheckCircleIcon, className: 'text-green-600 bg-green-500/10 border-green-500/20' },
+  blocked: { label: 'Blocked', icon: AlertTriangleIcon, className: 'text-amber-600 bg-amber-500/10 border-amber-500/20' },
+  stopped: { label: 'Stopped', icon: XCircleIcon, className: 'text-red-600 bg-red-500/10 border-red-500/20' },
+}
+
+function StageOutcomeBadge({ outcome }: { outcome: StageOutcome }) {
+  const meta = OUTCOME_META[outcome]
+  const Icon = meta.icon
+  return (
+    <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-sm text-[10px] font-semibold border ${meta.className}`}>
+      <Icon className="h-2.5 w-2.5" />
+      {meta.label}
+    </span>
+  )
 }
 
 export default function SimulationDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -541,9 +568,7 @@ function CompletedView({
                   {analysis.customerJourney && (
                     <div className="flex gap-1">
                       {analysis.customerJourney.map((s) => (
-                        <span key={s.stage} className={`h-2 w-2 rounded-full ${
-                          s.outcome === 'succeeded' ? 'bg-green-500' : s.outcome === 'blocked' ? 'bg-amber-500' : 'bg-red-500'
-                        }`} title={s.stage} />
+                        <span key={s.stage} className={`h-2 w-2 rounded-full ${SENTIMENT_DOT[s.sentiment]}`} title={`${s.stage} — ${s.outcome}`} />
                       ))}
                     </div>
                   )}
@@ -574,18 +599,21 @@ function CompletedView({
                   {analysis.customerJourney?.length > 0 && (
                     <div className="flex flex-col gap-2">
                       <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Journey</p>
+                      <div className="flex items-center gap-3 text-[10px] text-muted-foreground">
+                        <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-green-500" /> Felt positive</span>
+                        <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-amber-500" /> Neutral</span>
+                        <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-red-500" /> Felt negative</span>
+                        <span className="text-muted-foreground/60">· badge = whether they progressed</span>
+                      </div>
                       <div className="flex flex-col gap-1.5">
                         {analysis.customerJourney.map((stage) => (
                           <div key={stage.stage} className="rounded-lg border border-border bg-card/50 p-2.5">
                             <div className="flex items-center gap-2 mb-0.5">
-                              <span className={`h-2 w-2 rounded-full ${
-                                stage.outcome === 'succeeded' ? 'bg-green-500' : stage.outcome === 'blocked' ? 'bg-amber-500' : 'bg-red-500'
-                              }`} />
+                              <span className={`h-2 w-2 rounded-full ${SENTIMENT_DOT[stage.sentiment]}`} />
                               <span className="text-xs font-semibold uppercase tracking-wider">
                                 {stage.stage}
                               </span>
-                              {stage.sentiment === 'positive' && <ThumbsUpIcon className="h-3 w-3 text-green-500" />}
-                              {stage.sentiment === 'negative' && <ThumbsDownIcon className="h-3 w-3 text-red-500" />}
+                              <StageOutcomeBadge outcome={stage.outcome} />
                             </div>
                             <p className="text-xs text-foreground/80">{stage.description}</p>
                           </div>
