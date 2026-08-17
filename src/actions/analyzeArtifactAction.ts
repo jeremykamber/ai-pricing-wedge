@@ -120,6 +120,7 @@ async function runLocally(
                                 step: progress.step,
                                 completedAnalyses: progress.completedCount,
                                 totalAnalyses: personas.length,
+                                title: progress.title,
                             });
                         }
                         try { stream.update({ ...progress, requestId: id }); } catch {}

@@ -183,6 +183,7 @@ export function useAnalysisFlow(onSuccess?: (analyses: PersonaResponse[]) => voi
               currentStep: update.step as any,
               completedAnalyses: update.completedCount,
               ...(update.screenshot ? { screenshot: update.screenshot } : {}),
+              ...(update.title ? { name: update.title } : {}),
             })
 
             if (mountedRef.current) {
@@ -205,6 +206,7 @@ export function useAnalysisFlow(onSuccess?: (analyses: PersonaResponse[]) => voi
                 useSimulationStore.getState().updateSimulation(simulationId, {
                   currentStep: (p.step as any) ?? undefined,
                   completedAnalyses: p.completedCount ?? p.completedAnalyses,
+                  ...(p.title ? { name: p.title } : {}),
                 })
               }
             } catch { /* non-critical */ }

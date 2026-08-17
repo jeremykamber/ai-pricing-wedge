@@ -158,6 +158,7 @@ async function runAnalysis(
                             step: progress.step,
                             completedAnalyses: progress.completedCount,
                             totalAnalyses: personas.length,
+                            title: progress.title,
                         });
                     }
                 }

@@ -29,6 +29,8 @@ export interface ProgressState {
   totalCount?: number;
   error?: string;
   hasCompleted?: boolean;
+  /** AI-generated simulation title (nice-to-have; applied to the name). */
+  title?: string;
 }
 
 export async function storeProgress(runId: string, state: ProgressState): Promise<void> {
