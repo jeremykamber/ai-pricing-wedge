@@ -28,6 +28,7 @@ interface PersonaStoreState {
   addBatch: (batch: PersonaBatch) => void
   setActiveBatch: (id: string | null) => void
   removeBatch: (id: string) => void
+  updateBatchLabel: (id: string, label: string) => void
   removePersona: (batchId: string, personaId: string) => void
   getActiveBatch: () => PersonaBatch | undefined
   /** Insert placeholder personas into the active batch after the reference persona */
@@ -60,6 +61,13 @@ export const usePersonaStore = create<PersonaStoreState>()(
     set((state) => ({
       batches: state.batches.filter((b) => b.id !== id),
       activeBatchId: state.activeBatchId === id ? null : state.activeBatchId,
+    })),
+
+  updateBatchLabel: (id, label) =>
+    set((state) => ({
+      batches: state.batches.map((b) =>
+        b.id === id ? { ...b, label } : b,
+      ),
     })),
 
   removePersona: (batchId, personaId) =>

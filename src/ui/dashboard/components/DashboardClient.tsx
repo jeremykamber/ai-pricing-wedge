@@ -15,6 +15,7 @@ import type { VariationFormData } from '@/components/custom/SimilarPersonaDialog
 import { LayersIcon, SparklesIcon, PlayIcon, PlusIcon, ChevronDownIcon, FileTextIcon, PenIcon, ClockIcon, XIcon } from 'lucide-react'
 import Link from 'next/link'
 import { FlowDialog } from '@/components/custom/FlowDialog'
+import { InlineRenamable } from '@/components/custom/InlineRenamable'
 import { Progress } from '@/components/ui/progress'
 import {
     DropdownMenu,
@@ -43,6 +44,7 @@ export function DashboardClient() {
     const updatePersona = usePersonaStore((s) => s.updatePersona)
     const removePersona = usePersonaStore((s) => s.removePersona)
     const removeBatch = usePersonaStore((s) => s.removeBatch)
+    const updateBatchLabel = usePersonaStore((s) => s.updateBatchLabel)
     const personaFlow = usePersonaFlow()
 
     // True when a generation is actively running (not completed or errored).
@@ -345,7 +347,11 @@ export function DashboardClient() {
                                             <LayersIcon className="h-5 w-5 text-primary" />
                                         </div>
                                         <div className="flex flex-col gap-0.5 min-w-0 flex-1">
-                                            <span className="font-semibold truncate">{batch.label}</span>
+                                            <InlineRenamable
+                                                value={batch.label}
+                                                onRename={(label) => updateBatchLabel(batch.id, label)}
+                                                className="min-w-0"
+                                            />
                                             <span className="text-sm text-muted-foreground">
                                                 {batch.personas.length} personas ·{' '}
                                                 {batch.source === 'interviews'
@@ -382,7 +388,10 @@ export function DashboardClient() {
                                 <div className="flex flex-col gap-1">
                                     <div className="flex items-center gap-3">
                                         <h2 className="text-xl font-bold tracking-tight">
-                                            {activeBatch.label}
+                                            <InlineRenamable
+                                                value={activeBatch.label}
+                                                onRename={(label) => updateBatchLabel(activeBatch.id, label)}
+                                            />
                                         </h2>
                                         {batchSimulationCount > 0 && (
                                             <Link

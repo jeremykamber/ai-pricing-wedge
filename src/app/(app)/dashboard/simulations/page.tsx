@@ -13,10 +13,12 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { InlineRenamable } from '@/components/custom/InlineRenamable'
 
 function SimulationCard({ simulation }: { simulation: import('@/domain/entities/Simulation').Simulation }) {
   const router = useRouter()
   const removeSimulation = useSimulationStore((s) => s.removeSimulation)
+  const updateSimulation = useSimulationStore((s) => s.updateSimulation)
 
   const statusConfig = {
     IN_PROGRESS: { label: 'In Progress', icon: ClockIcon, class: 'text-blue-500 bg-blue-500/10 border-blue-500/20' },
@@ -36,7 +38,11 @@ function SimulationCard({ simulation }: { simulation: import('@/domain/entities/
         <div className="flex items-start justify-between gap-4">
           <div className="flex flex-col gap-2 min-w-0 flex-1">
             <div className="flex items-center gap-3">
-              <h3 className="font-semibold truncate">{simulation.name}</h3>
+              <InlineRenamable
+                value={simulation.name}
+                onRename={(name) => updateSimulation(simulation.id, { name })}
+                className="min-w-0"
+              />
               <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium border ${statusConfig.class}`}>
                 <StatusIcon className="h-3 w-3" />
                 {statusConfig.label}
