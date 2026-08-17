@@ -298,6 +298,127 @@ export class LlmServiceImpl implements LlmServicePort {
         });
     }
 
+    /**
+     * One cheap vision-model call that turns the research context + the
+     * captured artifact into a short, specific simulation title. This is a
+     * nice-to-have: callers wrap it in try/catch and fall back to the heuristic
+     * name when the model is unavailable or the screenshot is too large.
+     */
+    async generateSimulationTitle(
+        context: {
+            businessGoal?: string;
+            researchQuestion?: string;
+            artifactUrl?: string;
+            pageSummary?: string;
+            screenshotBase64?: string;
+        },
+        options: { runId?: string } = {},
+    ): Promise<string> {
+        const { businessGoal, researchQuestion, artifactUrl, pageSummary, screenshotBase64 } = context;
+
+        const taskText = [
+            businessGoal ? `Business goal: ${businessGoal}` : null,
+            researchQuestion ? `Research question: ${researchQuestion}` : null,
+            artifactUrl ? `Target site: ${artifactUrl}` : null,
+            pageSummary ? `What's on the page: ${pageSummary.slice(0, 1200)}` : null,
+        ]
+            .filter(Boolean)
+            .join("\n");
+
+        const instruction = [
+            "Write a short, human-friendly title for a UX research simulation.",
+            "Base it on the research context and the artifact shown below.",
+            "Rules:",
+            "- Return ONLY the title text — no quotes, no prefix, no explanation.",
+            "- At most 8 words.",
+            "- Be specific to this research, not generic.",
+        ].join("\n");
+
+        const content = [
+            { type: "text", text: `${instruction}\n\n${taskText}` },
+            ...(screenshotBase64
+                ? [
+                      {
+                          type: "image_url",
+                          image_url: {
+                              url: `data:image/png;base64,${screenshotBase64}`,
+                          },
+                      },
+                  ]
+                : []),
+        ];
+
+        const raw = await this.createChatCompletion(
+            [
+                { role: "system", content: "You write concise, specific titles for user research simulations." },
+                { role: "user", content },
+            ],
+            {
+                model: this.visionModel,
+                temperature: 0.4,
+                max_tokens: 40,
+                purpose: "simulation-title",
+                runId: options.runId,
+            },
+        );
+
+        const title = raw.replace(/^["'\s]+|["'\s]+$/g, "").slice(0, 80);
+        return title || "Untitled simulation";
+    }
+
+    /**
+     * One cheap text call that names a persona batch from who its personas are
+     * (role/segment/goal). Text-only on the small model — no vision needed.
+     * Nice-to-have: callers fall back to the default label on failure.
+     */
+    async generateBatchTitle(
+        personas: Persona[],
+        context: {
+            source?: 'description' | 'interviews';
+            description?: string;
+            transcriptCount?: number;
+        } = {},
+        options: { runId?: string } = {},
+    ): Promise<string> {
+        const summary = personas
+            .slice(0, 12)
+            .map((p, i) => {
+                const backstory = p.backstory ? ` — "${p.backstory.slice(0, 100)}"` : "";
+                return `${i + 1}. ${p.name}: ${p.occupation || "unknown role"}${backstory}`;
+            })
+            .join("\n");
+
+        const sourceLine =
+            context.source === "interviews"
+                ? `Derived from ${context.transcriptCount ?? personas.length} interview transcript(s).`
+                : context.description
+                    ? `Based on the description: ${context.description.slice(0, 300)}`
+                    : "Generated from a persona description.";
+
+        const instruction = [
+            "You are naming a batch of AI user-test personas.",
+            "Write ONE short, specific label (3-8 words) capturing who these people",
+            "are (their shared role, segment, or goal) — not the product or the test.",
+            "Return ONLY the label text — no quotes, no prefix, no explanation.",
+        ].join("\n");
+
+        const raw = await this.createChatCompletion(
+            [
+                { role: "system", content: "You write concise, evocative labels for groups of user personas." },
+                { role: "user", content: `${instruction}\n\n${sourceLine}\n\nPersonas:\n${summary}` },
+            ],
+            {
+                model: this.smallTextModel,
+                temperature: 0.5,
+                max_tokens: 30,
+                purpose: "batch-title",
+                runId: options.runId,
+            },
+        );
+
+        return raw.replace(/^["'\s]+|["'\s]+$/g, "").slice(0, 60);
+    }
+
     public async *createChatCompletionStream(
         messages: OpenAI.Chat.ChatCompletionMessageParam[],
         options: {

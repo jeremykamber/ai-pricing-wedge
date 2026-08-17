@@ -376,6 +376,39 @@ export interface LlmServicePort {
     ): Promise<string>;
 
     /**
+     * Generates a short, human-friendly title for a simulation from the research
+     * context and the captured artifact. Uses the cheap vision model so it can
+     * "see" the artifact (screenshot + page summary) the same way the analysis
+     * does. Nice-to-have: callers must tolerate failure and fall back to the
+     * heuristic name (generateSimulationName).
+     */
+    generateSimulationTitle(
+        context: {
+            businessGoal?: string;
+            researchQuestion?: string;
+            artifactUrl?: string;
+            pageSummary?: string;
+            screenshotBase64?: string;
+        },
+        options?: { runId?: string },
+    ): Promise<string>;
+
+    /**
+     * Generates a short label for a persona batch from the personas' basic info
+     * (name, occupation, backstory). Text-only and cheap — no vision needed.
+     * Nice-to-have: callers must tolerate failure and fall back to the default.
+     */
+    generateBatchTitle(
+        personas: Persona[],
+        context: {
+            source?: 'description' | 'interviews';
+            description?: string;
+            transcriptCount?: number;
+        },
+        options?: { runId?: string },
+    ): Promise<string>;
+
+    /**
      * Rationalizes personas using psychological scaffolds (PB&J).
      * Replaces enhancePersonasWithPbj — generates causal rationales
      * connecting Big Five profiles to values, fears, and decision styles.
