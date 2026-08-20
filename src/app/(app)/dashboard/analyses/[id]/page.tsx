@@ -16,6 +16,7 @@ import { computeSynthesis } from '@/ui/dashboard/utils/computeSynthesis'
 import { resolveChatPersona } from '@/ui/dashboard/utils/resolveChatPersona'
 import { PersonaChat } from '@/ui/dashboard/components/chat/PersonaChat'
 import { PanelChat } from '@/ui/dashboard/components/chat/PanelChat'
+import { InlineRenamable } from '@/components/custom/InlineRenamable'
 
 const ANALYSIS_STEPS = [
   { title: 'Starting', description: 'Initializing analysis' },
@@ -202,7 +203,11 @@ export default function AnalysisDetailPage({ params }: { params: Promise<{ id: s
       {/* Title area */}
       <div className="flex flex-col gap-2 border-b border-border/40 pb-6">
         <div className="flex items-center gap-3">
-          <h1 className="text-2xl font-bold tracking-tight">{analysis.name}</h1>
+          <InlineRenamable
+            value={analysis.name}
+            onRename={(name) => updateAnalysis(analysis.id, { name })}
+            className="text-2xl"
+          />
           <StatusBadge status={analysis.status} />
         </div>
         <p className="text-sm text-muted-foreground">

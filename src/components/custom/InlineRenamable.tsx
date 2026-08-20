@@ -39,6 +39,7 @@ export function InlineRenamable({
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
           onKeyDown={(e) => {
+            e.stopPropagation()
             if (e.key === 'Enter') commit()
             if (e.key === 'Escape') setEditing(false)
           }}

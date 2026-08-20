@@ -31,9 +31,17 @@ function AnalysisCard({ analysis }: { analysis: import('@/domain/entities/Artifa
 
   return (
     <div className="relative group">
-      <button
+      <div
+        role="button"
+        tabIndex={0}
         onClick={() => router.push(`/dashboard/analyses/${analysis.id}`)}
-        className="w-full text-left rounded-lg border border-border bg-card p-5 transition-all hover:border-border/80 hover:shadow-sm"
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault()
+            router.push(`/dashboard/analyses/${analysis.id}`)
+          }
+        }}
+        className="w-full text-left rounded-lg border border-border bg-card p-5 transition-all hover:border-border/80 hover:shadow-sm cursor-pointer"
       >
         <div className="flex items-start justify-between gap-4">
           <div className="flex flex-col gap-2 min-w-0 flex-1">
@@ -102,7 +110,7 @@ function AnalysisCard({ analysis }: { analysis: import('@/domain/entities/Artifa
         {analysis.error && (
           <p className="mt-2 text-xs text-destructive bg-destructive/10 p-2 rounded">{analysis.error}</p>
         )}
-      </button>
+      </div>
       <button
         type="button"
         onClick={(e) => {
