@@ -7,7 +7,9 @@ import { useRouter } from 'next/navigation'
 import { getAnalysisResultAction } from '@/actions/getAnalysisResult'
 import { getProgressAction } from '@/actions/getProgress'
 import { StepIndicator } from '@/components/custom/StepIndicator'
-import { ArrowLeftIcon, ClockIcon, CheckCircleIcon, XCircleIcon, AlertTriangleIcon, ChevronDownIcon, ChevronRightIcon, UsersIcon, MessageCircleIcon } from 'lucide-react'
+import { ArrowLeftIcon, ClockIcon, CheckCircleIcon, XCircleIcon, AlertTriangleIcon, ChevronDownIcon, ChevronRightIcon, UsersIcon, MessageCircleIcon, DownloadIcon, Loader2Icon } from 'lucide-react'
+import { toast } from 'sonner'
+import { exportAnalysisAsPdf } from '@/lib/exportPdf'
 import type { Persona } from '@/domain/entities/Persona'
 import type { PersonaResponse } from '@/domain/entities/PersonaResponse'
 import type { MajorFinding } from '@/domain/entities/MajorFinding'
@@ -64,8 +66,21 @@ export default function AnalysisDetailPage({ params }: { params: Promise<{ id: s
   const updateAnalysis = useAnalysisStore((s) => s.updateAnalysis)
   const removeAnalysis = useAnalysisStore((s) => s.removeAnalysis)
   const [isHydrated, setIsHydrated] = useState(false)
+  const [isExporting, setIsExporting] = useState(false)
 
-  // Zustand persist hydrates from localStorage on the client after mount.
+  const handleExportPdf = async () => {
+    if (isExporting || !analysis) return
+    setIsExporting(true)
+    try {
+      await exportAnalysisAsPdf(analysis)
+      toast.success('PDF report downloaded')
+    } catch (err) {
+      console.error('Failed to export PDF:', err)
+      toast.error('Failed to generate PDF report. Please try again.')
+    } finally {
+      setIsExporting(false)
+    }
+  }
   // During SSR there's no localStorage → store is always empty → getAnalysis
   // returns undefined. Without hydration tracking, the server renders the
   // "not found" fallback while the client (after rehydration) renders the
@@ -201,22 +216,41 @@ export default function AnalysisDetailPage({ params }: { params: Promise<{ id: s
       </div>
 
       {/* Title area */}
-      <div className="flex flex-col gap-2 border-b border-border/40 pb-6">
-        <div className="flex items-center gap-3">
-          <InlineRenamable
-            value={analysis.name}
-            onRename={(name) => updateAnalysis(analysis.id, { name })}
-            className="text-2xl"
-          />
-          <StatusBadge status={analysis.status} />
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-border/40 pb-6">
+        <div className="flex flex-col gap-2">
+          <div className="flex items-center gap-3">
+            <InlineRenamable
+              value={analysis.name}
+              onRename={(name) => updateAnalysis(analysis.id, { name })}
+              className="text-2xl"
+            />
+            <StatusBadge status={analysis.status} />
+          </div>
+          <p className="text-sm text-muted-foreground">
+            {analysis.url} · {analysis.personaCount} personas
+            {analysis.batchName && ` · Batch: ${analysis.batchName}`}
+            {analysis.createdAt && ` · Started ${new Date(analysis.createdAt).toLocaleString()}`}
+          </p>
+          {analysis.error && (
+            <p className="text-sm text-destructive font-medium bg-destructive/10 p-3 rounded-md mt-2">{analysis.error}</p>
+          )}
         </div>
-        <p className="text-sm text-muted-foreground">
-          {analysis.url} · {analysis.personaCount} personas
-          {analysis.batchName && ` · Batch: ${analysis.batchName}`}
-          {analysis.createdAt && ` · Started ${new Date(analysis.createdAt).toLocaleString()}`}
-        </p>
-        {analysis.error && (
-          <p className="text-sm text-destructive font-medium bg-destructive/10 p-3 rounded-md mt-2">{analysis.error}</p>
+
+        {analysis.status === 'COMPLETED' && (
+          <div className="flex items-center gap-3 self-start md:self-auto">
+            <button
+              onClick={handleExportPdf}
+              disabled={isExporting}
+              className="inline-flex h-9 items-center justify-center gap-2 rounded-md bg-secondary px-4 text-xs font-semibold text-secondary-foreground transition-colors hover:bg-secondary/80 disabled:opacity-50 disabled:cursor-not-allowed border border-border/60 shadow-xs"
+            >
+              {isExporting ? (
+                <Loader2Icon className="h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <DownloadIcon className="h-3.5 w-3.5" />
+              )}
+              {isExporting ? 'Generating PDF...' : 'Download PDF Report'}
+            </button>
+          </div>
         )}
       </div>
 
