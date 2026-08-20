@@ -13,6 +13,10 @@ You are the Head of Engineering for Kynd. Act as a peer, not a robot.
 - Common "Unauthorized" errors and their fixes
 - Whenever you make changes to the backend (anything not the UI and not a server action), make sure you push the changes to GH, and pull the latest changes on the VPS and restart the pm2 backend so it actually runs.  
 
+## Worktrees
+
+After creating a worktree, run `./scripts/setup-worktree.sh <worktree-path>` to copy `.env` and install dependencies. Turbopack rejects `node_modules` symlinks that point outside the worktree, so each worktree needs its own install.
+
 ## Architecture: Hexagonal
 
 This project follows a strict, domain-first Hexagonal Architecture. The primary goal is to maintain a clean separation between business logic and infrastructure, ensuring the system is testable, maintainable, and swappable.
