@@ -113,11 +113,11 @@ describe('Dashboard Navigation — E2E', { timeout: TEST_TIMEOUT }, () => {
     await page.locator('a[href="/dashboard/interviews"]').first().click();
     await page.waitForURL('**/dashboard/interviews', { timeout: 10_000 });
 
-    // Interviews → Simulations
-    await page.locator('a[href="/dashboard/simulations"]').first().click();
-    await page.waitForURL('**/dashboard/simulations', { timeout: 10_000 });
+    // Interviews → Analyses
+    await page.locator('a[href="/dashboard/analyses"]').first().click();
+    await page.waitForURL('**/dashboard/analyses', { timeout: 10_000 });
 
-    // Simulations → back to Personas via sidebar button
+    // Analyses → back to Personas via sidebar button
     await page.locator('nav button:has-text("Personas")').click();
     await page.waitForURL('**/dashboard', { timeout: 10_000 });
   });

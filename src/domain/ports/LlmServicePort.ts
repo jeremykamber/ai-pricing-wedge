@@ -40,7 +40,7 @@ export interface PricingLocation {
  *
  * `PricingAnalysis` is the legacy pricing-era type (kept for backward
  * compatibility with the old results flow); `PersonaResponse` is the modern
- * artifact-agnostic type produced by simulations — it is what "chat with a
+ * artifact-agnostic type produced by analyses — it is what "chat with a
  * persona about what they saw" is grounded in.
  */
 export type ChatAnalysisContext = PricingAnalysis | PersonaResponse | null;
@@ -169,10 +169,10 @@ export interface LlmServicePort {
 
     /**
      * Chat with the whole cohort at once (panel synthesis). Grounds the
-     * answer in every persona's simulation response plus the cross-persona
+     * answer in every persona's analysis response plus the cross-persona
      * synthesis, so questions like "what would our users think of X?" get an
      * evidence-backed synthesis rather than a single persona's take.
-     * @param responses All persona responses from the simulation.
+     * @param responses All persona responses from the analysis.
      * @param synthesis The cross-persona synthesis (may be null if unavailable).
      * @param message The user's message.
      * @param history The chat history.

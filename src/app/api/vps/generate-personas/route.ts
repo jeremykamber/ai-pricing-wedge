@@ -89,8 +89,8 @@ async function runGeneration(runId: string, personaDescription: string, count: n
       storeProgress(runId, {
         step: progress.step,
         streamingText: progress.streamingText,
-        completedAnalyses: progress.completedCount ?? progress.completedSubSteps,
-        totalAnalyses: progress.totalCount ?? progress.totalSubSteps,
+        completedResponses: progress.completedCount ?? progress.completedSubSteps,
+        totalResponses: progress.totalCount ?? progress.totalSubSteps,
       });
     }, count, undefined, generationMode);
 

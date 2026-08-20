@@ -4,12 +4,12 @@
 // Server-side progress store for long-running VPS analyses.
 // The RSC stream (readStreamableValue) uses an in-memory promise chain that
 // dies when the user navigates away from the dashboard. Without a persistent
-// store, the simulation stays IN_PROGRESS forever because the DONE event is
+// store, the analysis stays IN_PROGRESS forever because the DONE event is
 // never consumed by the disconnected client.
 //
 // This store acts as a side-channel: progress callbacks in the analysis
-// pipeline write here, and the simulation detail page polls for updates
-// after navigation. Combined with the SimulationResultStore (which captures
+// pipeline write here, and the analysis detail page polls for updates
+// after navigation. Combined with the AnalysisResultStore (which captures
 // the final analyses), this ensures progress visibility survives navigation.
 //
 // IMPORTANT: Do not import types from other modules. "use server" files are
@@ -23,8 +23,8 @@ export interface ProgressState {
   step?: string;
   streamingText?: string;
   personaName?: string;
-  completedAnalyses?: number;
-  totalAnalyses?: number;
+  completedResponses?: number;
+  totalResponses?: number;
   completedCount?: number;
   totalCount?: number;
   error?: string;
@@ -37,7 +37,7 @@ export async function storeProgress(runId: string, state: ProgressState): Promis
     Object.entries(state).filter(([_, v]) => v !== undefined)
   );
   progressMap.set(runId, { ...existing, ...clean });
-  console.log(`[PROGRESS_STORE] Saved for ${runId}: step=${state.step ?? existing.step ?? '?'}, completed=${state.completedAnalyses ?? existing.completedAnalyses ?? '?'}/${state.totalAnalyses ?? existing.totalAnalyses ?? '?'}, hasCompleted=${!!state.hasCompleted}, error=${state.error ?? 'none'}`);
+  console.log(`[PROGRESS_STORE] Saved for ${runId}: step=${state.step ?? existing.step ?? '?'}, completed=${state.completedResponses ?? existing.completedResponses ?? '?'}/${state.totalResponses ?? existing.totalResponses ?? '?'}, hasCompleted=${!!state.hasCompleted}, error=${state.error ?? 'none'}`);
 }
 
 export async function storeCompleted(runId: string, errorMsg?: string): Promise<void> {
@@ -55,7 +55,7 @@ export async function getProgressAction(runId: string): Promise<{
       console.log(`[PROGRESS_POLL] ${runId}: NOT FOUND (map size=${progressMap.size})`);
       return { found: false };
     }
-    console.log(`[PROGRESS_POLL] ${runId}: FOUND step=${p.step ?? '?'}, completed=${p.completedAnalyses ?? '?'}/${p.totalAnalyses ?? '?'}, hasCompleted=${!!p.hasCompleted}, error=${p.error ?? 'none'}`);
+    console.log(`[PROGRESS_POLL] ${runId}: FOUND step=${p.step ?? '?'}, completed=${p.completedResponses ?? '?'}/${p.totalResponses ?? '?'}, hasCompleted=${!!p.hasCompleted}, error=${p.error ?? 'none'}`);
     return { found: true, progress: p };
   }
 

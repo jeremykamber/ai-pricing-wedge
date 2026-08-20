@@ -37,14 +37,14 @@ const StageJourneySchema = z.object({
 
 const MajorFindingSchema = z.object({
   observation: z.string().describe("What happened — a specific behavior or reaction observed."),
-  evidence: z.string().describe("What the persona experienced that supports this observation. Grounded in the simulation."),
+  evidence: z.string().describe("What the persona experienced that supports this observation. Grounded in the analysis."),
   impact: z.string().describe("Why this matters — the downstream effect on the persona's experience."),
 });
 
 export const PersonaResponseSchema = z.object({
   overview: z.string().describe("High-level summary of this persona's response to the artifact, covering their full journey and key takeaways."),
   customerJourney: z.array(StageJourneySchema).describe("The persona's experience across all five cognitive stages in order."),
-  researchQuestionAnswer: z.string().describe("Direct answer to the research question, grounded in evidence from this persona's simulation."),
+  researchQuestionAnswer: z.string().describe("Direct answer to the research question, grounded in evidence from this persona's analysis."),
   majorFindings: z.array(MajorFindingSchema).describe("Key findings from this persona's response. Each finding has an observation, evidence, impact, and confidence level."),
   pointsOfFriction: z.array(z.string()).describe("Moments where the persona failed to progress through the cognitive journey — what confused, frustrated, or stopped them."),
   unansweredQuestions: z.array(z.string()).describe("Questions the persona still had after interacting with the artifact. These often reveal missing information."),

@@ -210,8 +210,8 @@
     }
 }
 
-/* Simulation toast — one-shot ring flash on mount */
-@keyframes sim-ring-fade {
+/* Analysis toast — one-shot ring flash on mount */
+@keyframes analysis-ring-fade {
     0% {
         opacity: 1;
     }

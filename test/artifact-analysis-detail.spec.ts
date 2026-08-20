@@ -1,5 +1,5 @@
 // @vitest-environment node
-// Completed artifact-analysis rendering, verified by seeding the simulation
+// Completed artifact-analysis rendering, verified by seeding the analysis
 // store (IndexedDB) with a full completed run. No live LLM calls — deterministic.
 
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
@@ -80,7 +80,7 @@ function buildSynthesis() {
 function buildPersistedState() {
   return JSON.stringify({
     state: {
-      simulations: [
+      analyses: [
         {
           id: SIM_ID,
           name: SIM_NAME,
@@ -90,19 +90,20 @@ function buildPersistedState() {
           personaNames: ['Sarah Chen', 'Marcus Lee'],
           createdAt: new Date().toISOString(),
           completedAt: new Date().toISOString(),
-          completedAnalyses: 2,
-          analyses: [buildPersonaResponse('r-1', 'Sarah Chen', 'Senior Engineer'), buildPersonaResponse('r-2', 'Marcus Lee', 'Product Manager')],
+          completedResponses: 2,
+          totalResponses: 2,
+          responses: [buildPersonaResponse('r-1', 'Sarah Chen', 'Senior Engineer'), buildPersonaResponse('r-2', 'Marcus Lee', 'Product Manager')],
           synthesis: buildSynthesis(),
         },
       ],
-      dismissedSimulationIds: [],
+      dismissedAnalysisIds: [],
     },
-    version: 2,
+    version: 3,
   });
 }
 
 // idb-keyval default store: DB "keyval-store", store "keyval", key = storage name.
-async function seedSimulationStore(page: Page) {
+async function seedAnalysisStore(page: Page) {
   await page.addInitScript((seed) => {
     return new Promise<void>((resolve) => {
       const req = indexedDB.open('keyval-store');
@@ -114,7 +115,7 @@ async function seedSimulationStore(page: Page) {
       req.onsuccess = () => {
         const db = req.result;
         const tx = db.transaction('keyval', 'readwrite');
-        tx.objectStore('keyval').put(seed, 'simulation-storage');
+        tx.objectStore('keyval').put(seed, 'analysis-storage');
         tx.oncomplete = () => { db.close(); resolve(); };
         tx.onerror = () => { db.close(); resolve(); };
       };
@@ -145,17 +146,17 @@ afterAll(async () => {
 });
 
 describe('Artifact Analysis Detail — E2E', { timeout: TEST_TIMEOUT }, () => {
-  it('shows the empty state on the simulations list for a fresh user', async () => {
+  it('shows the empty state on the analyses list for a fresh user', async () => {
     const page = await browser.newPage({ viewport: { width: 1280, height: 900 } });
-    await page.goto(`${BASE_URL}/dashboard/simulations`, { waitUntil: 'networkidle', timeout: TEST_TIMEOUT });
+    await page.goto(`${BASE_URL}/dashboard/analyses`, { waitUntil: 'networkidle', timeout: TEST_TIMEOUT });
     expect(await isVisible(page, 'text=No analyses yet')).toBe(true);
     await page.close();
   });
 
-  it('lists a completed simulation from the seeded store', async () => {
+  it('lists a completed analysis from the seeded store', async () => {
     const page = await browser.newPage({ viewport: { width: 1280, height: 900 } });
-    await seedSimulationStore(page);
-    await page.goto(`${BASE_URL}/dashboard/simulations`, { waitUntil: 'networkidle', timeout: TEST_TIMEOUT });
+    await seedAnalysisStore(page);
+    await page.goto(`${BASE_URL}/dashboard/analyses`, { waitUntil: 'networkidle', timeout: TEST_TIMEOUT });
 
     expect(await isVisible(page, `text=${SIM_NAME}`)).toBe(true);
     await page.close();
@@ -163,8 +164,8 @@ describe('Artifact Analysis Detail — E2E', { timeout: TEST_TIMEOUT }, () => {
 
   it('renders the completed analysis with synthesis and per-persona reports', async () => {
     const page = await browser.newPage({ viewport: { width: 1280, height: 900 } });
-    await seedSimulationStore(page);
-    await page.goto(`${BASE_URL}/dashboard/simulations/${SIM_ID}`, { waitUntil: 'networkidle', timeout: TEST_TIMEOUT });
+    await seedAnalysisStore(page);
+    await page.goto(`${BASE_URL}/dashboard/analyses/${SIM_ID}`, { waitUntil: 'networkidle', timeout: TEST_TIMEOUT });
 
     // Executive synthesis
     expect(await isVisible(page, 'text=Completed: 2/2')).toBe(true);
@@ -178,15 +179,15 @@ describe('Artifact Analysis Detail — E2E', { timeout: TEST_TIMEOUT }, () => {
     expect(await isVisible(page, 'text=Sarah Chen')).toBe(true);
     expect(await isVisible(page, 'text=Marcus Lee')).toBe(true);
 
-    // Chat-after-simulation affordances
+    // Chat-after-analysis affordances
     expect(await isVisible(page, 'text=Ask the whole audience')).toBe(true);
     await page.close();
   });
 
   it('opens the panel chat and offers suggested questions', async () => {
     const page = await browser.newPage({ viewport: { width: 1280, height: 900 } });
-    await seedSimulationStore(page);
-    await page.goto(`${BASE_URL}/dashboard/simulations/${SIM_ID}`, { waitUntil: 'networkidle', timeout: TEST_TIMEOUT });
+    await seedAnalysisStore(page);
+    await page.goto(`${BASE_URL}/dashboard/analyses/${SIM_ID}`, { waitUntil: 'networkidle', timeout: TEST_TIMEOUT });
 
     await page.locator('button:has-text("Ask the whole audience")').first().click();
     expect(await isVisible(page, 'text=Ask the simulated users')).toBe(true);
@@ -197,8 +198,8 @@ describe('Artifact Analysis Detail — E2E', { timeout: TEST_TIMEOUT }, () => {
 
   it('expands a persona report and renders its overview', async () => {
     const page = await browser.newPage({ viewport: { width: 1280, height: 900 } });
-    await seedSimulationStore(page);
-    await page.goto(`${BASE_URL}/dashboard/simulations/${SIM_ID}`, { waitUntil: 'networkidle', timeout: TEST_TIMEOUT });
+    await seedAnalysisStore(page);
+    await page.goto(`${BASE_URL}/dashboard/analyses/${SIM_ID}`, { waitUntil: 'networkidle', timeout: TEST_TIMEOUT });
 
     await page.locator('button:has-text("Sarah Chen")').first().click();
     expect(await isVisible(page, 'text=Sarah Chen found the page clear but hesitated on price transparency.')).toBe(true);
@@ -208,8 +209,8 @@ describe('Artifact Analysis Detail — E2E', { timeout: TEST_TIMEOUT }, () => {
 
   it('renders the completed analysis on a mobile viewport without crashing', async () => {
     const page = await browser.newPage({ viewport: { width: 390, height: 844 } });
-    await seedSimulationStore(page);
-    await page.goto(`${BASE_URL}/dashboard/simulations/${SIM_ID}`, { waitUntil: 'networkidle', timeout: TEST_TIMEOUT });
+    await seedAnalysisStore(page);
+    await page.goto(`${BASE_URL}/dashboard/analyses/${SIM_ID}`, { waitUntil: 'networkidle', timeout: TEST_TIMEOUT });
 
     const pageErrors: string[] = [];
     page.on('pageerror', (err) => {
