@@ -326,12 +326,15 @@ export class LlmServiceImpl implements LlmServicePort {
             .join("\n");
 
         const instruction = [
-            "Write a short, human-friendly title for a UX research simulation.",
+            "Write a research question as the title for this UX simulation.",
             "Base it on the research context and the artifact shown below.",
             "Rules:",
-            "- Return ONLY the title text — no quotes, no prefix, no explanation.",
-            "- At most 8 words.",
-            "- Be specific to this research, not generic.",
+            "- Always a question — end with '?'",
+            "- Max 8 words.",
+            "- Drop articles when they don't add meaning ('Is pricing overwhelming?' not 'Is the pricing overwhelming?')",
+            "- No padding: skip 'Can you tell me', 'Would you say', 'Do you think'.",
+            "- Sound like a human researcher labeling their own study.",
+            "- Return ONLY the question — no quotes, no prefix, no explanation.",
         ].join("\n");
 
         const content = [
@@ -350,7 +353,7 @@ export class LlmServiceImpl implements LlmServicePort {
 
         const raw = await this.createChatCompletion(
             [
-                { role: "system", content: "You write concise, specific titles for user research simulations." },
+                { role: "system", content: "You are a UX researcher who writes sharp, concise research questions as analysis titles. Sound human, not corporate." },
                 { role: "user", content },
             ],
             {
