@@ -26,7 +26,7 @@ interface PersonaChatProps {
   persona: Persona
   isOpen: boolean
   onClose: () => void
-  /** Grounding context — what the persona saw/experienced. Pass the simulation
+  /** Grounding context — what the persona saw/experienced. Pass the analysis
    *  response so chat stays anchored to the artifact they just reviewed. */
   analysis?: ChatAnalysisContext
 }

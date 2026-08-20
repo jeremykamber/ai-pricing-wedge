@@ -44,7 +44,7 @@ Client UI polls:
 
 **Background IIFE:**
 - Writes progress updates via `storeProgress(runId, { step })` to the in-memory progress map
-- On completion, writes final result to a result store (e.g., `PersonaGenerationStore`, `SimulationResultStore`)
+- On completion, writes final result to a result store (e.g., `PersonaGenerationStore`, `AnalysisResultStore`)
 - Calls `storeCompleted(runId)` to signal completion
 
 **Client-side (server action `runRemote`):**

@@ -255,7 +255,7 @@ function PersonaToastContent({
   return (
     <div className="relative group rounded-lg border border-border bg-card">
       {variant === 'in-progress' && (
-        <div className="pointer-events-none absolute inset-0 z-20 rounded-lg ring-1 ring-primary/20 animate-[sim-ring-fade_0.6s_ease-out_forwards]" />
+        <div className="pointer-events-none absolute inset-0 z-20 rounded-lg ring-1 ring-primary/20 animate-[analysis-ring-fade_0.6s_ease-out_forwards]" />
       )}
       <div
         className="absolute inset-y-0 left-0 bg-primary/[0.06] transition-all duration-300 ease-out"

@@ -1,10 +1,10 @@
 'use client'
 
 import { use, useEffect, useRef, useState, useCallback, useMemo } from 'react'
-import { useSimulationStore } from '@/ui/stores/simulationStore'
+import { useAnalysisStore } from '@/ui/stores/analysisStore'
 import { usePersonaStore } from '@/ui/stores/personaStore'
 import { useRouter } from 'next/navigation'
-import { getSimulationResultAction } from '@/actions/getSimulationResult'
+import { getAnalysisResultAction } from '@/actions/getAnalysisResult'
 import { getProgressAction } from '@/actions/getProgress'
 import { StepIndicator } from '@/components/custom/StepIndicator'
 import { ArrowLeftIcon, ClockIcon, CheckCircleIcon, XCircleIcon, AlertTriangleIcon, ChevronDownIcon, ChevronRightIcon, UsersIcon, MessageCircleIcon } from 'lucide-react'
@@ -16,6 +16,7 @@ import { computeSynthesis } from '@/ui/dashboard/utils/computeSynthesis'
 import { resolveChatPersona } from '@/ui/dashboard/utils/resolveChatPersona'
 import { PersonaChat } from '@/ui/dashboard/components/chat/PersonaChat'
 import { PanelChat } from '@/ui/dashboard/components/chat/PanelChat'
+import { InlineRenamable } from '@/components/custom/InlineRenamable'
 
 const ANALYSIS_STEPS = [
   { title: 'Starting', description: 'Initializing analysis' },
@@ -56,16 +57,16 @@ function StageOutcomeBadge({ outcome }: { outcome: StageOutcome }) {
   )
 }
 
-export default function SimulationDetailPage({ params }: { params: Promise<{ id: string }> }) {
+export default function AnalysisDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params)
   const router = useRouter()
-  const simulation = useSimulationStore((s) => s.getSimulation(id))
-  const updateSimulation = useSimulationStore((s) => s.updateSimulation)
-  const removeSimulation = useSimulationStore((s) => s.removeSimulation)
+  const analysis = useAnalysisStore((s) => s.getAnalysis(id))
+  const updateAnalysis = useAnalysisStore((s) => s.updateAnalysis)
+  const removeAnalysis = useAnalysisStore((s) => s.removeAnalysis)
   const [isHydrated, setIsHydrated] = useState(false)
 
   // Zustand persist hydrates from localStorage on the client after mount.
-  // During SSR there's no localStorage → store is always empty → getSimulation
+  // During SSR there's no localStorage → store is always empty → getAnalysis
   // returns undefined. Without hydration tracking, the server renders the
   // "not found" fallback while the client (after rehydration) renders the
   // full content, causing Next.js hydration mismatch.
@@ -73,13 +74,13 @@ export default function SimulationDetailPage({ params }: { params: Promise<{ id:
     setIsHydrated(true)
   }, [])
 
-  // Reconnection: when the page loads and the simulation is IN_PROGRESS,
+  // Reconnection: when the page loads and the analysis is IN_PROGRESS,
   // the server-side IIFE is still running (from the original server action).
   // Poll the server-side result store to catch results that were computed
   // after the client disconnected (reload/navigate away).
   useEffect(() => {
-    if (!isHydrated || !simulation || simulation.status !== 'IN_PROGRESS') return
-    console.log(`[DETAIL_POLL] Starting result poll for ${simulation.id}`)
+    if (!isHydrated || !analysis || analysis.status !== 'IN_PROGRESS') return
+    console.log(`[DETAIL_POLL] Starting result poll for ${analysis.id}`)
 
     let active = true
     let attempts = 0
@@ -89,15 +90,15 @@ export default function SimulationDetailPage({ params }: { params: Promise<{ id:
       while (active && attempts < MAX_ATTEMPTS) {
         attempts++
         try {
-          const result = await getSimulationResultAction(simulation.id)
+          const result = await getAnalysisResultAction(analysis.id)
           if (!active) return
 
           if (result.found) {
-            console.log(`[DETAIL_POLL] ${simulation.id}: RESULT FOUND on attempt ${attempts}`)
+            console.log(`[DETAIL_POLL] ${analysis.id}: RESULT FOUND on attempt ${attempts}`)
             if (result.error) {
-              useSimulationStore.getState().markError(simulation.id, result.error)
+              useAnalysisStore.getState().markError(analysis.id, result.error)
             } else if (result.analyses && result.analyses.length > 0) {
-              useSimulationStore.getState().markComplete(simulation.id, result.analyses)
+              useAnalysisStore.getState().markComplete(analysis.id, result.analyses)
             }
             return
           }
@@ -106,48 +107,48 @@ export default function SimulationDetailPage({ params }: { params: Promise<{ id:
         }
         await new Promise((r) => setTimeout(r, 1000))
       }
-      console.log(`[DETAIL_POLL] ${simulation.id}: Exhausted ${MAX_ATTEMPTS} attempts without finding result`)
+      console.log(`[DETAIL_POLL] ${analysis.id}: Exhausted ${MAX_ATTEMPTS} attempts without finding result`)
     }
 
     poll()
     return () => { active = false }
-  }, [isHydrated, simulation?.id, simulation?.status])
+  }, [isHydrated, analysis?.id, analysis?.status])
 
-  // Progress polling: when the simulation is IN_PROGRESS and the RSC stream
+  // Progress polling: when the analysis is IN_PROGRESS and the RSC stream
   // may have disconnected (navigation), poll the server-side progress store
-  // for intermediate updates (currentStep, completedAnalyses) and detection
+  // for intermediate updates (currentStep, completedResponses) and detection
   // of completion. This complements the result polling above.
   useEffect(() => {
-    if (!isHydrated || !simulation || simulation.status !== 'IN_PROGRESS') return
-    console.log(`[DETAIL_POLL] Starting progress poll for ${simulation.id}`)
+    if (!isHydrated || !analysis || analysis.status !== 'IN_PROGRESS') return
+    console.log(`[DETAIL_POLL] Starting progress poll for ${analysis.id}`)
 
     const interval = setInterval(async () => {
       try {
-        const result = await getProgressAction(simulation.id);
+        const result = await getProgressAction(analysis.id);
         if (!result.found || !result.progress) return;
 
         const p = result.progress;
-        const updates: Partial<import('@/domain/entities/Simulation').Simulation> = {};
+        const updates: Partial<import('@/domain/entities/ArtifactAnalysis').ArtifactAnalysis> = {};
 
         if (p.step) updates.currentStep = p.step as any;
-        if (p.completedAnalyses !== undefined) updates.completedAnalyses = p.completedAnalyses;
-        if (p.totalAnalyses !== undefined) updates.totalAnalyses = p.totalAnalyses;
+        if (p.completedResponses !== undefined) updates.completedResponses = p.completedResponses;
+        if (p.totalResponses !== undefined) updates.totalResponses = p.totalResponses;
 
         if (Object.keys(updates).length > 0) {
-          useSimulationStore.getState().updateSimulation(simulation.id, updates);
+          useAnalysisStore.getState().updateAnalysis(analysis.id, updates);
         }
 
         if (p.hasCompleted) {
           clearInterval(interval);
-          const result2 = await getSimulationResultAction(simulation.id);
+          const result2 = await getAnalysisResultAction(analysis.id);
           if (result2.found && result2.analyses && result2.analyses.length > 0) {
-            useSimulationStore.getState().markComplete(simulation.id, result2.analyses);
+            useAnalysisStore.getState().markComplete(analysis.id, result2.analyses);
           }
         }
 
         if (p.error) {
           clearInterval(interval);
-          useSimulationStore.getState().markError(simulation.id, p.error);
+          useAnalysisStore.getState().markError(analysis.id, p.error);
         }
       } catch {
         // Poller error — retry on next interval
@@ -155,32 +156,32 @@ export default function SimulationDetailPage({ params }: { params: Promise<{ id:
     }, 3000);
 
     return () => clearInterval(interval);
-  }, [isHydrated, simulation?.id, simulation?.status])
+  }, [isHydrated, analysis?.id, analysis?.status])
 
   if (!isHydrated) {
     return (
       <div className="flex flex-col gap-8 w-full h-full animate-in fade-in duration-500">
         <div className="flex items-center gap-4">
-          <span className="text-sm text-muted-foreground">← Simulations</span>
+          <span className="text-sm text-muted-foreground">← Analyses</span>
         </div>
         <div className="flex items-center justify-center py-32">
-          <p className="text-muted-foreground text-sm">Loading simulation...</p>
+          <p className="text-muted-foreground text-sm">Loading analysis...</p>
         </div>
       </div>
     )
   }
 
-  if (!simulation) {
+  if (!analysis) {
     return (
       <div className="flex flex-col items-center justify-center py-32 text-center">
         <XCircleIcon className="h-12 w-12 text-muted-foreground mb-4" />
-        <h2 className="text-xl font-semibold mb-2">Simulation not found</h2>
-        <p className="text-muted-foreground text-sm mb-6">This simulation may have been removed or never existed.</p>
+        <h2 className="text-xl font-semibold mb-2">Analysis not found</h2>
+        <p className="text-muted-foreground text-sm mb-6">This analysis may have been removed or never existed.</p>
         <button
-          onClick={() => router.push('/dashboard/simulations')}
+          onClick={() => router.push('/dashboard/analyses')}
           className="inline-flex h-10 items-center justify-center rounded-md bg-primary px-6 text-sm font-semibold text-primary-foreground hover:bg-primary/90"
         >
-          Back to Simulations
+          Back to Analyses
         </button>
       </div>
     )
@@ -191,46 +192,50 @@ export default function SimulationDetailPage({ params }: { params: Promise<{ id:
       {/* Header */}
       <div className="flex items-center gap-4">
         <button
-          onClick={() => router.push('/dashboard/simulations')}
+          onClick={() => router.push('/dashboard/analyses')}
           className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors"
         >
           <ArrowLeftIcon className="h-4 w-4" />
-          Simulations
+          Analyses
         </button>
       </div>
 
       {/* Title area */}
       <div className="flex flex-col gap-2 border-b border-border/40 pb-6">
         <div className="flex items-center gap-3">
-          <h1 className="text-2xl font-bold tracking-tight">{simulation.name}</h1>
-          <StatusBadge status={simulation.status} />
+          <InlineRenamable
+            value={analysis.name}
+            onRename={(name) => updateAnalysis(analysis.id, { name })}
+            className="text-2xl"
+          />
+          <StatusBadge status={analysis.status} />
         </div>
         <p className="text-sm text-muted-foreground">
-          {simulation.url} · {simulation.personaCount} personas
-          {simulation.batchName && ` · Batch: ${simulation.batchName}`}
-          {simulation.createdAt && ` · Started ${new Date(simulation.createdAt).toLocaleString()}`}
+          {analysis.url} · {analysis.personaCount} personas
+          {analysis.batchName && ` · Batch: ${analysis.batchName}`}
+          {analysis.createdAt && ` · Started ${new Date(analysis.createdAt).toLocaleString()}`}
         </p>
-        {simulation.error && (
-          <p className="text-sm text-destructive font-medium bg-destructive/10 p-3 rounded-md mt-2">{simulation.error}</p>
+        {analysis.error && (
+          <p className="text-sm text-destructive font-medium bg-destructive/10 p-3 rounded-md mt-2">{analysis.error}</p>
         )}
       </div>
 
       {/* Content */}
-      {simulation.status === 'IN_PROGRESS' ? (
+      {analysis.status === 'IN_PROGRESS' ? (
         <InProgressView
-          simulation={simulation}
-          onUpdate={(updates) => updateSimulation(id, updates)}
+          analysis={analysis}
+          onUpdate={(updates) => updateAnalysis(id, updates)}
         />
-      ) : simulation.status === 'COMPLETED' ? (
-        <CompletedView simulation={simulation} onRemove={() => removeSimulation(id)} />
+      ) : analysis.status === 'COMPLETED' ? (
+        <CompletedView analysis={analysis} onRemove={() => removeAnalysis(id)} />
       ) : (
         <div className="flex flex-col items-center justify-center py-16 text-center">
-          <p className="text-muted-foreground">Simulation was {simulation.status.toLowerCase()}.</p>
+          <p className="text-muted-foreground">Analysis was {analysis.status.toLowerCase()}.</p>
           <button
             onClick={() => router.push('/dashboard')}
             className="mt-4 inline-flex h-10 items-center justify-center rounded-md bg-primary px-6 text-sm font-semibold text-primary-foreground hover:bg-primary/90"
           >
-            Run New Simulation
+            Run New Analysis
           </button>
         </div>
       )}
@@ -257,13 +262,13 @@ function StatusBadge({ status }: { status: string }) {
 }
 
 function InProgressView({
-  simulation,
+  analysis,
   onUpdate,
 }: {
-  simulation: import('@/domain/entities/Simulation').Simulation
-  onUpdate: (updates: Partial<import('@/domain/entities/Simulation').Simulation>) => void
+  analysis: import('@/domain/entities/ArtifactAnalysis').ArtifactAnalysis
+  onUpdate: (updates: Partial<import('@/domain/entities/ArtifactAnalysis').ArtifactAnalysis>) => void
 }) {
-  const currentStep = getCurrentStep(simulation.currentStep)
+  const currentStep = getCurrentStep(analysis.currentStep)
 
   return (
     <div className="flex flex-col md:flex-row gap-12 py-4">
@@ -274,17 +279,17 @@ function InProgressView({
       <div className="flex-1 min-h-[300px] flex flex-col items-center justify-center">
         <div className="flex flex-col items-center justify-center space-y-4 w-full max-w-lg">
           <p className="text-sm font-medium text-muted-foreground animate-pulse">
-            {simulation.currentStep === 'INTAKE' && 'Loading artifact...'}
-            {simulation.currentStep === 'ANALYZING' &&
-              `Gathering responses (${simulation.completedAnalyses ?? 0}/${simulation.totalAnalyses ?? simulation.personaCount})`}
-            {(!simulation.currentStep || simulation.currentStep === 'STARTING') && 'Initializing...'}
+            {analysis.currentStep === 'INTAKE' && 'Loading artifact...'}
+            {analysis.currentStep === 'ANALYZING' &&
+              `Gathering responses (${analysis.completedResponses ?? 0}/${analysis.totalResponses ?? analysis.personaCount})`}
+            {(!analysis.currentStep || analysis.currentStep === 'STARTING') && 'Initializing...'}
           </p>
 
-          {simulation.screenshot && (
+          {analysis.screenshot && (
             <div className="relative w-full aspect-video rounded-lg overflow-hidden border border-border bg-muted/30">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
-                src={`data:image/jpeg;base64,${simulation.screenshot}`}
+                src={`data:image/jpeg;base64,${analysis.screenshot}`}
                 alt="AI Agent View"
                 className="w-full h-full object-cover object-top opacity-80"
               />
@@ -296,7 +301,7 @@ function InProgressView({
             </div>
           )}
 
-          {!simulation.screenshot && (
+          {!analysis.screenshot && (
             <div className="w-full max-w-sm">
               <div className="w-full h-1 bg-muted rounded-sm overflow-hidden">
                 <div className="h-full bg-primary rounded-sm w-1/3 animate-[loading-bar_2s_ease-in-out_infinite]" />
@@ -396,13 +401,13 @@ function parseStructuredThoughts(thoughts: string): {
 }
 
 function CompletedView({
-  simulation,
+  analysis,
   onRemove,
 }: {
-  simulation: import('@/domain/entities/Simulation').Simulation
+  analysis: import('@/domain/entities/ArtifactAnalysis').ArtifactAnalysis
   onRemove: () => void
 }) {
-  const analyses = simulation.analyses as PersonaResponse[] | undefined
+  const analyses = analysis.responses as PersonaResponse[] | undefined
   const [expandedPersonas, setExpandedPersonas] = useState<Set<number>>(new Set())
   const [chatTarget, setChatTarget] = useState<{ persona: Persona; analysis: PersonaResponse } | null>(null)
   const [isPanelChatOpen, setIsPanelChatOpen] = useState(false)
@@ -410,12 +415,12 @@ function CompletedView({
 
   const synthesis = useMemo(
     () => {
-      if (simulation.synthesis) return simulation.synthesis
+      if (analysis.synthesis) return analysis.synthesis
       if (!analyses) return null
       // Fall back to computed synthesis when LLM-generated one isn't available
       return computeSynthesis(analyses)
     },
-    [analyses, simulation.synthesis]
+    [analyses, analysis.synthesis]
   )
 
   // Resolve each response back to a full Persona once — chat needs the
@@ -437,7 +442,7 @@ function CompletedView({
   if (!analyses || analyses.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-16 text-center">
-        <p className="text-muted-foreground">No analysis data available for this simulation.</p>
+        <p className="text-muted-foreground">No analysis data available for this analysis.</p>
       </div>
     )
   }
@@ -668,11 +673,11 @@ function CompletedView({
         </div>
       </div>
 
-      {simulation.screenshot && (
+      {analysis.screenshot && (
         <div className="rounded-lg overflow-hidden border border-border">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
-            src={`data:image/jpeg;base64,${simulation.screenshot}`}
+            src={`data:image/jpeg;base64,${analysis.screenshot}`}
             alt="Captured page"
             className="w-full"
           />
@@ -691,7 +696,7 @@ function CompletedView({
       <PanelChat
         responses={analyses}
         synthesis={synthesis}
-        personaNames={simulation.personaNames ?? []}
+        personaNames={analysis.personaNames ?? []}
         isOpen={isPanelChatOpen}
         onClose={() => setIsPanelChatOpen(false)}
       />

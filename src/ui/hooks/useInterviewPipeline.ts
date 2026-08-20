@@ -6,6 +6,7 @@ import { getProgressAction } from '@/actions/getProgress'
 import { usePersonaStore, type PersonaBatch } from '@/ui/stores/personaStore'
 import { readStreamableValue } from '@ai-sdk/rsc'
 import { batchConsumedRunIds } from '@/lib/generationRunState'
+import { resolveBatchLabel } from '@/lib/resolveBatchLabel'
 
 export type InterviewProgressStep = 'UPLOADING' | 'EXTRACTING' | 'POOLING' | 'SAMPLING' | 'GENERATING' | 'INGESTING' | 'DONE' | 'ERROR'
 
@@ -80,8 +81,8 @@ export function useInterviewPipeline(onSuccess?: (personas: Persona[]) => void) 
           // ProgressState uses completedCount/totalCount; InterviewProgress uses current/total
           setProgress({
             step: p.progress.step as InterviewProgress['step'],
-            current: p.progress.completedCount ?? p.progress.completedAnalyses,
-            total: p.progress.totalCount ?? p.progress.totalAnalyses,
+            current: p.progress.completedCount ?? p.progress.completedResponses,
+            total: p.progress.totalCount ?? p.progress.totalResponses,
             message: p.progress.streamingText,
             error: p.progress.error,
           })
@@ -114,9 +115,10 @@ export function useInterviewPipeline(onSuccess?: (personas: Persona[]) => void) 
           }
 
           if (pollResult.personas && pollResult.personas.length > 0) {
+            const fallbackLabel = `${files.length} Interview${files.length !== 1 ? 's' : ''}${files.length > 0 ? ' (' + files[0].name + (files.length > 1 ? ` +${files.length - 1}` : '') + ')' : ''}`
             const batch: PersonaBatch = {
               id: `batch-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`,
-              label: `${files.length} Interview${files.length !== 1 ? 's' : ''}${files.length > 0 ? ' (' + files[0].name + (files.length > 1 ? ` +${files.length - 1}` : '') + ')' : ''}`,
+              label: await resolveBatchLabel(fallbackLabel, pollResult.personas!, { source: 'interviews', transcriptCount: files.length }),
               source: 'interviews',
               transcriptCount: files.length,
               createdAt: new Date().toISOString(),
@@ -203,9 +205,10 @@ export function useInterviewPipeline(onSuccess?: (personas: Persona[]) => void) 
               }
 
               if (update.step === 'DONE') {
+                const fallbackLabel = `${files.length} Interview${files.length !== 1 ? 's' : ''}${files.length > 0 ? ' (' + files[0].name + (files.length > 1 ? ` +${files.length - 1}` : '') + ')' : ''}`
                 const batch: PersonaBatch = {
                   id: `batch-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`,
-                  label: `${files.length} Interview${files.length !== 1 ? 's' : ''}${files.length > 0 ? ' (' + files[0].name + (files.length > 1 ? ` +${files.length - 1}` : '') + ')' : ''}`,
+                  label: await resolveBatchLabel(fallbackLabel, update.personas!, { source: 'interviews', transcriptCount: files.length }),
                   source: 'interviews',
                   transcriptCount: files.length,
                   createdAt: new Date().toISOString(),

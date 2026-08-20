@@ -115,14 +115,14 @@ describe("Pricing Analysis E2E", () => {
   it("renders completed analysis", async () => {
     const page = await browser.newPage({ viewport: { width: 1280, height: 900 } });
 
-    // Seed the simulation store (IndexedDB) with a completed run.
+    // Seed the analysis store (IndexedDB) with a completed run.
     // See test/artifact-analysis-detail.spec.ts for a full fixture builder.
-    await seedSimulationStorage(page, {
-      simulations: [completedSimulation],
-      dismissedSimulationIds: [],
+    await seedAnalysisStorage(page, {
+      analyses: [completedAnalysis],
+      dismissedAnalysisIds: [],
     });
 
-    await page.goto(`${BASE_URL}/dashboard/simulations/test-sim`, {
+    await page.goto(`${BASE_URL}/dashboard/analyses/test-analysis`, {
       waitUntil: "networkidle",
     });
 
@@ -166,9 +166,9 @@ The test will **reuse your existing `bun dev` server** if one is running, or sta
 
 ## Data Seeding: IndexedDB vs API
 
-### IndexedDB (simulation store)
+### IndexedDB (analysis store)
 
-The simulation store persists to **IndexedDB** (via `idb-keyval`: DB `keyval-store`, store `keyval`, key `simulation-storage`), not localStorage. Seed it with `page.addInitScript` before navigation:
+The analysis store persists to **IndexedDB** (via `idb-keyval`: DB `keyval-store`, store `keyval`, key `analysis-storage`), not localStorage. Seed it with `page.addInitScript` before navigation:
 
 ```typescript
 await page.addInitScript((seed) => {
@@ -180,16 +180,16 @@ await page.addInitScript((seed) => {
     req.onsuccess = () => {
       const db = req.result;
       const tx = db.transaction('keyval', 'readwrite');
-      tx.objectStore('keyval').put(seed, 'simulation-storage');
+      tx.objectStore('keyval').put(seed, 'analysis-storage');
       tx.oncomplete = () => { db.close(); resolve(); };
       tx.onerror = () => { db.close(); resolve(); };
     };
     req.onerror = () => resolve();
   });
-}, JSON.stringify({ state: { simulations: [...], dismissedSimulationIds: [] }, version: 2 }));
+}, JSON.stringify({ state: { analyses: [...], dismissedAnalysisIds: [] }, version: 3 }));
 ```
 
-See `test/artifact-analysis-detail.spec.ts` for a full example with valid `Simulation`/`PersonaResponse`/`ArtifactSynthesis` fixtures.
+See `test/artifact-analysis-detail.spec.ts` for a full example with valid `ArtifactAnalysis`/`PersonaResponse`/`ArtifactSynthesis` fixtures.
 
 ### API (VPS Pattern)
 
@@ -298,11 +298,11 @@ expect(traceMessages.length).toBeGreaterThanOrEqual(3);
 
 ### 4. Transition / Streaming Tests
 
-Seed an `IN_PROGRESS` state, then update the store and reload. The simulation store lives in IndexedDB, so seed/mutate through a small helper:
+Seed an `IN_PROGRESS` state, then update the store and reload. The analysis store lives in IndexedDB, so seed/mutate through a small helper:
 
 ```typescript
-// Seed or overwrite the simulation store (idb-keyval: DB "keyval-store", store "keyval")
-async function seedSimulationStorage(page: Page, state: unknown) {
+// Seed or overwrite the analysis store (idb-keyval: DB "keyval-store", store "keyval")
+async function seedAnalysisStorage(page: Page, state: unknown) {
   await page.evaluate(async (seed) => {
     await new Promise<void>((resolve, reject) => {
       const req = indexedDB.open("keyval-store");
@@ -312,7 +312,7 @@ async function seedSimulationStorage(page: Page, state: unknown) {
       req.onsuccess = () => {
         const db = req.result;
         const tx = db.transaction("keyval", "readwrite");
-        tx.objectStore("keyval").put(seed, "simulation-storage");
+        tx.objectStore("keyval").put(seed, "analysis-storage");
         tx.oncomplete = () => { db.close(); resolve(); };
         tx.onerror = () => { db.close(); reject(tx.error); };
       };
@@ -322,16 +322,16 @@ async function seedSimulationStorage(page: Page, state: unknown) {
 }
 
 // Seed in-progress state, then update and reload
-await seedSimulationStorage(page, { simulations: [inProgressSimulation], dismissedSimulationIds: [] });
+await seedAnalysisStorage(page, { analyses: [inProgressAnalysis], dismissedAnalysisIds: [] });
 
-await page.goto(`${BASE_URL}/dashboard/simulations/${simId}`, {
+await page.goto(`${BASE_URL}/dashboard/analyses/${simId}`, {
   waitUntil: "networkidle",
 });
 
 // Update to completed
-await seedSimulationStorage(page, {
-  simulations: [{ ...inProgressSimulation, status: "COMPLETED", analyses: mockAnalyses }],
-  dismissedSimulationIds: [],
+await seedAnalysisStorage(page, {
+  analyses: [{ ...inProgressAnalysis, status: "COMPLETED", analyses: mockAnalyses }],
+  dismissedAnalysisIds: [],
 });
 
 await page.reload({ waitUntil: "networkidle" });
@@ -347,9 +347,9 @@ const legacyAnalyses = mockAnalyses.map((a) => {
   return rest;
 });
 
-await seedSimulationStorage(page, {
-  simulations: [buildSimulation("legacy-sim", "Legacy", legacyAnalyses)],
-  dismissedSimulationIds: [],
+await seedAnalysisStorage(page, {
+  analyses: [buildAnalysis("legacy-sim", "Legacy", legacyAnalyses)],
+  dismissedAnalysisIds: [],
 });
 ```
 
@@ -378,7 +378,7 @@ it("emits trace logs for Benchmark and Divergence", async () => {
   const consoleMessages: string[] = [];
   page.on("console", (msg) => consoleMessages.push(msg.text()));
 
-  await page.goto(`${BASE_URL}/dashboard/simulations/trace-sim`, {
+  await page.goto(`${BASE_URL}/dashboard/analyses/trace-analysis`, {
     waitUntil: "networkidle",
   });
 

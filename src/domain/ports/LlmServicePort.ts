@@ -40,7 +40,7 @@ export interface PricingLocation {
  *
  * `PricingAnalysis` is the legacy pricing-era type (kept for backward
  * compatibility with the old results flow); `PersonaResponse` is the modern
- * artifact-agnostic type produced by simulations — it is what "chat with a
+ * artifact-agnostic type produced by analyses — it is what "chat with a
  * persona about what they saw" is grounded in.
  */
 export type ChatAnalysisContext = PricingAnalysis | PersonaResponse | null;
@@ -169,10 +169,10 @@ export interface LlmServicePort {
 
     /**
      * Chat with the whole cohort at once (panel synthesis). Grounds the
-     * answer in every persona's simulation response plus the cross-persona
+     * answer in every persona's analysis response plus the cross-persona
      * synthesis, so questions like "what would our users think of X?" get an
      * evidence-backed synthesis rather than a single persona's take.
-     * @param responses All persona responses from the simulation.
+     * @param responses All persona responses from the analysis.
      * @param synthesis The cross-persona synthesis (may be null if unavailable).
      * @param message The user's message.
      * @param history The chat history.
@@ -373,6 +373,39 @@ export interface LlmServicePort {
             max_tokens?: number | null;
             purpose?: string;
         },
+    ): Promise<string>;
+
+    /**
+     * Generates a short, human-friendly title for a simulation from the research
+     * context and the captured artifact. Uses the cheap vision model so it can
+     * "see" the artifact (screenshot + page summary) the same way the analysis
+     * does. Nice-to-have: callers must tolerate failure and fall back to the
+     * heuristic name (generateSimulationName).
+     */
+    generateSimulationTitle(
+        context: {
+            businessGoal?: string;
+            researchQuestion?: string;
+            artifactUrl?: string;
+            pageSummary?: string;
+            screenshotBase64?: string;
+        },
+        options?: { runId?: string },
+    ): Promise<string>;
+
+    /**
+     * Generates a short label for a persona batch from the personas' basic info
+     * (name, occupation, backstory). Text-only and cheap — no vision needed.
+     * Nice-to-have: callers must tolerate failure and fall back to the default.
+     */
+    generateBatchTitle(
+        personas: Persona[],
+        context: {
+            source?: 'description' | 'interviews';
+            description?: string;
+            transcriptCount?: number;
+        },
+        options?: { runId?: string },
     ): Promise<string>;
 
     /**

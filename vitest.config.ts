@@ -12,6 +12,7 @@ export default defineConfig({
     // parallel. Cost: unit tests serialize too (~30-60s), worth it for a
     // deterministic release gate.
     fileParallelism: false,
+    exclude: ['.worktrees/**', '.netlify/**', '.opencode/**', 'node_modules/**'],
     setupFiles: ['./vitest.setup.ts'],
   },
   resolve: {

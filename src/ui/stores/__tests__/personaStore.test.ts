@@ -94,4 +94,24 @@ describe('personaStore', () => {
     const state = usePersonaStore.getState()
     expect(state.batches[0].personas).toHaveLength(3)
   })
+
+  it('updateBatchLabel renames a batch', () => {
+    const batch = createBatch()
+    usePersonaStore.getState().addBatch(batch)
+
+    usePersonaStore.getState().updateBatchLabel('batch-1', 'B2B SaaS founders')
+
+    const state = usePersonaStore.getState()
+    expect(state.batches[0].label).toBe('B2B SaaS founders')
+  })
+
+  it('updateBatchLabel on nonexistent batch leaves state unchanged', () => {
+    const batch = createBatch()
+    usePersonaStore.getState().addBatch(batch)
+
+    usePersonaStore.getState().updateBatchLabel('batch-missing', 'Nope')
+
+    const state = usePersonaStore.getState()
+    expect(state.batches[0].label).toBe('Test Batch')
+  })
 })

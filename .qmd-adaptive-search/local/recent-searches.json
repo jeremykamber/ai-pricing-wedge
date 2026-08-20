@@ -1,0 +1,516 @@
+{
+  "searches": [
+    {
+      "mode": "precision",
+      "resultPaths": [
+        "thoughts/plans/2026-02-19-1941-pricing-analysis-refactor.md",
+        "docs/PERSONA_BROWSER_AGENT.md",
+        "AGENTS.md",
+        "src/infrastructure/adapters/ChatPromptCompiler.ts",
+        "src/infrastructure/adapters/DebatePromptCompiler.ts",
+        "src/infrastructure/adapters/PersonaPromptCompiler.ts",
+        "src/infrastructure/adapters/__tests__/ChatPromptCompiler.test.ts",
+        "src/infrastructure/adapters/__tests__/DebatePromptCompiler.test.ts",
+        "src/infrastructure/adapters/__tests__/PersonaPromptCompiler.test.ts",
+        "src/lib/__tests__/surveyToPrompt.test.ts"
+      ],
+      "anchors": [
+        "stop",
+        "scrolling",
+        "visual",
+        "agent",
+        "prompt"
+      ],
+      "id": "29328f7c-3164-4490-9e54-587c431ba140",
+      "createdAt": "2026-08-16T09:52:39.525Z",
+      "expiresAt": "2026-08-16T10:22:39.525Z"
+    },
+    {
+      "mode": "precision",
+      "resultPaths": [
+        "src/domain/dtos/UserDTO.ts",
+        "src/domain/ports/UserRepositoryPort.ts",
+        "src/infrastructure/adapters/UserRepositoryImpl.ts",
+        "ARCHITECTURE.md",
+        "thoughts/ledgers/CONTINUITY_ses_0bda.md",
+        "REPOSITORY_OVERVIEW.md",
+        "src/application/usecases/DeleteUserUseCase.ts",
+        "src/application/usecases/EditUserUseCase.ts",
+        "src/application/usecases/LoginUserUseCase.ts",
+        "src/application/usecases/RegisterUserUseCase.ts"
+      ],
+      "anchors": [
+        "user",
+        "repository",
+        "entity",
+        "dto",
+        "persistence"
+      ],
+      "id": "b2bd1ea5-e766-41f1-b13f-54fc6bead8ac",
+      "createdAt": "2026-08-16T09:52:38.981Z",
+      "expiresAt": "2026-08-16T10:22:38.981Z"
+    },
+    {
+      "mode": "precision",
+      "resultPaths": [
+        "AGENTS.md",
+        "src/middleware.ts",
+        "docs/VPS_DEPLOYMENT.md",
+        "thoughts/shared/plans/2026-07-16-supabase-auth.md",
+        "docs/RELEASE_CHECKLIST.md",
+        "docs/external/deploy-testing.md",
+        "scripts/verify-output.ts",
+        "thoughts/shared/designs/2026-07-16-supabase-auth-design.md",
+        ".ai/contexts/persona-pipeline/verification/results.md",
+        "REPOSITORY_OVERVIEW.md"
+      ],
+      "anchors": [
+        "middleware",
+        "auth",
+        "token",
+        "verify",
+        "netlify",
+        "vps"
+      ],
+      "id": "506e03d9-4163-42aa-b725-7ae3a1c85516",
+      "createdAt": "2026-08-16T09:52:38.455Z",
+      "expiresAt": "2026-08-16T10:22:38.455Z"
+    },
+    {
+      "mode": "precision",
+      "resultPaths": [
+        "src/infrastructure/adapters/RemotePlaywrightAdapter.ts",
+        "docs/USE_CASE_TRACES.md",
+        "docs/PRICING_ANALYSIS_FLOW.md",
+        ".agents/skills/impeccable/scripts/modern-screenshot.umd.js",
+        "playwright-server.js",
+        "src/actions/getScreenshot.ts",
+        "src/infrastructure/adapters/ArtifactIntakeAdapter.ts",
+        "src/infrastructure/adapters/ChatAdapter.ts",
+        "src/infrastructure/adapters/DebateAdapter.ts",
+        "src/infrastructure/adapters/GazePredictionAdapter.ts"
+      ],
+      "anchors": [
+        "playwright",
+        "adapter",
+        "connect",
+        "screenshot",
+        "scrollto"
+      ],
+      "id": "aa7b888a-8a90-49c8-9afc-9e968e35ec5f",
+      "createdAt": "2026-08-16T09:52:37.912Z",
+      "expiresAt": "2026-08-16T10:22:37.912Z"
+    },
+    {
+      "mode": "precision",
+      "resultPaths": [
+        "thoughts/plans/2026-02-19-1941-pricing-analysis-refactor.md",
+        "docs/PERSONA_BROWSER_AGENT.md",
+        ".qmd-adaptive-search/local/recent-searches.json",
+        "AGENTS.md",
+        "src/infrastructure/adapters/ChatPromptCompiler.ts",
+        "src/infrastructure/adapters/DebatePromptCompiler.ts",
+        "src/infrastructure/adapters/PersonaPromptCompiler.ts",
+        "src/infrastructure/adapters/__tests__/ChatPromptCompiler.test.ts",
+        "src/infrastructure/adapters/__tests__/DebatePromptCompiler.test.ts",
+        "src/infrastructure/adapters/__tests__/PersonaPromptCompiler.test.ts"
+      ],
+      "anchors": [
+        "stop",
+        "scrolling",
+        "visual",
+        "agent",
+        "prompt"
+      ],
+      "id": "e6a9d05b-803f-440b-923a-1185ec6f4cec",
+      "createdAt": "2026-08-16T09:48:15.436Z",
+      "expiresAt": "2026-08-16T10:18:15.436Z"
+    },
+    {
+      "mode": "precision",
+      "resultPaths": [
+        "src/domain/dtos/UserDTO.ts",
+        "src/domain/ports/UserRepositoryPort.ts",
+        "src/infrastructure/adapters/UserRepositoryImpl.ts",
+        ".qmd-adaptive-search/local/recent-searches.json",
+        "ARCHITECTURE.md",
+        "thoughts/ledgers/CONTINUITY_ses_0bda.md",
+        "REPOSITORY_OVERVIEW.md",
+        "src/application/usecases/DeleteUserUseCase.ts",
+        "src/application/usecases/EditUserUseCase.ts",
+        "src/application/usecases/LoginUserUseCase.ts"
+      ],
+      "anchors": [
+        "database",
+        "user",
+        "entity",
+        "repository",
+        "dto"
+      ],
+      "id": "1b2f8132-6ccc-4c3e-84ee-922b83dfa387",
+      "createdAt": "2026-08-16T09:48:14.784Z",
+      "expiresAt": "2026-08-16T10:18:14.784Z"
+    },
+    {
+      "mode": "precision",
+      "resultPaths": [
+        "docs/VPS_DEPLOYMENT.md",
+        "src/middleware.ts",
+        "thoughts/shared/plans/2026-07-16-supabase-auth.md",
+        ".netlify/edge-functions/___netlify-edge-handler-middleware/___netlify-edge-handler-middleware.js",
+        ".netlify/edge-functions/___netlify-edge-handler-middleware/edge-runtime/lib/next-request.ts",
+        ".next/dev/server/edge/chunks/[root-of-the-server]__8978dbac._.js",
+        ".qmd-adaptive-search/local/recent-searches.json",
+        ".netlify/edge-functions/___netlify-edge-handler-middleware/edge-runtime/lib/middleware.ts",
+        ".netlify/edge-functions/___netlify-edge-handler-middleware/edge-runtime/middleware.ts",
+        ".netlify/edge-functions/___netlify-edge-handler-middleware/server/middleware.js"
+      ],
+      "anchors": [
+        "auth",
+        "token",
+        "verify",
+        "middleware",
+        "netlify",
+        "request"
+      ],
+      "id": "61ed89f3-c93c-47c8-a095-f4b87547c722",
+      "createdAt": "2026-08-16T09:48:14.137Z",
+      "expiresAt": "2026-08-16T10:18:14.137Z"
+    },
+    {
+      "mode": "precision",
+      "resultPaths": [
+        "src/ui/dashboard/components/views/SetupView.tsx",
+        "src/lib/__tests__/surveyToPrompt.test.ts",
+        "src/lib/surveyToPrompt.ts",
+        "src/components/custom/PersonaSurveyForm.tsx",
+        ".sisyphus/plans/interview-to-persona-pipeline.md",
+        "docs/INTERVIEW_TO_PERSONA_PIPELINE.md",
+        "src/components/custom/PersonaProgressToaster.tsx",
+        "src/components/custom/PersonaSkeletonCard.tsx",
+        "src/components/custom/__tests__/PersonaProgressToaster.test.tsx",
+        "src/infrastructure/PersonaGenerationStore.ts"
+      ],
+      "anchors": [
+        "survey",
+        "to",
+        "persona",
+        "prompt",
+        "lib",
+        "function"
+      ],
+      "id": "90eeeb55-3d66-4755-b0db-71271745583e",
+      "createdAt": "2026-08-16T09:48:13.488Z",
+      "expiresAt": "2026-08-16T10:18:13.488Z"
+    },
+    {
+      "mode": "precision",
+      "resultPaths": [
+        "src/infrastructure/adapters/RemotePlaywrightAdapter.ts",
+        ".qmd-adaptive-search/local/recent-searches.json",
+        ".next/server/chunks/_1a308e77._.js",
+        ".next/server/chunks/ssr/_4984281c._.js",
+        ".next/standalone/.next/server/chunks/_1a308e77._.js",
+        ".next/standalone/.next/server/chunks/ssr/_4984281c._.js",
+        "BACKLOG.md",
+        "docs/ARTIFACT_ANALYSIS_FLOW.md",
+        "docs/PRICING_ANALYSIS_FLOW.md",
+        "docs/USE_CASE_TRACES.md"
+      ],
+      "anchors": [
+        "playwright",
+        "cloud",
+        "browser",
+        "adapter",
+        "connect",
+        "capture",
+        "screenshot"
+      ],
+      "id": "40de5daf-7f10-44e9-a5ea-11a072d69029",
+      "createdAt": "2026-08-16T09:48:12.869Z",
+      "expiresAt": "2026-08-16T10:18:12.869Z"
+    },
+    {
+      "mode": "precision",
+      "resultPaths": [
+        ".agents/skills/impeccable/reference/product.md",
+        ".netlify/functions-internal/___netlify-server-handler/.next/server/chunks/[root-of-the-server]__14f35e7a._.js",
+        ".netlify/functions-internal/___netlify-server-handler/.next/server/chunks/[root-of-the-server]__169abf00._.js",
+        ".netlify/functions-internal/___netlify-server-handler/.next/server/chunks/[root-of-the-server]__434945f5._.js",
+        ".netlify/functions-internal/___netlify-server-handler/.next/server/chunks/[root-of-the-server]__5009ebfd._.js",
+        ".netlify/functions-internal/___netlify-server-handler/.next/server/chunks/[root-of-the-server]__642703df._.js",
+        ".netlify/functions-internal/___netlify-server-handler/.next/server/chunks/[root-of-the-server]__7a7c4add._.js",
+        ".netlify/functions-internal/___netlify-server-handler/.next/server/chunks/[root-of-the-server]__81f01ffe._.js",
+        ".netlify/functions-internal/___netlify-server-handler/.next/server/chunks/[root-of-the-server]__860fc023._.js",
+        ".netlify/functions-internal/___netlify-server-handler/.next/server/chunks/[root-of-the-server]__8d5b7461._.js"
+      ],
+      "anchors": [
+        "kynd",
+        "the",
+        "product",
+        "scraper"
+      ],
+      "id": "75580586-a95b-4941-89b0-6004836898ad",
+      "createdAt": "2026-08-16T09:39:53.450Z",
+      "expiresAt": "2026-08-16T10:09:53.450Z"
+    },
+    {
+      "mode": "precision",
+      "resultPaths": [
+        "src/ui/dashboard/utils/computeSynthesis.ts",
+        "docs/PRICING_ANALYSIS_FLOW.md",
+        "docs/ARTIFACT_ANALYSIS_FLOW.md",
+        ".netlify/functions-internal/___netlify-server-handler/.next/server/chunks/ssr/node_modules_next_dist_client_components_builtin_forbidden_45780354.js",
+        ".netlify/functions-internal/___netlify-server-handler/.next/server/chunks/ssr/node_modules_next_dist_client_components_builtin_global-error_ece394eb.js",
+        ".netlify/functions-internal/___netlify-server-handler/.next/server/chunks/ssr/node_modules_next_dist_client_components_builtin_unauthorized_15817684.js",
+        ".next/dev/server/chunks/ssr/node_modules_next_dist_client_components_builtin_forbidden_45780354.js",
+        ".next/dev/server/chunks/ssr/node_modules_next_dist_client_components_builtin_global-error_ece394eb.js",
+        ".next/dev/server/chunks/ssr/node_modules_next_dist_client_components_builtin_unauthorized_15817684.js",
+        ".next/dev/static/chunks/node_modules_next_dist_client_components_builtin_global-error_78cdd4a3.js"
+      ],
+      "anchors": [
+        "where",
+        "is",
+        "captureviewport",
+        "used",
+        "in",
+        "the",
+        "ui"
+      ],
+      "id": "9ecfce15-2234-4acd-a929-a57b72a40e49",
+      "createdAt": "2026-08-16T09:39:52.851Z",
+      "expiresAt": "2026-08-16T10:09:52.851Z"
+    },
+    {
+      "mode": "precision",
+      "resultPaths": [
+        ".agents/skills/impeccable/reference/live.md",
+        ".agents/skills/impeccable/scripts/live-browser.js",
+        ".netlify/edge-functions/___netlify-edge-handler-middleware/edge-runtime/vendor/deno.land/std@0.175.0/node/_next_tick.ts",
+        ".netlify/edge-functions/___netlify-edge-handler-middleware/edge-runtime/vendor/deno.land/std@0.175.0/node/internal_binding/_winerror.ts",
+        ".netlify/edge-functions/___netlify-edge-handler-middleware/edge-runtime/vendor/deno.land/std@0.175.0/testing/asserts.ts",
+        ".netlify/functions-internal/___netlify-server-handler/.netlify/dist/build/plugin-context.js",
+        ".netlify/functions-internal/___netlify-server-handler/.next/server/chunks/[root-of-the-server]__434945f5._.js",
+        ".netlify/functions-internal/___netlify-server-handler/.next/server/chunks/[root-of-the-server]__5009ebfd._.js",
+        ".netlify/functions-internal/___netlify-server-handler/.next/server/chunks/[root-of-the-server]__642703df._.js",
+        ".netlify/functions-internal/___netlify-server-handler/.next/server/chunks/[root-of-the-server]__7a7c4add._.js"
+      ],
+      "anchors": [
+        "personaanalysisusecase",
+        "execute"
+      ],
+      "id": "0aec941f-634c-4c9e-8ee3-c41aa0778688",
+      "createdAt": "2026-08-16T09:39:52.258Z",
+      "expiresAt": "2026-08-16T10:09:52.258Z"
+    },
+    {
+      "mode": "precision",
+      "resultPaths": [
+        "docs/LIT_REVIEW.md",
+        "docs/RESEARCH.md",
+        "thoughts/shared/research/2026-03-04-pricing-analysis-speed-optimizations.md",
+        "docs/ARTIFACT_ANALYSIS_FLOW.md",
+        "thoughts/shared/designs/2026-06-12-debate-room-design.md",
+        "docs/PERSONA_BROWSER_AGENT.md",
+        "src/infrastructure/PersonaGenerationStore.ts",
+        "src/domain/ports/LlmServicePort.ts",
+        "src/infrastructure/adapters/VisionAnalysisAdapter.ts",
+        "test/artifact-analysis-detail.spec.ts"
+      ],
+      "anchors": [
+        "how",
+        "does",
+        "the",
+        "ag",
+        "go",
+        "from",
+        "persona",
+        "to",
+        "full",
+        "report",
+        "with"
+      ],
+      "id": "1171a4cd-6747-4468-8645-6c1501461b48",
+      "createdAt": "2026-08-16T09:39:51.641Z",
+      "expiresAt": "2026-08-16T10:09:51.641Z"
+    },
+    {
+      "mode": "precision",
+      "resultPaths": [
+        "docs/VPS_DEPLOYMENT.md",
+        "AGENTS.md",
+        ".ai/contexts/persona-pipeline/verification/results.md",
+        "BACKLOG.md",
+        "thoughts/shared/designs/2026-07-16-supabase-auth-design.md",
+        ".netlify/functions-internal/___netlify-server-handler/.next/server/chunks/_next-internal_server_app_api_vps_analyze-pricing_route_actions_2460dbfb.js",
+        ".netlify/functions-internal/___netlify-server-handler/.next/server/chunks/_next-internal_server_app_api_vps_analyze-progress_route_actions_4c29df01.js",
+        ".netlify/functions-internal/___netlify-server-handler/.next/server/chunks/_next-internal_server_app_api_vps_analyze-result_route_actions_3f286104.js",
+        ".netlify/functions-internal/___netlify-server-handler/.next/server/chunks/_next-internal_server_app_api_vps_analyze-screenshot_route_actions_93fa3a1e.js",
+        ".netlify/functions-internal/___netlify-server-handler/.next/server/chunks/_next-internal_server_app_api_vps_chat-with-persona_route_actions_715c4829.js"
+      ],
+      "anchors": [
+        "netlify",
+        "vps",
+        "dual",
+        "mode",
+        "architecture",
+        "deploy",
+        "backend"
+      ],
+      "id": "b7c7eda9-34b6-4d18-b378-682bd5323696",
+      "createdAt": "2026-08-16T09:39:46.750Z",
+      "expiresAt": "2026-08-16T10:09:46.750Z"
+    },
+    {
+      "mode": "precision",
+      "resultPaths": [
+        "docs/VPS_DEPLOYMENT.md",
+        "thoughts/shared/plans/2026-07-16-supabase-auth.md",
+        ".netlify/functions-internal/___netlify-server-handler/.next/server/chunks/ssr/node_modules_next_dist_client_components_builtin_unauthorized_15817684.js",
+        ".next/dev/server/chunks/ssr/node_modules_next_dist_client_components_builtin_unauthorized_15817684.js",
+        ".next/server/chunks/ssr/node_modules_next_dist_client_components_builtin_unauthorized_15817684.js",
+        ".next/standalone/.next/server/chunks/ssr/node_modules_next_dist_client_components_builtin_unauthorized_15817684.js",
+        ".next/dev/server/edge/chunks/[root-of-the-server]__8978dbac._.js",
+        ".netlify/edge-functions/___netlify-edge-handler-middleware/edge-runtime/lib/next-request.ts",
+        "AGENTS.md",
+        ".netlify/edge-functions/___netlify-edge-handler-middleware/___netlify-edge-handler-middleware.js"
+      ],
+      "anchors": [
+        "unauthorized",
+        "auth",
+        "token",
+        "verify",
+        "middleware",
+        "request"
+      ],
+      "id": "1f2c17d1-bfec-4619-887d-62205d1b12ba",
+      "createdAt": "2026-08-16T09:39:46.125Z",
+      "expiresAt": "2026-08-16T10:09:46.125Z"
+    },
+    {
+      "mode": "precision",
+      "resultPaths": [
+        "docs/LIT_REVIEW.md",
+        "docs/RESEARCH.md",
+        "src/lib/__tests__/surveyToPrompt.test.ts",
+        "src/lib/surveyToPrompt.ts",
+        "src/components/custom/PersonaSurveyForm.tsx",
+        ".sisyphus/plans/interview-to-persona-pipeline.md",
+        "docs/INTERVIEW_TO_PERSONA_PIPELINE.md",
+        "src/components/custom/PersonaProgressToaster.tsx",
+        "src/components/custom/PersonaSkeletonCard.tsx",
+        "src/components/custom/__tests__/PersonaProgressToaster.test.tsx"
+      ],
+      "anchors": [
+        "convert",
+        "survey",
+        "answers",
+        "to",
+        "persona",
+        "prompt",
+        "questions"
+      ],
+      "id": "4d430ff9-83b6-44af-8452-95069a34964a",
+      "createdAt": "2026-08-16T09:39:45.483Z",
+      "expiresAt": "2026-08-16T10:09:45.483Z"
+    },
+    {
+      "mode": "precision",
+      "resultPaths": [
+        "src/infrastructure/adapters/RemotePlaywrightAdapter.ts",
+        "thoughts/ledgers/CONTINUITY_ses_0bda.md",
+        "thoughts/research/2026-02-19-1152-adaptive-pricing-scouting.md",
+        "thoughts/research/2026-02-20-1025-image-upload-support.md",
+        "BACKLOG.md",
+        "docs/USE_CASE_TRACES.md",
+        "docs/PRICING_ANALYSIS_FLOW.md",
+        ".agents/skills/impeccable/scripts/live-browser-session.js",
+        ".agents/skills/impeccable/scripts/live-browser.js",
+        ".agents/skills/impeccable/scripts/modern-screenshot.umd.js"
+      ],
+      "anchors": [
+        "playwright",
+        "browser",
+        "connect",
+        "screenshot"
+      ],
+      "id": "2e248d25-cb5b-4909-98df-ec189a5a0677",
+      "createdAt": "2026-08-16T09:39:44.843Z",
+      "expiresAt": "2026-08-16T10:09:44.843Z"
+    },
+    {
+      "mode": "precision",
+      "resultPaths": [
+        ".sisyphus/plans/pricing-page-analysis-fixes.md",
+        "docs/PRICING_ANALYSIS_FLOW.md",
+        "src/domain/entities/PricingAnalysis.ts",
+        "src/domain/entities/__tests__/PricingAnalysis.test.ts",
+        "thoughts/plans/2026-02-19-1941-pricing-analysis-refactor.md",
+        "thoughts/research/2026-02-17-2224-pricing-analysis.md",
+        "thoughts/research/2026-02-19-1928-pricing-analysis-refactor.md",
+        "thoughts/shared/plans/2026-03-04-pricing-analysis-speed-optimization.md",
+        "thoughts/shared/research/2026-03-04-pricing-analysis-speed-optimizations.md",
+        ".sisyphus/notepads/pricing-page-analysis-fixes/decisions.md"
+      ],
+      "anchors": [
+        "pricing",
+        "page",
+        "scrape",
+        "competitor",
+        "analysis"
+      ],
+      "id": "3406f3a5-79c8-41d2-9f15-320f3a735284",
+      "createdAt": "2026-08-16T09:39:39.279Z",
+      "expiresAt": "2026-08-16T10:09:39.279Z"
+    },
+    {
+      "mode": "precision",
+      "resultPaths": [
+        "src/application/usecases/DeleteUserUseCase.ts",
+        "src/application/usecases/EditUserUseCase.ts",
+        "src/application/usecases/LoginUserUseCase.ts",
+        "src/application/usecases/RegisterUserUseCase.ts",
+        "src/domain/dtos/UserDTO.ts",
+        "src/domain/entities/User.ts",
+        "src/domain/ports/DatabaseServicePort.ts",
+        "src/domain/ports/UserRepositoryPort.ts",
+        "src/infrastructure/adapters/UserRepositoryImpl.ts",
+        "src/infrastructure/mappers/UserMapper.ts"
+      ],
+      "anchors": [
+        "database",
+        "schema",
+        "user",
+        "entity",
+        "prisma"
+      ],
+      "id": "33a1b04f-1ab9-45d8-9873-bc88742fd1de",
+      "createdAt": "2026-08-16T09:39:38.666Z",
+      "expiresAt": "2026-08-16T10:09:38.666Z"
+    },
+    {
+      "mode": "precision",
+      "resultPaths": [
+        "thoughts/shared/designs/2026-07-16-supabase-auth-design.md",
+        "src/domain/ports/BrowserServicePort.ts",
+        "src/infrastructure/services/BrowserDatabaseService.ts",
+        ".agents/skills/impeccable/scripts/live-browser-session.js",
+        ".agents/skills/impeccable/scripts/live-browser.js",
+        ".next/dev/static/chunks/[turbopack]_browser_dev_hmr-client_hmr-client_ts_bae88007._.js",
+        ".next/dev/static/chunks/[turbopack]_browser_dev_hmr-client_hmr-client_ts_c8c997ce._.js",
+        ".next/dev/static/chunks/[turbopack]_browser_dev_hmr-client_hmr-client_ts_f26f265a._.js",
+        "docs/PERSONA_BROWSER_AGENT.md",
+        "playwright-server.js"
+      ],
+      "anchors": [
+        "playwright",
+        "cloud",
+        "browser",
+        "service"
+      ],
+      "id": "acaad12a-512d-4d86-aa4d-d79b879b3b31",
+      "createdAt": "2026-08-16T09:39:38.038Z",
+      "expiresAt": "2026-08-16T10:09:38.038Z"
+    }
+  ]
+}

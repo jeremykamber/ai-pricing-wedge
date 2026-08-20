@@ -3,8 +3,8 @@ import { NextRequest } from "next/server";
 
 const mockStoreGet = vi.hoisted(() => vi.fn());
 
-vi.mock("@/infrastructure/SimulationResultStore", () => ({
-  simulationResultStore: {
+vi.mock("@/infrastructure/AnalysisResultStore", () => ({
+  analysisResultStore: {
     get: mockStoreGet,
     save: vi.fn(),
     saveError: vi.fn(),
@@ -14,7 +14,7 @@ vi.mock("@/infrastructure/SimulationResultStore", () => ({
 describe("GET /api/vps/analyze-result", () => {
   beforeEach(() => vi.clearAllMocks());
 
-  it("returns simulation result when runId is provided", async () => {
+  it("returns analysis result when runId is provided", async () => {
     mockStoreGet.mockReturnValue({
       analyses: [{ id: "a1" }],
       error: undefined,

@@ -2,7 +2,7 @@
 // Streams a panel-synthesis chat response token by token via a ReadableStream.
 // The client receives progressively longer plain-text chunks — each chunk is
 // the entire response accumulated so far, so the UI can show the growing
-// reply in real time. Grounded in the full cohort's simulation responses plus
+// reply in real time. Grounded in the full cohort's analysis responses plus
 // the cross-persona synthesis.
 // ─────────────────────────────────────────────────────────────────────────────
 

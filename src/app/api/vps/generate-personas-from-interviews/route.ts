@@ -119,8 +119,8 @@ async function runPipeline(
                 streamingText: progress.message,
                 completedCount: progress.current,
                 totalCount: progress.total,
-                completedAnalyses: progress.current,
-                totalAnalyses: progress.total,
+                completedResponses: progress.current,
+                totalResponses: progress.total,
             });
         }, count, generationMode);
 

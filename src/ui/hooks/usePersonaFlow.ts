@@ -6,6 +6,7 @@ import { getProgressAction } from '@/actions/getProgress'
 import { usePersonaStore, type PersonaBatch } from '@/ui/stores/personaStore'
 import { readStreamableValue } from '@ai-sdk/rsc'
 import { batchConsumedRunIds } from '@/lib/generationRunState'
+import { resolveBatchLabel } from '@/lib/resolveBatchLabel'
 
 export type PersonaProgressStep = 'BRAINSTORMING_PERSONAS' | 'GENERATING_BACKSTORIES' | 'ADDING_BEHAVIORAL_DEPTH' | 'GENERATING_INSIGHTS' | 'DONE' | 'ERROR'
 
@@ -75,8 +76,8 @@ export function usePersonaFlow(onSuccess?: (personas: Persona[]) => void) {
             step: (p.progress.step as PersonaProgressStep) || 'BRAINSTORMING_PERSONAS',
             streamingText: p.progress.streamingText,
             personaName: p.progress.personaName,
-            completedCount: p.progress.completedCount ?? p.progress.completedAnalyses,
-            totalCount: p.progress.totalCount ?? p.progress.totalAnalyses,
+            completedCount: p.progress.completedCount ?? p.progress.completedResponses,
+            totalCount: p.progress.totalCount ?? p.progress.totalResponses,
           })
         }
       } catch { /* non-critical */ }
@@ -111,9 +112,10 @@ export function usePersonaFlow(onSuccess?: (personas: Persona[]) => void) {
           }
 
           if (pollResult.personas && pollResult.personas.length > 0) {
+            const fallbackLabel = `"${customerProfile.slice(0, 40)}${customerProfile.length > 40 ? '...' : ''}"`
             const batch: PersonaBatch = {
               id: `batch-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`,
-              label: `"${customerProfile.slice(0, 40)}${customerProfile.length > 40 ? '...' : ''}"`,
+              label: await resolveBatchLabel(fallbackLabel, pollResult.personas, { source: 'description', description: customerProfile }),
               source: 'description',
               createdAt: new Date().toISOString(),
               personas: pollResult.personas,
@@ -194,9 +196,10 @@ export function usePersonaFlow(onSuccess?: (personas: Persona[]) => void) {
               const label = promptOverride
                 ? promptOverride.slice(0, 60)
                 : customerProfile.slice(0, 40)
+              const fallbackLabel = `"${label}${label.length >= 60 ? '...' : ''}"`
               const batch: PersonaBatch = {
                 id: `batch-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`,
-                label: `"${label}${label.length >= 60 ? '...' : ''}"`,
+                label: await resolveBatchLabel(fallbackLabel, update.personas!, { source: 'description', description: promptOverride || customerProfile }),
                 source: 'description',
                 createdAt: new Date().toISOString(),
                 personas: update.personas!,

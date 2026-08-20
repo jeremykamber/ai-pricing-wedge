@@ -22,10 +22,10 @@ about what they actually saw. The full stack:
 ## Grounding types — the deprecated mismatch
 
 - `PricingAnalysis` (legacy, @deprecated) vs `PersonaResponse` (modern,
-  artifact-agnostic). Simulations produce `PersonaResponse[]`.
+  artifact-agnostic). Analyses produce `PersonaResponse[]`.
 - The chat context type is `ChatAnalysisContext = PricingAnalysis | PersonaResponse | null`
   (defined in `LlmServicePort`). `ChatPromptCompiler.buildAnalysisContext`
-  renders "what you saw in the simulation" from a `PersonaResponse`
+  renders "what you saw in the analysis" from a `PersonaResponse`
   (overview, journey, findings, frictions, open questions, research answer).
 - `PersonaResponse.personaId` links back to the full `Persona`; the report
   page resolves via `src/ui/dashboard/utils/resolveChatPersona.ts` (store

@@ -364,7 +364,7 @@ For each persona:
 
 **Chat with persona**: Existing ChatAdapter with PersonaPromptCompiler. ID-RAG retrieves both backstory chunks AND interview chunks.
 
-**Cohort simulation**: Iterate over personas, run each through the same scenario prompt, aggregate results. No dedicated cohort engine for MVP — server action loops over personas.
+**Cohort analysis**: Iterate over personas, run each through the same scenario prompt, aggregate results. No dedicated cohort engine for MVP — server action loops over personas.
 
 **Tweak psychographics**: User adjusts slider → modified value replaces the PB&J-generated value → persona regenerates with new rationales. Backstory cached.
 

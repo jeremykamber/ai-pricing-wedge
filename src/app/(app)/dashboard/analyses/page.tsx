@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState, useCallback, useRef } from 'react'
-import { useSimulationStore } from '@/ui/stores/simulationStore'
+import { useAnalysisStore } from '@/ui/stores/analysisStore'
 import { usePersonaStore } from '@/ui/stores/personaStore'
 import { useAnalysisFlow } from '@/ui/hooks/useAnalysisFlow'
 import Link from 'next/link'
@@ -13,34 +13,48 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { InlineRenamable } from '@/components/custom/InlineRenamable'
 
-function SimulationCard({ simulation }: { simulation: import('@/domain/entities/Simulation').Simulation }) {
+function AnalysisCard({ analysis }: { analysis: import('@/domain/entities/ArtifactAnalysis').ArtifactAnalysis }) {
   const router = useRouter()
-  const removeSimulation = useSimulationStore((s) => s.removeSimulation)
+  const removeAnalysis = useAnalysisStore((s) => s.removeAnalysis)
+  const updateAnalysis = useAnalysisStore((s) => s.updateAnalysis)
 
   const statusConfig = {
     IN_PROGRESS: { label: 'In Progress', icon: ClockIcon, class: 'text-blue-500 bg-blue-500/10 border-blue-500/20' },
     COMPLETED: { label: 'Completed', icon: CheckCircleIcon, class: 'text-green-500 bg-green-500/10 border-green-500/20' },
     ERROR: { label: 'Error', icon: XCircleIcon, class: 'text-destructive bg-destructive/10 border-destructive/20' },
     CANCELLED: { label: 'Cancelled', icon: AlertCircleIcon, class: 'text-muted-foreground bg-muted/30 border-muted/40' },
-  }[simulation.status]
+  }[analysis.status]
 
   const StatusIcon = statusConfig.icon
 
   return (
     <div className="relative group">
-      <button
-        onClick={() => router.push(`/dashboard/simulations/${simulation.id}`)}
-        className="w-full text-left rounded-lg border border-border bg-card p-5 transition-all hover:border-border/80 hover:shadow-sm"
+      <div
+        role="button"
+        tabIndex={0}
+        onClick={() => router.push(`/dashboard/analyses/${analysis.id}`)}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault()
+            router.push(`/dashboard/analyses/${analysis.id}`)
+          }
+        }}
+        className="w-full text-left rounded-lg border border-border bg-card p-5 transition-all hover:border-border/80 hover:shadow-sm cursor-pointer"
       >
         <div className="flex items-start justify-between gap-4">
           <div className="flex flex-col gap-2 min-w-0 flex-1">
             <div className="flex items-center gap-3">
-              <h3 className="font-semibold truncate">{simulation.name}</h3>
+              <InlineRenamable
+                value={analysis.name}
+                onRename={(name) => updateAnalysis(analysis.id, { name })}
+                className="min-w-0"
+              />
               <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium border ${statusConfig.class}`}>
                 <StatusIcon className="h-3 w-3" />
                 {statusConfig.label}
-                {simulation.status === 'IN_PROGRESS' && (
+                {analysis.status === 'IN_PROGRESS' && (
                   <span className="h-1.5 w-1.5 rounded-full bg-current animate-pulse" />
                 )}
               </span>
@@ -48,63 +62,63 @@ function SimulationCard({ simulation }: { simulation: import('@/domain/entities/
             <div className="flex items-center gap-4 text-xs text-muted-foreground">
               <span className="flex items-center gap-1">
                 <GlobeIcon className="h-3 w-3" />
-                {simulation.url}
+                {analysis.url}
               </span>
               <span className="flex items-center gap-1">
                 <UsersIcon className="h-3 w-3" />
-                {simulation.personaCount} personas
+                {analysis.personaCount} personas
               </span>
             </div>
-            {simulation.batchName && (
-              <p className="text-xs text-muted-foreground/70">Batch: {simulation.batchName}</p>
+            {analysis.batchName && (
+              <p className="text-xs text-muted-foreground/70">Batch: {analysis.batchName}</p>
             )}
-            {simulation.status === 'COMPLETED' && (
+            {analysis.status === 'COMPLETED' && (
               <p className="text-xs text-muted-foreground mt-1">
-                {simulation.completedAt && `Completed ${new Date(simulation.completedAt).toLocaleDateString()}`}
+                {analysis.completedAt && `Completed ${new Date(analysis.completedAt).toLocaleDateString()}`}
               </p>
             )}
           </div>
           <div className="text-right shrink-0">
             <p className="text-xs text-muted-foreground whitespace-nowrap">
-              {new Date(simulation.createdAt).toLocaleDateString(undefined, {
+              {new Date(analysis.createdAt).toLocaleDateString(undefined, {
                 month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit',
               })}
             </p>
-            {simulation.completedAt && simulation.status !== 'IN_PROGRESS' && (
+            {analysis.completedAt && analysis.status !== 'IN_PROGRESS' && (
               <p className="text-[11px] text-muted-foreground/60 mt-0.5 whitespace-nowrap">
-                {new Date(simulation.completedAt).toLocaleDateString(undefined, {
+                {new Date(analysis.completedAt).toLocaleDateString(undefined, {
                   month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit',
                 })}
               </p>
             )}
           </div>
         </div>
-        {simulation.status === 'IN_PROGRESS' && simulation.totalAnalyses && (
+        {analysis.status === 'IN_PROGRESS' && analysis.totalResponses && (
           <div className="mt-3">
             <div className="flex items-center justify-between text-xs text-muted-foreground mb-1.5">
-              <span>{simulation.completedAnalyses ?? 0}/{simulation.totalAnalyses} analyses</span>
-              <span className="tabular-nums font-medium">{Math.round(((simulation.completedAnalyses ?? 0) / simulation.totalAnalyses) * 100)}%</span>
+              <span>{analysis.completedResponses ?? 0}/{analysis.totalResponses} analyses</span>
+              <span className="tabular-nums font-medium">{Math.round(((analysis.completedResponses ?? 0) / analysis.totalResponses) * 100)}%</span>
             </div>
             <div className="h-2 bg-muted rounded-full overflow-hidden">
               <div
                 className="h-full bg-primary rounded-full transition-all duration-500 ease-out"
-                style={{ width: `${((simulation.completedAnalyses ?? 0) / simulation.totalAnalyses) * 100}%` }}
+                style={{ width: `${((analysis.completedResponses ?? 0) / analysis.totalResponses) * 100}%` }}
               />
             </div>
           </div>
         )}
-        {simulation.error && (
-          <p className="mt-2 text-xs text-destructive bg-destructive/10 p-2 rounded">{simulation.error}</p>
+        {analysis.error && (
+          <p className="mt-2 text-xs text-destructive bg-destructive/10 p-2 rounded">{analysis.error}</p>
         )}
-      </button>
+      </div>
       <button
         type="button"
         onClick={(e) => {
           e.stopPropagation()
-          removeSimulation(simulation.id)
+          removeAnalysis(analysis.id)
         }}
         className="absolute -top-2 -right-2 flex items-center justify-center size-6 rounded-full bg-destructive/90 text-destructive-foreground opacity-0 group-hover:opacity-100 transition-opacity duration-150 hover:bg-destructive focus:outline-none"
-        aria-label="Delete simulation"
+        aria-label="Delete analysis"
       >
         <XIcon className="size-3.5" />
       </button>
@@ -112,7 +126,7 @@ function SimulationCard({ simulation }: { simulation: import('@/domain/entities/
   )
 }
 
-function NewSimulationForm({ onRun }: { onRun: (url: string, personas: Persona[], imageBase64?: string, businessGoal?: string, researchQuestion?: string) => void }) {
+function NewAnalysisForm({ onRun }: { onRun: (url: string, personas: Persona[], imageBase64?: string, businessGoal?: string, researchQuestion?: string) => void }) {
   const batches = usePersonaStore((s) => s.batches)
   const [selectedBatchId, setSelectedBatchId] = useState<string>('')
   const [url, setUrl] = useState('')
@@ -383,15 +397,15 @@ function NewSimulationForm({ onRun }: { onRun: (url: string, personas: Persona[]
   )
 }
 
-export default function SimulationsPage() {
-  const simulations = useSimulationStore((s) => s.simulations)
+export default function AnalysesPage() {
+  const analyses = useAnalysisStore((s) => s.analyses)
   const analysisFlow = useAnalysisFlow()
   const [showNewForm, setShowNewForm] = useState(false)
 
-  const inProgress = simulations.filter((s) => s.status === 'IN_PROGRESS')
-  const completed = simulations.filter((s) => s.status !== 'IN_PROGRESS')
+  const inProgress = analyses.filter((s) => s.status === 'IN_PROGRESS')
+  const completed = analyses.filter((s) => s.status !== 'IN_PROGRESS')
 
-  const handleRunSimulation = (url: string, personas: Persona[], imageBase64?: string, businessGoal?: string, researchQuestion?: string) => {
+  const handleRunAnalysis = (url: string, personas: Persona[], imageBase64?: string, businessGoal?: string, researchQuestion?: string) => {
     const input = imageBase64
       ? { type: 'screenshot' as const, imageBase64, url }
       : { type: 'url' as const, url }
@@ -409,7 +423,7 @@ export default function SimulationsPage() {
         <div className="flex flex-col gap-2">
           <h1 className="text-2xl font-bold tracking-tight">Analyses</h1>
           <p className="text-sm text-muted-foreground">
-            {simulations.length === 0
+            {analyses.length === 0
               ? 'No analyses yet. Run your first analysis to get started.'
               : `${completed.length} completed · ${inProgress.length} in progress`}
           </p>
@@ -424,7 +438,7 @@ export default function SimulationsPage() {
       </div>
 
       {showNewForm && (
-        <NewSimulationForm onRun={handleRunSimulation} />
+        <NewAnalysisForm onRun={handleRunAnalysis} />
       )}
 
       {analysisFlow.isPending && (
@@ -432,7 +446,7 @@ export default function SimulationsPage() {
           <span className="h-2 w-2 rounded-full bg-blue-500 animate-pulse" />
           Analysis is running…
           <Link
-            href="/dashboard/simulations"
+            href="/dashboard/analyses"
             className="ml-auto text-xs font-medium text-blue-600 hover:underline"
           >
             Refresh
@@ -448,7 +462,7 @@ export default function SimulationsPage() {
           </h2>
           <div className="flex flex-col gap-3">
             {inProgress.map((sim) => (
-              <SimulationCard key={sim.id} simulation={sim} />
+              <AnalysisCard key={sim.id} analysis={sim} />
             ))}
           </div>
         </section>
@@ -461,13 +475,13 @@ export default function SimulationsPage() {
           </h2>
           <div className="flex flex-col gap-3">
             {completed.map((sim) => (
-              <SimulationCard key={sim.id} simulation={sim} />
+              <AnalysisCard key={sim.id} analysis={sim} />
             ))}
           </div>
         </section>
       )}
 
-      {simulations.length === 0 && !showNewForm && (
+      {analyses.length === 0 && !showNewForm && (
         <div className="flex flex-col items-center justify-center py-24 text-center">
           <div className="h-12 w-12 rounded-full bg-muted/30 flex items-center justify-center mb-4">
             <ClockIcon className="h-6 w-6 text-muted-foreground" />

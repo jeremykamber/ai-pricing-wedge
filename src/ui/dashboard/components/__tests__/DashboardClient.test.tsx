@@ -8,7 +8,7 @@ interface MockStoreState {
   batches: any[]
   activeBatchId: string | null
   activeGenerationRunIds: string[]
-  simulations: any[]
+  analyses: any[]
 }
 
 let storeState: MockStoreState
@@ -18,7 +18,7 @@ function resetStore(overrides?: Partial<MockStoreState>) {
     batches: [],
     activeBatchId: null,
     activeGenerationRunIds: [],
-    simulations: [],
+    analyses: [],
     ...overrides,
   }
 }
@@ -94,9 +94,9 @@ vi.mock('@/ui/stores/personaStore', () => ({
   },
 }))
 
-vi.mock('@/ui/stores/simulationStore', () => ({
-  useSimulationStore: (selector?: (s: any) => any) => {
-    const state = { simulations: storeState.simulations }
+vi.mock('@/ui/stores/analysisStore', () => ({
+  useAnalysisStore: (selector?: (s: any) => any) => {
+    const state = { analyses: storeState.analyses }
     return selector ? selector(state) : state
   },
 }))
@@ -147,7 +147,7 @@ vi.mock('next/link', () => ({
 }))
 vi.mock('lucide-react', () => {
   const I = () => <svg />
-  return { LayersIcon: I, SparklesIcon: I, PlayIcon: I, PlusIcon: I, ChevronDownIcon: I, FileTextIcon: I, PenIcon: I, ClockIcon: I, ArrowRightIcon: I, XIcon: I }
+  return { LayersIcon: I, SparklesIcon: I, PlayIcon: I, PlusIcon: I, ChevronDownIcon: I, FileTextIcon: I, PenIcon: I, ClockIcon: I, ArrowRightIcon: I, XIcon: I, PencilIcon: I, CheckIcon: I }
 })
 
 import { DashboardClient } from '../DashboardClient'

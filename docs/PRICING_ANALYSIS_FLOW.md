@@ -8,12 +8,12 @@
 ## 1. HIGH-LEVEL OVERVIEW
 
 ```
-User clicks "Run Simulation"
+User clicks "Run Analysis"
         │
         ▼
 ┌─────────────────────────────────────────────────────┐
 │  UI Layer (useAnalysisFlow.ts)                      │
-│  - Creates simulation entry                         │
+│  - Creates analysis entry                           │
 │  - Calls analyzePricingPageAction (server action)   │
 │  - Reads streamed results via readStreamableValue   │
 └──────────────────────┬──────────────────────────────┘
@@ -68,7 +68,7 @@ User clicks "Run Simulation"
 |----------|-----------------------------------|
 
 - **`handleAnalyzePricing(personas)`** (line 49) — the main trigger
-  - Creates a simulation entry in `useSimulationStore`
+  - Creates an analysis entry in `useAnalysisStore`
   - Calls `analyzePricingPageAction()` inside `startTransition`
   - Reads the streamable value in a `for await` loop (line 84)
   - Handles `DONE`, `ERROR`, `CANCELLED` step transitions
