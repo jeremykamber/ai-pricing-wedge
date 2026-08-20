@@ -253,7 +253,7 @@ function PersonaToastContent({
   const isTerminal = variant === 'completed' || variant === 'error'
 
   return (
-    <div className="relative group overflow-hidden rounded-lg border border-border bg-card">
+    <div className="relative group rounded-lg border border-border bg-card">
       {variant === 'in-progress' && (
         <div className="pointer-events-none absolute inset-0 z-20 rounded-lg ring-1 ring-primary/20 animate-[sim-ring-fade_0.6s_ease-out_forwards]" />
       )}
@@ -261,15 +261,6 @@ function PersonaToastContent({
         className="absolute inset-y-0 left-0 bg-primary/[0.06] transition-all duration-300 ease-out"
         style={{ width: `${progress * 100}%` }}
       />
-      {isTerminal && onDismiss && (
-        <button
-          onClick={onDismiss}
-          className="absolute -top-2 -right-2 flex items-center justify-center size-6 rounded-full bg-destructive/90 text-destructive-foreground opacity-0 group-hover:opacity-100 transition-opacity duration-150 hover:bg-destructive focus:outline-none z-10"
-          aria-label="Dismiss"
-        >
-          <XIcon className="size-3.5" />
-        </button>
-      )}
       <div className="relative z-10 flex items-center gap-3 p-4">
         <Icon className={`h-4 w-4 shrink-0 ${iconClass}`} />
         <div className="min-w-0 flex-1">
@@ -284,6 +275,15 @@ function PersonaToastContent({
             className="shrink-0 text-xs font-semibold text-primary underline underline-offset-4 transition-colors hover:text-primary/80"
           >
             {label}
+          </button>
+        )}
+        {isTerminal && onDismiss && (
+          <button
+            onClick={onDismiss}
+            className="shrink-0 h-5 w-5 flex items-center justify-center rounded-full text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors"
+            aria-label="Dismiss"
+          >
+            <XIcon className="h-3 w-3" />
           </button>
         )}
       </div>

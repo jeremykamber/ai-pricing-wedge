@@ -68,7 +68,7 @@ function SimulationToastContent({
   }[sim.status]
 
   return (
-    <div className="relative group overflow-hidden rounded-lg border border-border bg-card">
+    <div className="relative group rounded-lg border border-border bg-card">
       {sim.status === 'IN_PROGRESS' && (
         <div className="pointer-events-none absolute inset-0 z-20 rounded-lg ring-1 ring-primary/20 animate-[sim-ring-fade_0.6s_ease-out_forwards]" />
       )}
@@ -76,15 +76,6 @@ function SimulationToastContent({
         className={`absolute inset-y-0 left-0 ${statusConfig.accentClass} transition-all duration-300 ease-out`}
         style={{ width: statusConfig.progressWidth }}
       />
-      {isTerminal && (
-        <button
-          onClick={onDismiss}
-          className="absolute -top-2 -right-2 flex items-center justify-center size-6 rounded-full bg-destructive/90 text-destructive-foreground opacity-0 group-hover:opacity-100 transition-opacity duration-150 hover:bg-destructive focus:outline-none z-10"
-          aria-label="Dismiss"
-        >
-          <XIcon className="size-3.5" />
-        </button>
-      )}
       <div className="relative z-10 flex items-center gap-3 p-4">
         {statusConfig.icon}
         <div className="min-w-0 flex-1">
@@ -97,6 +88,15 @@ function SimulationToastContent({
             className={`shrink-0 text-xs font-semibold underline underline-offset-4 transition-colors ${statusConfig.buttonClass}`}
           >
             {actionLabel}
+          </button>
+        )}
+        {isTerminal && (
+          <button
+            onClick={onDismiss}
+            className="shrink-0 h-5 w-5 flex items-center justify-center rounded-full text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors"
+            aria-label="Dismiss"
+          >
+            <XIcon className="h-3 w-3" />
           </button>
         )}
       </div>
