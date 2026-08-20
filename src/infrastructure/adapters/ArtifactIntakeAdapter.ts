@@ -39,8 +39,14 @@ export class ArtifactIntakeAdapter {
 
     onProgress?.("COMPLETE");
 
+    // The client sends a full data URL (data:image/png;base64,...) from
+    // FileReader.readAsDataURL.  Downstream adapters (VisionAnalysisAdapter,
+    // LlmServiceImpl) wrap raw base64 with their own data-URL prefix, so we
+    // must strip the prefix here to avoid double-wrapping.
+    const rawBase64 = stripDataUrlPrefix(input.imageBase64);
+
     return {
-      screenshotBase64: input.imageBase64,
+      screenshotBase64: rawBase64,
       url: input.url,
     };
   }
@@ -97,4 +103,10 @@ export class ArtifactIntakeAdapter {
       }
     }
   }
+}
+
+function stripDataUrlPrefix(dataUrl: string): string {
+  const commaIndex = dataUrl.indexOf(",");
+  if (commaIndex === -1) return dataUrl;
+  return dataUrl.slice(commaIndex + 1);
 }
