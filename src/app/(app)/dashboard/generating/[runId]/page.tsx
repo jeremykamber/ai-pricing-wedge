@@ -93,8 +93,8 @@ export default function GeneratingPage() {
       setStreamingText(p.progress.streamingText ?? null)
       setPersonaName(p.progress.personaName ?? null)
 
-      const completed = p.progress.completedCount ?? p.progress.completedAnalyses
-      const total = p.progress.totalCount ?? p.progress.totalAnalyses
+      const completed = p.progress.completedCount ?? p.progress.completedResponses
+      const total = p.progress.totalCount ?? p.progress.totalResponses
       setCompletedCount(completed)
       setTotalCount(total)
 

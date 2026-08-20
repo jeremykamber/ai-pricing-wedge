@@ -1,6 +1,6 @@
 import type { PersonaResponse } from '@/domain/entities/PersonaResponse'
 
-interface StoredSimulation {
+interface StoredAnalysis {
   analyses: PersonaResponse[]
   completedAt: string
   error?: string
@@ -26,8 +26,8 @@ function getGlobalMap<K, V>(key: string): Map<K, V> {
   return ((globalThis as any)[key] ?? ((globalThis as any)[key] = new Map()));
 }
 
-class SimulationResultStore {
-  private get results() { return getGlobalMap<string, StoredSimulation>(GLOBAL_KEY); }
+class AnalysisResultStore {
+  private get results() { return getGlobalMap<string, StoredAnalysis>(GLOBAL_KEY); }
   private get cleanups() { return getGlobalMap<string, ReturnType<typeof setTimeout>>(GLOBAL_CLEANUP_KEY); }
 
   save(runId: string, analyses: PersonaResponse[]): void {
@@ -49,7 +49,7 @@ class SimulationResultStore {
     this.scheduleCleanup(runId)
   }
 
-  get(runId: string): StoredSimulation | undefined {
+  get(runId: string): StoredAnalysis | undefined {
     return this.results.get(runId)
   }
 
@@ -72,4 +72,4 @@ class SimulationResultStore {
   }
 }
 
-export const simulationResultStore = new SimulationResultStore()
+export const analysisResultStore = new AnalysisResultStore()

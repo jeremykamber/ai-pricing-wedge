@@ -22,7 +22,7 @@ vi.mock("@/infrastructure/RequestCancellationManager", () => ({
   },
 }));
 
-vi.mock("@/infrastructure/SimulationResultStore", () => ({
+vi.mock("@/infrastructure/AnalysisResultStore", () => ({
   simulationResultStore: {
     save: vi.fn(),
     saveError: vi.fn(),

@@ -3,7 +3,7 @@ import { NextRequest } from "next/server";
 
 const mockStoreGet = vi.hoisted(() => vi.fn());
 
-vi.mock("@/infrastructure/SimulationResultStore", () => ({
+vi.mock("@/infrastructure/AnalysisResultStore", () => ({
   simulationResultStore: {
     get: mockStoreGet,
     save: vi.fn(),

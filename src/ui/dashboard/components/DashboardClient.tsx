@@ -25,7 +25,7 @@ import {
 import { Persona } from '@/domain/entities/Persona'
 import { readStreamableValue } from '@ai-sdk/rsc'
 import { generateSimilarPersonasAction } from '@/actions/generateSimilarPersonas'
-import { useSimulationStore } from '@/ui/stores/simulationStore'
+import { useAnalysisStore } from '@/ui/stores/analysisStore'
 
 export function DashboardClient() {
     const router = useRouter()
@@ -66,9 +66,9 @@ export function DashboardClient() {
         ? batches.find((b) => b.id === activeBatchId)
         : null
 
-    const simulations = useSimulationStore((s) => s.simulations)
-    const batchSimulationCount = activeBatchId
-        ? simulations.filter((s) => s.batchId === activeBatchId).length
+    const analyses = useAnalysisStore((s) => s.analyses)
+    const batchAnalysisCount = activeBatchId
+        ? analyses.filter((s) => s.batchId === activeBatchId).length
         : 0
 
     const getPersona = (id: string) => activeBatch?.personas.find(p => p.id === id) ?? null
@@ -384,13 +384,13 @@ export function DashboardClient() {
                                         <h2 className="text-xl font-bold tracking-tight">
                                             {activeBatch.label}
                                         </h2>
-                                        {batchSimulationCount > 0 && (
+                                        {batchAnalysisCount > 0 && (
                                             <Link
                                                 href="/dashboard/simulations"
                                                 className="inline-flex items-center gap-1 rounded-md bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary transition-colors hover:bg-primary/20"
                                             >
                                                 <PlayIcon className="h-3 w-3" />
-                                                {batchSimulationCount} simulation{batchSimulationCount !== 1 ? 's' : ''}
+                                                {batchAnalysisCount} analysis{batchAnalysisCount !== 1 ? 's' : ''}
                                             </Link>
                                         )}
                                     </div>
@@ -523,7 +523,7 @@ export function DashboardClient() {
                                     className="flex-1 inline-flex h-10 items-center justify-center gap-2 rounded-md border border-border bg-background px-5 text-sm font-semibold transition-colors hover:bg-accent"
                                 >
                                     <PlayIcon className="h-4 w-4" />
-                                    Run Simulation
+                                    Run Analysis
                                 </button>
                             </div>
                         </div>

@@ -4,7 +4,7 @@ import './globals.css';
 import Script from 'next/script';
 import { Toaster } from 'sonner';
 import { ToasterProvider } from '@/components/custom/ToasterProvider';
-import { FloatingSimulationButton } from '@/components/custom/FloatingSimulationButton';
+import { FloatingAnalysisButton } from '@/components/custom/FloatingSimulationButton';
 
 const geistSans = Geist({
   variable: '--font-geist-sans',
@@ -49,7 +49,7 @@ export default function RootLayout({
           theme="dark"
         />
         <ToasterProvider />
-        <FloatingSimulationButton />
+        <FloatingAnalysisButton />
       </body>
     </html>
   );

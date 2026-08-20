@@ -4,13 +4,13 @@ import type { PersonaResponse } from '@/domain/entities/PersonaResponse'
 import type { ArtifactSynthesis } from '@/domain/entities/ArtifactSynthesis'
 import { analyzeArtifactAction } from '@/actions/analyzeArtifactAction'
 import type { ArtifactInput } from '@/infrastructure/adapters/ArtifactIntakeAdapter'
-import { getSimulationResultAction } from '@/actions/getSimulationResult'
+import { getAnalysisResultAction } from '@/actions/getAnalysisResult'
 import { getProgressAction } from '@/actions/getProgress'
 import { getScreenshotAction } from '@/actions/getScreenshot'
 import { readStreamableValue } from '@ai-sdk/rsc'
 import type { AnalysisProgressStep } from '@/domain/entities/ArtifactAnalysis'
-import { useSimulationStore } from '@/ui/stores/simulationStore'
-import { generateSimulationName } from '@/domain/entities/Simulation'
+import { useAnalysisStore } from '@/ui/stores/analysisStore'
+import { generateAnalysisName } from '@/domain/entities/ArtifactAnalysis'
 
 export interface AnalysisProgress {
   step: AnalysisProgressStep | 'DONE' | 'ERROR' | 'CANCELLED'
@@ -88,17 +88,17 @@ export function useAnalysisFlow(onSuccess?: (analyses: PersonaResponse[]) => voi
       ? { type: 'screenshot', imageBase64: artifactImageBase64, url: artifactUrl || undefined }
       : { type: 'url', url: artifactUrl })
 
-    useSimulationStore.getState().addSimulation({
+    useAnalysisStore.getState().addAnalysis({
       id: simulationId,
-      name: generateSimulationName('url' in resolvedInput ? resolvedInput.url || 'Screenshot Upload' : 'Screenshot Upload'),
+      name: generateAnalysisName('url' in resolvedInput ? resolvedInput.url || 'Screenshot Upload' : 'Screenshot Upload'),
       url: 'url' in resolvedInput ? resolvedInput.url || '' : '',
       status: 'IN_PROGRESS',
       personaCount: personas.length,
       personaNames: personas.map((p) => p.name),
       createdAt: new Date().toISOString(),
       currentStep: 'STARTING',
-      completedAnalyses: 0,
-      totalAnalyses: personas.length,
+      completedResponses: 0,
+      totalResponses: personas.length,
     })
 
     setIsPending(true)
@@ -126,7 +126,7 @@ export function useAnalysisFlow(onSuccess?: (analyses: PersonaResponse[]) => voi
             try {
               const result = await getScreenshotAction(requestId)
               if (result.found && result.base64) {
-                useSimulationStore.getState().updateSimulation(simulationId, {
+                useAnalysisStore.getState().updateAnalysis(simulationId, {
                   screenshot: result.base64,
                 })
               }
@@ -144,7 +144,7 @@ export function useAnalysisFlow(onSuccess?: (analyses: PersonaResponse[]) => voi
 
             if (update.step === 'CANCELLED') {
               clearScreenshotPoll()
-              useSimulationStore.getState().markCancelled(simulationId)
+              useAnalysisStore.getState().markCancelled(simulationId)
               if (mountedRef.current) {
                 setAnalysisProgress(null)
                 setCurrentRequestId(null)
@@ -155,7 +155,7 @@ export function useAnalysisFlow(onSuccess?: (analyses: PersonaResponse[]) => voi
 
             if (update.step === 'ERROR') {
               clearScreenshotPoll()
-              useSimulationStore.getState().markError(simulationId, update.error ?? 'Analysis failed')
+              useAnalysisStore.getState().markError(simulationId, update.error ?? 'Analysis failed')
               if (mountedRef.current) {
                 setError(update.error)
                 setAnalysisProgress(null)
@@ -168,7 +168,7 @@ export function useAnalysisFlow(onSuccess?: (analyses: PersonaResponse[]) => voi
               clearScreenshotPoll()
               const results = update.analyses as PersonaResponse[] | undefined
               const synth = (update as any).synthesis as ArtifactSynthesis | undefined
-              useSimulationStore.getState().markComplete(simulationId, results ?? [])
+              useAnalysisStore.getState().markComplete(simulationId, results ?? [])
               if (mountedRef.current) {
                 setAnalyses(results ?? null)
                 setSynthesis(synth ?? null)
@@ -179,9 +179,9 @@ export function useAnalysisFlow(onSuccess?: (analyses: PersonaResponse[]) => voi
               return
             }
 
-            useSimulationStore.getState().updateSimulation(simulationId, {
+            useAnalysisStore.getState().updateAnalysis(simulationId, {
               currentStep: update.step as any,
-              completedAnalyses: update.completedCount,
+              completedResponses: update.completedCount,
               ...(update.screenshot ? { screenshot: update.screenshot } : {}),
             })
 
@@ -202,21 +202,21 @@ export function useAnalysisFlow(onSuccess?: (analyses: PersonaResponse[]) => voi
               const progressResult = await getProgressAction(simulationId)
               if (progressResult.found && progressResult.progress) {
                 const p = progressResult.progress
-                useSimulationStore.getState().updateSimulation(simulationId, {
+                useAnalysisStore.getState().updateAnalysis(simulationId, {
                   currentStep: (p.step as any) ?? undefined,
-                  completedAnalyses: p.completedCount ?? p.completedAnalyses,
+                  completedResponses: p.completedCount ?? p.completedResponses,
                 })
               }
             } catch { /* non-critical */ }
           }
 
           try {
-            const result = await getSimulationResultAction(simulationId)
+            const result = await getAnalysisResultAction(simulationId)
             if (!result.found) continue
             clearScreenshotPoll()
 
             if (result.error) {
-              useSimulationStore.getState().markError(simulationId, result.error)
+              useAnalysisStore.getState().markError(simulationId, result.error)
               if (mountedRef.current) {
                 setError(result.error)
                 setAnalysisProgress(null)
@@ -226,7 +226,7 @@ export function useAnalysisFlow(onSuccess?: (analyses: PersonaResponse[]) => voi
             }
 
             const responses = result.analyses ?? []
-            useSimulationStore.getState().markComplete(simulationId, responses)
+            useAnalysisStore.getState().markComplete(simulationId, responses)
             if (mountedRef.current) {
               setAnalyses(responses)
               setAnalysisProgress(null)
@@ -240,13 +240,13 @@ export function useAnalysisFlow(onSuccess?: (analyses: PersonaResponse[]) => voi
         clearScreenshotPoll()
         if (mountedRef.current && !controller.signal.aborted) {
           setError('Analysis timed out. Please try again.')
-          useSimulationStore.getState().markError(simulationId, 'Timed out after 600 polling attempts')
+          useAnalysisStore.getState().markError(simulationId, 'Timed out after 600 polling attempts')
           setAnalysisProgress(null)
           setCurrentRequestId(null)
         }
       } catch (err) {
         clearScreenshotPoll()
-        useSimulationStore.getState().markError(simulationId, (err as Error).message)
+        useAnalysisStore.getState().markError(simulationId, (err as Error).message)
         if (mountedRef.current) {
           if (!controller.signal.aborted) {
             setError((err as Error).message)

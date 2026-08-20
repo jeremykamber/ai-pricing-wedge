@@ -1,17 +1,17 @@
 "use server";
 
-import { simulationResultStore } from "@/infrastructure/SimulationResultStore";
+import { analysisResultStore } from "@/infrastructure/AnalysisResultStore";
 
 import { shouldRunLocally, VPS_BACKEND_URL, getVpsAuthToken } from "@/infrastructure/config";
 
-export async function getSimulationResultAction(runId: string): Promise<{
+export async function getAnalysisResultAction(runId: string): Promise<{
   found: boolean;
   analyses?: import('@/domain/entities/PersonaResponse').PersonaResponse[];
   error?: string;
   completedAt?: string;
 }> {
   if (shouldRunLocally()) {
-    const result = simulationResultStore.get(runId);
+    const result = analysisResultStore.get(runId);
     if (!result) {
       console.log(`[RESULT_POLL] ${runId}: NOT FOUND`);
       return { found: false };

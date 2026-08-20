@@ -8,8 +8,8 @@ export interface ProgressState {
   step?: string;
   streamingText?: string;
   personaName?: string;
-  completedAnalyses?: number;
-  totalAnalyses?: number;
+  completedResponses?: number;
+  totalResponses?: number;
   completedCount?: number;
   totalCount?: number;
   error?: string;

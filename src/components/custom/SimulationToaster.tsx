@@ -2,11 +2,11 @@
 
 import { useEffect, useRef } from 'react'
 import { toast } from 'sonner'
-import { useSimulationStore } from '@/ui/stores/simulationStore'
+import { useAnalysisStore } from '@/ui/stores/analysisStore'
 import { getProgressAction } from '@/actions/getProgress'
-import { getSimulationResultAction } from '@/actions/getSimulationResult'
+import { getAnalysisResultAction } from '@/actions/getAnalysisResult'
 import { ClockIcon, CheckCircleIcon, XCircleIcon, AlertCircleIcon, XIcon } from 'lucide-react'
-import type { Simulation } from '@/domain/entities/Simulation'
+import type { ArtifactAnalysis } from '@/domain/entities/ArtifactAnalysis'
 
 /**
  * Module-level toast ID map — survives component remounts so existing toasts
@@ -14,27 +14,27 @@ import type { Simulation } from '@/domain/entities/Simulation'
  */
 const toastIdMap = new Map<string, string | number>()
 
-function SimulationToastContent({
-  sim,
+function AnalysisToastContent({
+  analysis,
   onView,
   onDismiss,
   actionLabel,
 }: {
-  sim: Simulation
+  analysis: ArtifactAnalysis
   onView: () => void
   onDismiss: () => void
   actionLabel?: string
 }) {
-  const completed = sim.completedAnalyses ?? 0
-  const total = sim.totalAnalyses ?? 0
+  const completed = analysis.completedResponses ?? 0
+  const total = analysis.totalResponses ?? 0
   const progress = total > 0 ? Math.min(completed / total, 1) : 0
-  const isTerminal = sim.status !== 'IN_PROGRESS'
+  const isTerminal = analysis.status !== 'IN_PROGRESS'
 
   const statusConfig = {
     IN_PROGRESS: {
       icon: <ClockIcon className="h-4 w-4 shrink-0 text-primary animate-spin" />,
-      label: sim.completedAnalyses != null && sim.totalAnalyses != null
-        ? `${sim.completedAnalyses}/${sim.totalAnalyses} analyses`
+      label: analysis.completedResponses != null && analysis.totalResponses != null
+        ? `${analysis.completedResponses}/${analysis.totalResponses} analyses`
         : 'Analyzing...',
       accentClass: 'bg-primary/[0.06]',
       ringClass: 'ring-primary/20',
@@ -43,7 +43,7 @@ function SimulationToastContent({
     },
     COMPLETED: {
       icon: <CheckCircleIcon className="h-4 w-4 shrink-0 text-green-500" />,
-      label: 'Simulation complete',
+      label: 'Analysis complete',
       accentClass: 'bg-green-500/[0.06]',
       ringClass: 'ring-green-500/20',
       progressWidth: '100%',
@@ -51,7 +51,7 @@ function SimulationToastContent({
     },
     ERROR: {
       icon: <XCircleIcon className="h-4 w-4 shrink-0 text-destructive" />,
-      label: sim.error || 'Simulation failed',
+      label: analysis.error || 'Analysis failed',
       accentClass: 'bg-destructive/[0.06]',
       ringClass: 'ring-destructive/20',
       progressWidth: '100%',
@@ -59,17 +59,17 @@ function SimulationToastContent({
     },
     CANCELLED: {
       icon: <AlertCircleIcon className="h-4 w-4 shrink-0 text-muted-foreground" />,
-      label: 'Simulation cancelled',
+      label: 'Analysis cancelled',
       accentClass: 'bg-muted/30',
       ringClass: 'ring-muted-foreground/20',
       progressWidth: '100%',
       buttonClass: 'text-muted-foreground hover:text-foreground',
     },
-  }[sim.status]
+  }[analysis.status]
 
   return (
     <div className="relative overflow-hidden rounded-lg border border-border bg-card">
-      {sim.status === 'IN_PROGRESS' && (
+      {analysis.status === 'IN_PROGRESS' && (
         <div className="pointer-events-none absolute inset-0 z-20 rounded-lg ring-1 ring-primary/20 animate-[sim-ring-fade_0.6s_ease-out_forwards]" />
       )}
       <div
@@ -79,7 +79,7 @@ function SimulationToastContent({
       <div className="relative z-10 flex items-center gap-3 p-4">
         {statusConfig.icon}
         <div className="min-w-0 flex-1">
-          <p className="truncate text-sm font-semibold text-foreground">{sim.name}</p>
+          <p className="truncate text-sm font-semibold text-foreground">{analysis.name}</p>
           <p className="text-xs text-muted-foreground">{statusConfig.label}</p>
         </div>
         {actionLabel && (
@@ -105,7 +105,7 @@ function SimulationToastContent({
 }
 
 /**
- * Parse a snapshot string into a map of sim IDs to their statuses.
+ * Parse a snapshot string into a map of analysis IDs to their statuses.
  * Snapshot format: "id1:STATUS1:c/t|id2:STATUS2:c/t|..."
  */
 function parseSnapshotStatuses(snapshot: string): Map<string, string> {
@@ -118,29 +118,29 @@ function parseSnapshotStatuses(snapshot: string): Map<string, string> {
   return map
 }
 
-export function SimulationToaster() {
+export function AnalysisToaster() {
   const lastSnapshotRef = useRef<string>('')
 
-  const snapshot = useSimulationStore(
+  const snapshot = useAnalysisStore(
     (s) =>
-      s.simulations
+      s.analyses
         .map(
-          (sim) =>
-            `${sim.id}:${sim.status}:${sim.completedAnalyses ?? 0}/${sim.totalAnalyses ?? 0}`,
+          (a) =>
+            `${a.id}:${a.status}:${a.completedResponses ?? 0}/${a.totalResponses ?? 0}`,
         )
         .join('|'),
   )
 
   const persistDismiss = (id: string) => {
     toastIdMap.delete(id)
-    useSimulationStore.getState().dismissSimulation(id)
+    useAnalysisStore.getState().dismissAnalysis(id)
   }
 
   useEffect(() => {
-    // Build a set of sim IDs that were already terminal in the previous
-    // snapshot. Only sims that transitioned INTO a terminal state (i.e.
+    // Build a set of analysis IDs that were already terminal in the previous
+    // snapshot. Only analyses that transitioned INTO a terminal state (i.e.
     // were not terminal before) should get a toast. This prevents the
-    // flash-back bug where pre-existing terminal sims briefly appear as
+    // flash-back bug where pre-existing terminal analyses briefly appear as
     // toasts after Zustand persist hydrates or the component remounts.
     const prevStatuses = parseSnapshotStatuses(lastSnapshotRef.current)
     const prevTerminal = new Set<string>()
@@ -151,8 +151,8 @@ export function SimulationToaster() {
     // On the very first run (empty prev snapshot), just record current
     // state and bail — nothing to transition from.
     if (lastSnapshotRef.current === '') {
-      const store = useSimulationStore.getState()
-      for (const id of store.dismissedSimulationIds) {
+      const store = useAnalysisStore.getState()
+      for (const id of store.dismissedAnalysisIds) {
         toastIdMap.delete(id)
       }
       lastSnapshotRef.current = snapshot
@@ -162,29 +162,29 @@ export function SimulationToaster() {
     if (snapshot === lastSnapshotRef.current) return
     lastSnapshotRef.current = snapshot
 
-    const simulations = useSimulationStore.getState().simulations
-    const dismissedIds = useSimulationStore.getState().dismissedSimulationIds
+    const analyses = useAnalysisStore.getState().analyses
+    const dismissedIds = useAnalysisStore.getState().dismissedAnalysisIds
 
-    for (const sim of simulations) {
-      if (dismissedIds.includes(sim.id)) continue
+    for (const analysis of analyses) {
+      if (dismissedIds.includes(analysis.id)) continue
 
-      // Skip sims that were already terminal in the previous snapshot —
+      // Skip analyses that were already terminal in the previous snapshot —
       // they already had their chance to show a toast (or were dismissed).
-      if (prevTerminal.has(sim.id)) continue
+      if (prevTerminal.has(analysis.id)) continue
 
-      const existingToastId = toastIdMap.get(sim.id)
+      const existingToastId = toastIdMap.get(analysis.id)
 
       const navigateTo = (path: string) => {
         window.location.href = path
       }
 
-      const onDismiss = () => persistDismiss(sim.id)
+      const onDismiss = () => persistDismiss(analysis.id)
 
-      if (sim.status === 'IN_PROGRESS') {
+      if (analysis.status === 'IN_PROGRESS') {
         const content = (
-          <SimulationToastContent
-            sim={sim}
-            onView={() => navigateTo(`/dashboard/simulations/${sim.id}`)}
+          <AnalysisToastContent
+            analysis={analysis}
+            onView={() => navigateTo(`/dashboard/simulations/${analysis.id}`)}
             onDismiss={onDismiss}
             actionLabel="View"
           />
@@ -198,13 +198,13 @@ export function SimulationToaster() {
             onDismiss,
             duration: Infinity,
           })
-          toastIdMap.set(sim.id, id)
+          toastIdMap.set(analysis.id, id)
         }
-      } else if (sim.status === 'COMPLETED') {
+      } else if (analysis.status === 'COMPLETED') {
         const content = (
-          <SimulationToastContent
-            sim={sim}
-            onView={() => navigateTo(`/dashboard/simulations/${sim.id}`)}
+          <AnalysisToastContent
+            analysis={analysis}
+            onView={() => navigateTo(`/dashboard/simulations/${analysis.id}`)}
             onDismiss={onDismiss}
             actionLabel="View Results"
           />
@@ -217,13 +217,13 @@ export function SimulationToaster() {
             dismissible: true,
             onDismiss,
           })
-          toastIdMap.set(sim.id, id)
+          toastIdMap.set(analysis.id, id)
         }
-      } else if (sim.status === 'ERROR') {
+      } else if (analysis.status === 'ERROR') {
         const content = (
-          <SimulationToastContent
-            sim={sim}
-            onView={() => navigateTo(`/dashboard/simulations/${sim.id}`)}
+          <AnalysisToastContent
+            analysis={analysis}
+            onView={() => navigateTo(`/dashboard/simulations/${analysis.id}`)}
             onDismiss={onDismiss}
             actionLabel="Details"
           />
@@ -236,13 +236,13 @@ export function SimulationToaster() {
             dismissible: true,
             onDismiss,
           })
-          toastIdMap.set(sim.id, id)
+          toastIdMap.set(analysis.id, id)
         }
-      } else if (sim.status === 'CANCELLED') {
+      } else if (analysis.status === 'CANCELLED') {
         const content = (
-          <SimulationToastContent
-            sim={sim}
-            onView={() => navigateTo(`/dashboard/simulations/${sim.id}`)}
+          <AnalysisToastContent
+            analysis={analysis}
+            onView={() => navigateTo(`/dashboard/simulations/${analysis.id}`)}
             onDismiss={onDismiss}
           />
         )
@@ -254,7 +254,7 @@ export function SimulationToaster() {
             dismissible: true,
             onDismiss,
           })
-          toastIdMap.set(sim.id, id)
+          toastIdMap.set(analysis.id, id)
         }
       }
     }
@@ -267,39 +267,39 @@ export function SimulationToaster() {
   // in VPS mode).
   useEffect(() => {
     const interval = setInterval(async () => {
-      const sims = useSimulationStore.getState().simulations
-      const inProgress = sims.filter((s) => s.status === 'IN_PROGRESS')
+      const analyses = useAnalysisStore.getState().analyses
+      const inProgress = analyses.filter((a) => a.status === 'IN_PROGRESS')
       if (inProgress.length === 0) return
 
-      for (const sim of inProgress) {
+      for (const analysis of inProgress) {
         try {
-          const result = await getProgressAction(sim.id)
+          const result = await getProgressAction(analysis.id)
           if (!result.found || !result.progress) continue
 
           const p = result.progress
-          const updates: Partial<Simulation> = {}
+          const updates: Partial<ArtifactAnalysis> = {}
           if (p.step) updates.currentStep = p.step as any
-          if (p.completedAnalyses !== undefined) updates.completedAnalyses = p.completedAnalyses
-          if (p.totalAnalyses !== undefined) updates.totalAnalyses = p.totalAnalyses
+          if (p.completedResponses !== undefined) updates.completedResponses = p.completedResponses
+          if (p.totalResponses !== undefined) updates.totalResponses = p.totalResponses
 
           if (Object.keys(updates).length > 0) {
-            useSimulationStore.getState().updateSimulation(sim.id, updates)
+            useAnalysisStore.getState().updateAnalysis(analysis.id, updates)
           }
 
           if (p.hasCompleted) {
-            const result2 = await getSimulationResultAction(sim.id)
+            const result2 = await getAnalysisResultAction(analysis.id)
             if (result2.found && result2.analyses && result2.analyses.length > 0) {
-              useSimulationStore.getState().markComplete(sim.id, result2.analyses)
+              useAnalysisStore.getState().markComplete(analysis.id, result2.analyses)
             } else if (result2.found && result2.error) {
-              useSimulationStore.getState().markError(sim.id, result2.error)
+              useAnalysisStore.getState().markError(analysis.id, result2.error)
             } else if (result2.found) {
-              // Completed but no analyses and no error — avoid infinite IN_PROGRESS
-              useSimulationStore.getState().markError(sim.id, 'Simulation completed with no results')
+              // Completed but no responses and no error — avoid infinite IN_PROGRESS
+              useAnalysisStore.getState().markError(analysis.id, 'Analysis completed with no results')
             }
           }
 
           if (p.error) {
-            useSimulationStore.getState().markError(sim.id, p.error)
+            useAnalysisStore.getState().markError(analysis.id, p.error)
           }
         } catch {
           // Poller error — retry on next interval

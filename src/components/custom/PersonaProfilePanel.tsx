@@ -14,7 +14,7 @@ import {
 } from "@/components/ui/dialog"
 
 import { Persona } from "@/domain/entities/Persona"
-import { useSimulationStore } from "@/ui/stores/simulationStore"
+import { useAnalysisStore } from "@/ui/stores/analysisStore"
 
 export interface PersonaProfilePanelProps extends React.HTMLAttributes<HTMLDivElement> {
   persona: Persona
@@ -26,8 +26,8 @@ export interface PersonaProfilePanelProps extends React.HTMLAttributes<HTMLDivEl
 export function PersonaProfilePanel({ persona, onChatClick, onCreateVariant, onDelete, className, ...props }: PersonaProfilePanelProps) {
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = React.useState(false)
 
-  const simulations = useSimulationStore((s) => s.simulations)
-  const usedInSimulations = simulations.filter(
+  const analyses = useAnalysisStore((s) => s.analyses)
+  const usedInAnalyses = analyses.filter(
     (s) => s.personaNames?.includes(persona.name),
   )
 
@@ -169,15 +169,15 @@ export function PersonaProfilePanel({ persona, onChatClick, onCreateVariant, onD
             </div>
           </DialogHeader>
 
-          {usedInSimulations.length > 0 && (
+          {usedInAnalyses.length > 0 && (
             <div className="mx-6 -mt-2 p-3 rounded-lg bg-amber-500/10 border border-amber-500/20">
               <p className="text-xs text-amber-600/90 dark:text-amber-400/90 font-medium">
-                <span className="font-bold">{persona.name}</span> is used in {usedInSimulations.length} simulation{usedInSimulations.length > 1 ? 's' : ''}. The persona will be removed but simulation data will be preserved. Opening it from a simulation will show a "persona deleted" notice.
+                <span className="font-bold">{persona.name}</span> is used in {usedInAnalyses.length} analysis{usedInAnalyses.length > 1 ? 's' : ''}. The persona will be removed but analysis data will be preserved. Opening it from an analysis will show a "persona deleted" notice.
               </p>
             </div>
           )}
 
-          {usedInSimulations.length === 0 && (
+          {usedInAnalyses.length === 0 && (
             <div className="px-6 -mt-2">
               <p className="text-xs text-muted-foreground">
                 This persona will be permanently deleted from this batch.

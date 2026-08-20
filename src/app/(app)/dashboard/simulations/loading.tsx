@@ -1,6 +1,6 @@
 /**
  * Loading skeleton for /dashboard/simulations.
- * Shows skeleton cards matching the SimulationCard layout.
+ * Shows skeleton cards matching the AnalysisCard layout.
  */
 export default function SimulationsLoading() {
   return (
@@ -11,7 +11,7 @@ export default function SimulationsLoading() {
         <div className="h-4 w-52 rounded bg-muted animate-pulse" />
       </div>
 
-      {/* Skeleton simulation cards */}
+      {/* Skeleton analysis cards */}
       {[1, 2, 3].map((i) => (
         <div key={i} className="rounded-lg border border-border bg-card p-5">
           <div className="flex items-start justify-between gap-4">
