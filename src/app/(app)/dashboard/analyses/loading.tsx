@@ -1,8 +1,8 @@
 /**
- * Loading skeleton for /dashboard/simulations.
+ * Loading skeleton for /dashboard/analyses.
  * Shows skeleton cards matching the AnalysisCard layout.
  */
-export default function SimulationsLoading() {
+export default function AnalysesLoading() {
   return (
     <div className="flex flex-col gap-8 w-full h-full animate-in fade-in duration-300">
       {/* Header */}

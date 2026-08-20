@@ -29,12 +29,12 @@ This runs lint + typecheck + production build + the deterministic test suite (un
 - [ ] Load **Demo Persona Batch** — batch appears in sidebar
 - [ ] Click a batch in the sidebar — results view opens, personas render with backstory, traits, chat
 
-### Simulations (Artifact Analysis)
+### Analyses (Artifact Analysis)
 
 - [ ] **Run New Analysis → URL** (use your own staging/live page) — completes end-to-end
 - [ ] **Run New Analysis → Screenshot upload** — completes end-to-end
 - [ ] Completed view renders: **Executive Synthesis** (top findings, disagreements, frictions), then per-persona reports with all **5 cognitive stages**
-- [ ] Empty state: fresh browser, Simulations page shows "No analyses yet"
+- [ ] Empty state: fresh browser, Analyses page shows "No analyses yet"
 - [ ] **Refresh mid-run** — in-progress analysis survives or resumes; page doesn't crash
 - [ ] **Cancel** an in-progress analysis — error/cancelled state is clean
 - [ ] Analysis with a failing persona — synthesis still shows, failure count is visible
@@ -48,8 +48,8 @@ This runs lint + typecheck + production build + the deterministic test suite (un
 
 ### UX
 
-- [ ] **Mobile viewport** (iPhone-ish width): dashboard, simulations, chat all usable
-- [ ] **Back button** works from simulations detail → list → dashboard
+- [ ] **Mobile viewport** (iPhone-ish width): dashboard, analyses, chat all usable
+- [ ] **Back button** works from analyses detail → list → dashboard
 - [ ] Loading states: generation progress, streaming feedback visible (no frozen blank screens)
 - [ ] Error states: kill the network or cancel mid-run — clean message, no white screen
 - [ ] No console errors on the main paths (open devtools, spot-check `/dashboard`)

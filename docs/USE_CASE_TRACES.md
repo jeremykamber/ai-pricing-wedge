@@ -174,7 +174,7 @@ PersonaChat.tsx / PersonaChatInline.tsx
 ### Flow
 
 ```
-SetupView.tsx (URL input + "Run Simulation")
+SetupView.tsx (URL input + "Run Analysis")
   └─ useAnalysisFlow()
       ├─ handleAnalyzePricing(personas) → analyzePricingPageAction(url, personas, simId)
       │
@@ -235,17 +235,17 @@ SetupView.tsx (URL input + "Run Simulation")
               │
               └─ Results merged → PricingAnalysis[] returned to action
 
-          ├── Post-execution: simulationResultStore.save(id, analyses) — survives page reloads
+          ├── Post-execution: analysisResultStore.save(id, analyses) — survives page reloads
           ├── storeCompleted(id) — flags progress store for polling clients
           └── stream.done({step: "DONE", analyses}) — RSC stream terminal event
       │
       ├── Client reads stream via readStreamableValue():
       │   ├─ STARTING → OPENING_PAGE → FINDING_PRICING → THINKING → DONE|ERROR|CANCELLED
       │   ├─ Screenshot polling via getScreenshotAction (2s interval) — bypasses RSC size limits
-      │   ├─ Fallback: if stream drops, poll getSimulationResultAction every 1s × 300 attempts
-      │   └─ useSimulationStore.addSimulation() → updateSimulation() → markComplete()
+      │   ├─ Fallback: if stream drops, poll getAnalysisResultAction every 1s × 300 attempts
+      │   └─ useAnalysisStore.addAnalysis() → updateAnalysis() → markComplete()
       │
-      └── ResultsView.tsx / simulations/[id]/page.tsx
+      └── ResultsView.tsx / analyses/[id]/page.tsx
           └─ Renders: persona-by-persona comparison, scores radar, risk lists, recommendations,
              gaze heatmap (gazePoints via predictGazeAction → GazePredictionAdapter),
              validation via validateAnalysisAction → OpenRouterCriticAdapter.evaluateConsistency()
@@ -257,7 +257,7 @@ SetupView.tsx (URL input + "Run Simulation")
 | Entity | File | Role |
 |--------|------|------|
 | `PricingAnalysis` | `domain/entities/PricingAnalysis.ts` | 6-dimension scores + rationales, risks, recommendations, gazePoints, gutReaction |
-| `Simulation` | `domain/entities/Simulation.ts` | Aggregate root tracking status, progress, analyses |
+| `ArtifactAnalysis` | `domain/entities/ArtifactAnalysis.ts` | Aggregate root tracking status, progress, analyses |
 | `InteractionStep` | `domain/entities/InteractionStep.ts` | Single browser interaction (url, action, thought) |
 | `CriticEvaluation` | `domain/entities/CriticEvaluation.ts` | Coherence/alignment verdict from expert LLM judge |
 | `PersonaProfile` | `domain/entities/PersonaProfile.ts` | Presentation-layer snapshot of persona for report context |
@@ -279,7 +279,7 @@ SetupView.tsx (URL input + "Run Simulation")
 | Component | File | Role |
 |-----------|------|------|
 | `AnalysisLogger` | `AnalysisLogger.ts` | Per-run JSONL logging (auto-flush @ 100KB, persona latency tracking) |
-| `SimulationResultStore` | `SimulationResultStore.ts` | In-memory cache on globalThis (survives HMR, 30-min TTL cleanup) |
+| `AnalysisResultStore` | `AnalysisResultStore.ts` | In-memory cache on globalThis (survives HMR, 30-min TTL cleanup) |
 | `RequestCancellationManager` | `RequestCancellationManager.ts` | Maps runId → AbortController, cancels mid-flight LLM calls |
 | `ProgressStore` (/poll) | `getProgress.ts` | Side-channel progress state on globalThis for reconnection polling |
 

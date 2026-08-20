@@ -1,6 +1,6 @@
 'use client'
 
-import { AnalysisToaster } from './SimulationToaster'
+import { AnalysisToaster } from './AnalysisToaster'
 import { PersonaProgressToaster } from './PersonaProgressToaster'
 
 export function ToasterProvider() {

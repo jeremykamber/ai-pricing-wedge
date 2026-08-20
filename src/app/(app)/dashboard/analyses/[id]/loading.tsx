@@ -1,8 +1,8 @@
 /**
- * Loading skeleton for /dashboard/simulations/[id].
+ * Loading skeleton for /dashboard/analyses/[id].
  * Shows a detail layout skeleton with back button, status, and tabs.
  */
-export default function SimulationDetailLoading() {
+export default function AnalysisDetailLoading() {
   return (
     <div className="flex flex-col gap-6 w-full h-full animate-in fade-in duration-300">
       {/* Back button */}

@@ -93,7 +93,7 @@ async function runRemote(
 
 /**
  * Panel synthesis chat — question the whole cohort at once. Grounds the
- * answer in every persona's simulation response + the cross-persona synthesis.
+ * answer in every persona's analysis response + the cross-persona synthesis.
  */
 export async function chatWithPanelAction(
   responses: PersonaResponse[],

@@ -386,7 +386,7 @@ export function DashboardClient() {
                                         </h2>
                                         {batchAnalysisCount > 0 && (
                                             <Link
-                                                href="/dashboard/simulations"
+                                                href="/dashboard/analyses"
                                                 className="inline-flex items-center gap-1 rounded-md bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary transition-colors hover:bg-primary/20"
                                             >
                                                 <PlayIcon className="h-3 w-3" />
@@ -517,7 +517,7 @@ export function DashboardClient() {
                                         if (personaFlow.lastCompletedBatchId) {
                                             const id = personaFlow.lastCompletedBatchId
                                             personaFlow.handleClearProgress()
-                                            router.push(`/dashboard/simulations?batchId=${id}`)
+                                            router.push(`/dashboard/analyses?batchId=${id}`)
                                         }
                                     }}
                                     className="flex-1 inline-flex h-10 items-center justify-center gap-2 rounded-md border border-border bg-background px-5 text-sm font-semibold transition-colors hover:bg-accent"

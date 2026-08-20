@@ -15,7 +15,7 @@ export function FloatingAnalysisButton() {
   return (
     <button
       onClick={() => {
-        if (hasBatches) router.push('/dashboard/simulations')
+        if (hasBatches) router.push('/dashboard/analyses')
       }}
       className={`fixed bottom-6 right-6 z-40 inline-flex h-10 items-center gap-2 rounded-full border px-4 text-xs font-semibold shadow-lg transition-all ${
         hasBatches

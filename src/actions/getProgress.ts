@@ -4,11 +4,11 @@
 // Server-side progress store for long-running VPS analyses.
 // The RSC stream (readStreamableValue) uses an in-memory promise chain that
 // dies when the user navigates away from the dashboard. Without a persistent
-// store, the simulation stays IN_PROGRESS forever because the DONE event is
+// store, the analysis stays IN_PROGRESS forever because the DONE event is
 // never consumed by the disconnected client.
 //
 // This store acts as a side-channel: progress callbacks in the analysis
-// pipeline write here, and the simulation detail page polls for updates
+// pipeline write here, and the analysis detail page polls for updates
 // after navigation. Combined with the AnalysisResultStore (which captures
 // the final analyses), this ensures progress visibility survives navigation.
 //

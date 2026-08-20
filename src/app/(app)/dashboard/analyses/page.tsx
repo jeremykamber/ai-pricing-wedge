@@ -30,7 +30,7 @@ function AnalysisCard({ analysis }: { analysis: import('@/domain/entities/Artifa
   return (
     <div className="relative group">
       <button
-        onClick={() => router.push(`/dashboard/simulations/${analysis.id}`)}
+        onClick={() => router.push(`/dashboard/analyses/${analysis.id}`)}
         className="w-full text-left rounded-lg border border-border bg-card p-5 transition-all hover:border-border/80 hover:shadow-sm"
       >
         <div className="flex items-start justify-between gap-4">
@@ -383,7 +383,7 @@ function NewAnalysisForm({ onRun }: { onRun: (url: string, personas: Persona[], 
   )
 }
 
-export default function SimulationsPage() {
+export default function AnalysesPage() {
   const analyses = useAnalysisStore((s) => s.analyses)
   const analysisFlow = useAnalysisFlow()
   const [showNewForm, setShowNewForm] = useState(false)
@@ -432,7 +432,7 @@ export default function SimulationsPage() {
           <span className="h-2 w-2 rounded-full bg-blue-500 animate-pulse" />
           Analysis is running…
           <Link
-            href="/dashboard/simulations"
+            href="/dashboard/analyses"
             className="ml-auto text-xs font-medium text-blue-600 hover:underline"
           >
             Refresh

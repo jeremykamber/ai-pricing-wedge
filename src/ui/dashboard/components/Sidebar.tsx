@@ -15,7 +15,7 @@ export function Sidebar() {
   const router = useRouter()
 
   const isInterviews = pathname === '/dashboard/interviews'
-  const isSimulations = pathname.startsWith('/dashboard/simulations')
+  const isAnalyses = pathname.startsWith('/dashboard/analyses')
   const isPersonas = pathname === '/dashboard'
 
   const handlePersonasClick = () => {
@@ -58,15 +58,15 @@ export function Sidebar() {
           Interviews
         </Link>
         <Link
-          href="/dashboard/simulations"
+          href="/dashboard/analyses"
           className={`flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-colors ${
-            isSimulations
+            isAnalyses
               ? 'bg-primary/10 text-primary'
               : 'text-muted-foreground hover:text-foreground hover:bg-secondary/50'
           }`}
         >
           <PlayIcon className="h-4 w-4" />
-          Simulations
+          Analyses
         </Link>
       </nav>
 

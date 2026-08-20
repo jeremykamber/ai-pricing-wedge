@@ -7,8 +7,8 @@ interface StoredAnalysis {
 }
 
 /**
- * Server-side in-memory store for completed simulation results.
- * Simulations run in a fire-and-forget IIFE inside the server action.
+ * Server-side in-memory store for completed analysis results.
+ * Analyses run in a fire-and-forget IIFE inside the server action.
  * When the client disconnects (reload/navigate away), the IIFE continues
  * running but the streaming response has no reader. This store captures
  * the results so they can be fetched on reconnection.
@@ -19,8 +19,8 @@ interface StoredAnalysis {
  * Without this, module re-evaluation during hot reload wipes the in-memory
  * data while the running IIFE writes to the old instance.
  */
-const GLOBAL_KEY = '__kynd_simulation_results';
-const GLOBAL_CLEANUP_KEY = '__kynd_simulation_cleanups';
+const GLOBAL_KEY = '__kynd_analysis_results';
+const GLOBAL_CLEANUP_KEY = '__kynd_analysis_cleanups';
 
 function getGlobalMap<K, V>(key: string): Map<K, V> {
   return ((globalThis as any)[key] ?? ((globalThis as any)[key] = new Map()));

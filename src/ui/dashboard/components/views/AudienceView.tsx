@@ -36,7 +36,7 @@ export function AudienceView({ personas, analysisFlow }: AudienceViewProps) {
       <div className="flex flex-col gap-2 border-b border-border/40 pb-6">
         <h2 className="text-2xl font-bold tracking-tight">Generated Audience</h2>
         <p className="text-muted-foreground text-sm">
-          Review the personas synthesized from your target market description. You can also chat with them before running the simulation.
+          Review the personas synthesized from your target market description. You can also chat with them before running the analysis.
         </p>
       </div>
 

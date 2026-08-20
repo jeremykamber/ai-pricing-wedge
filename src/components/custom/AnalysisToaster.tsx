@@ -70,7 +70,7 @@ function AnalysisToastContent({
   return (
     <div className="relative overflow-hidden rounded-lg border border-border bg-card">
       {analysis.status === 'IN_PROGRESS' && (
-        <div className="pointer-events-none absolute inset-0 z-20 rounded-lg ring-1 ring-primary/20 animate-[sim-ring-fade_0.6s_ease-out_forwards]" />
+        <div className="pointer-events-none absolute inset-0 z-20 rounded-lg ring-1 ring-primary/20 animate-[analysis-ring-fade_0.6s_ease-out_forwards]" />
       )}
       <div
         className={`absolute inset-y-0 left-0 ${statusConfig.accentClass} transition-all duration-300 ease-out`}
@@ -184,7 +184,7 @@ export function AnalysisToaster() {
         const content = (
           <AnalysisToastContent
             analysis={analysis}
-            onView={() => navigateTo(`/dashboard/simulations/${analysis.id}`)}
+            onView={() => navigateTo(`/dashboard/analyses/${analysis.id}`)}
             onDismiss={onDismiss}
             actionLabel="View"
           />
@@ -204,7 +204,7 @@ export function AnalysisToaster() {
         const content = (
           <AnalysisToastContent
             analysis={analysis}
-            onView={() => navigateTo(`/dashboard/simulations/${analysis.id}`)}
+            onView={() => navigateTo(`/dashboard/analyses/${analysis.id}`)}
             onDismiss={onDismiss}
             actionLabel="View Results"
           />
@@ -223,7 +223,7 @@ export function AnalysisToaster() {
         const content = (
           <AnalysisToastContent
             analysis={analysis}
-            onView={() => navigateTo(`/dashboard/simulations/${analysis.id}`)}
+            onView={() => navigateTo(`/dashboard/analyses/${analysis.id}`)}
             onDismiss={onDismiss}
             actionLabel="Details"
           />
@@ -242,7 +242,7 @@ export function AnalysisToaster() {
         const content = (
           <AnalysisToastContent
             analysis={analysis}
-            onView={() => navigateTo(`/dashboard/simulations/${analysis.id}`)}
+            onView={() => navigateTo(`/dashboard/analyses/${analysis.id}`)}
             onDismiss={onDismiss}
           />
         )

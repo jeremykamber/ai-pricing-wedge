@@ -56,7 +56,7 @@ function StageOutcomeBadge({ outcome }: { outcome: StageOutcome }) {
   )
 }
 
-export default function SimulationDetailPage({ params }: { params: Promise<{ id: string }> }) {
+export default function AnalysisDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params)
   const router = useRouter()
   const analysis = useAnalysisStore((s) => s.getAnalysis(id))
@@ -161,7 +161,7 @@ export default function SimulationDetailPage({ params }: { params: Promise<{ id:
     return (
       <div className="flex flex-col gap-8 w-full h-full animate-in fade-in duration-500">
         <div className="flex items-center gap-4">
-          <span className="text-sm text-muted-foreground">← Simulations</span>
+          <span className="text-sm text-muted-foreground">← Analyses</span>
         </div>
         <div className="flex items-center justify-center py-32">
           <p className="text-muted-foreground text-sm">Loading analysis...</p>
@@ -174,13 +174,13 @@ export default function SimulationDetailPage({ params }: { params: Promise<{ id:
     return (
       <div className="flex flex-col items-center justify-center py-32 text-center">
         <XCircleIcon className="h-12 w-12 text-muted-foreground mb-4" />
-        <h2 className="text-xl font-semibold mb-2">Simulation not found</h2>
+        <h2 className="text-xl font-semibold mb-2">Analysis not found</h2>
         <p className="text-muted-foreground text-sm mb-6">This analysis may have been removed or never existed.</p>
         <button
-          onClick={() => router.push('/dashboard/simulations')}
+          onClick={() => router.push('/dashboard/analyses')}
           className="inline-flex h-10 items-center justify-center rounded-md bg-primary px-6 text-sm font-semibold text-primary-foreground hover:bg-primary/90"
         >
-          Back to Simulations
+          Back to Analyses
         </button>
       </div>
     )
@@ -191,11 +191,11 @@ export default function SimulationDetailPage({ params }: { params: Promise<{ id:
       {/* Header */}
       <div className="flex items-center gap-4">
         <button
-          onClick={() => router.push('/dashboard/simulations')}
+          onClick={() => router.push('/dashboard/analyses')}
           className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors"
         >
           <ArrowLeftIcon className="h-4 w-4" />
-          Simulations
+          Analyses
         </button>
       </div>
 
@@ -225,12 +225,12 @@ export default function SimulationDetailPage({ params }: { params: Promise<{ id:
         <CompletedView analysis={analysis} onRemove={() => removeAnalysis(id)} />
       ) : (
         <div className="flex flex-col items-center justify-center py-16 text-center">
-          <p className="text-muted-foreground">Simulation was {analysis.status.toLowerCase()}.</p>
+          <p className="text-muted-foreground">Analysis was {analysis.status.toLowerCase()}.</p>
           <button
             onClick={() => router.push('/dashboard')}
             className="mt-4 inline-flex h-10 items-center justify-center rounded-md bg-primary px-6 text-sm font-semibold text-primary-foreground hover:bg-primary/90"
           >
-            Run New Simulation
+            Run New Analysis
           </button>
         </div>
       )}

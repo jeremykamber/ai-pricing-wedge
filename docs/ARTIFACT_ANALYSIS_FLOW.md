@@ -118,7 +118,7 @@ User Input
 | `RemotePlaywrightAdapter.ts` | Browser automation via Playwright WebSocket |
 | `LlmServiceImpl.ts` | Delegates all LlmServicePort methods to above adapters |
 
-### UI (`src/app/(app)/dashboard/simulations/`)
+### UI (`src/app/(app)/dashboard/analyses/`)
 
 | File | Purpose |
 |------|---------|
@@ -239,7 +239,7 @@ Every synthesis prompt enforces:
 1. Add it to `CognitiveStage.ts` (`COGNITIVE_STAGES` array)
 2. Update all prompts in `VisionAnalysisAdapter.ts`
 3. Update `validatePersonaResponse()` expected length
-4. Update UI rendering in `simulations/[id]/page.tsx`
+4. Update UI rendering in `analyses/[id]/page.tsx`
 
 ### Adding a new finding type
 
