@@ -1,0 +1,51 @@
+name: CI
+
+on:
+  push:
+    branches: [ "main", "dev" ]
+  pull_request:
+    branches: [ "main", "dev" ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Bun
+        uses: oven-sh/setup-bun@v2
+
+      - name: Install dependencies
+        run: bun install
+
+      - name: Lint
+        run: bun run lint
+
+      - name: Build
+        run: bun run build
+        env:
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY || 'dummy-key-for-build' }}
+          NEXT_PUBLIC_DEPLOYMENT_ENV: 'ci'
+
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Bun
+        uses: oven-sh/setup-bun@v2
+
+      - name: Install dependencies
+        run: bun install
+
+      - name: Install Playwright browsers
+        run: bunx playwright install chromium --with-deps
+
+      - name: Run Tests
+        run: bun run test
+        env:
+          # Same as above: allow tests to pass even if the real key is missing.
+          # Tests should mock external dependencies anyway.
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY || 'dummy-key-for-test' }}
