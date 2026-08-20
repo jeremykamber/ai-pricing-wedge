@@ -31,7 +31,7 @@ interface PanelChatProps {
 
 /**
  * Panel synthesis chat — question the whole cohort at once. The assistant is
- * a research synthesizer grounded in every persona's simulation response plus
+ * a research synthesizer grounded in every persona's analysis response plus
  * the cross-persona synthesis: "we're thinking of adding X — what would our
  * users think?" gets an evidence-backed answer across all personas.
  */

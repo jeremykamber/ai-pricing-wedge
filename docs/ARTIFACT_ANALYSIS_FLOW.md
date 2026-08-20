@@ -80,7 +80,7 @@ User Input
 | `StageJourney.ts` | One stage's result: description, sentiment, outcome, transition |
 | `MajorFinding.ts` | Per-persona finding: observation, evidence, impact (no confidence — derived at synthesis) |
 | `ArtifactIntake.ts` | Normalized artifact input: screenshot, HTML, summary |
-| `ArtifactAnalysis.ts` | Container entity for a run (was Simulation) |
+| `ArtifactAnalysis.ts` | Container entity for a run |
 | `ArtifactSynthesis.ts` | Cross-persona synthesis: top findings, disagreements, frictions |
 | `GazePoint.ts` | Visual attention prediction (legacy) |
 | `PricingAnalysis.ts` | @deprecated Legacy pricing-specific entity |
@@ -104,7 +104,7 @@ User Input
 |------|---------|
 | `analyzeArtifactAction.ts` | Server action: instantiates deps, calls use case, runs synthesis, streams progress + DONE event |
 | `getProgress.ts` | Side-channel progress store for VPS polling |
-| `getSimulationResult.ts` | Polls completed results after reconnect |
+| `getAnalysisResult.ts` | Polls completed results after reconnect |
 
 ### Adapters (`src/infrastructure/adapters/`)
 
@@ -118,11 +118,11 @@ User Input
 | `RemotePlaywrightAdapter.ts` | Browser automation via Playwright WebSocket |
 | `LlmServiceImpl.ts` | Delegates all LlmServicePort methods to above adapters |
 
-### UI (`src/app/(app)/dashboard/simulations/`)
+### UI (`src/app/(app)/dashboard/analyses/`)
 
 | File | Purpose |
 |------|---------|
-| `page.tsx` | Simulations list + New Analysis form (Business Goal + Research Question inputs) |
+| `page.tsx` | Analyses list + New Analysis form (Business Goal + Research Question inputs) |
 | `[id]/page.tsx` | Detail page: InProgressView + CompletedView with synthesis + per-persona reports |
 
 ### Hook (`src/ui/hooks/`)
@@ -135,7 +135,7 @@ User Input
 
 | File | Purpose |
 |------|---------|
-| `simulationStore.ts` | Zustand + IndexedDB persistence for analyses (version 2, wipes old data) |
+| `analysisStore.ts` | Zustand + IndexedDB persistence for analyses (version 3, wipes old data) |
 
 ### Utility
 
@@ -239,7 +239,7 @@ Every synthesis prompt enforces:
 1. Add it to `CognitiveStage.ts` (`COGNITIVE_STAGES` array)
 2. Update all prompts in `VisionAnalysisAdapter.ts`
 3. Update `validatePersonaResponse()` expected length
-4. Update UI rendering in `simulations/[id]/page.tsx`
+4. Update UI rendering in `analyses/[id]/page.tsx`
 
 ### Adding a new finding type
 

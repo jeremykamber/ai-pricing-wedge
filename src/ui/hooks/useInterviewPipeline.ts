@@ -81,8 +81,8 @@ export function useInterviewPipeline(onSuccess?: (personas: Persona[]) => void) 
           // ProgressState uses completedCount/totalCount; InterviewProgress uses current/total
           setProgress({
             step: p.progress.step as InterviewProgress['step'],
-            current: p.progress.completedCount ?? p.progress.completedAnalyses,
-            total: p.progress.totalCount ?? p.progress.totalAnalyses,
+            current: p.progress.completedCount ?? p.progress.completedResponses,
+            total: p.progress.totalCount ?? p.progress.totalResponses,
             message: p.progress.streamingText,
             error: p.progress.error,
           })

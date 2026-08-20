@@ -1,11 +1,11 @@
 // ─── GET /api/vps/analyze-result ───────────────────────────────────────────
 // Poll the final results (or error) of a completed artifact analysis.
-// The background analysis runner writes results to the SimulationResultStore;
+// The background analysis runner writes results to the AnalysisResultStore;
 // this endpoint reads from that store.
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { NextRequest, NextResponse } from "next/server";
-import { simulationResultStore } from "@/infrastructure/SimulationResultStore";
+import { analysisResultStore } from "@/infrastructure/AnalysisResultStore";
 
 export async function GET(req: NextRequest) {
   const runId = req.nextUrl.searchParams.get("runId");
@@ -17,7 +17,7 @@ export async function GET(req: NextRequest) {
     );
   }
 
-  const result = simulationResultStore.get(runId);
+  const result = analysisResultStore.get(runId);
   if (!result) {
     return NextResponse.json({ found: false });
   }

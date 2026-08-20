@@ -4,7 +4,7 @@ import { LlmServicePort } from "@/domain/ports/LlmServicePort";
 
 /**
  * Panel synthesis chat — the user questions the whole cohort at once and gets
- * an answer grounded in every persona's simulation response plus the
+ * an answer grounded in every persona's analysis response plus the
  * cross-persona synthesis. Distinct from ChatWithPersonaUseCase: no single
  * persona identity; the voice is a research synthesizer.
  */

@@ -76,8 +76,8 @@ export function usePersonaFlow(onSuccess?: (personas: Persona[]) => void) {
             step: (p.progress.step as PersonaProgressStep) || 'BRAINSTORMING_PERSONAS',
             streamingText: p.progress.streamingText,
             personaName: p.progress.personaName,
-            completedCount: p.progress.completedCount ?? p.progress.completedAnalyses,
-            totalCount: p.progress.totalCount ?? p.progress.totalAnalyses,
+            completedCount: p.progress.completedCount ?? p.progress.completedResponses,
+            totalCount: p.progress.totalCount ?? p.progress.totalResponses,
           })
         }
       } catch { /* non-critical */ }

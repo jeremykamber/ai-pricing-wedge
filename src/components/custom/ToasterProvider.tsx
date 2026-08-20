@@ -1,12 +1,12 @@
 'use client'
 
-import { SimulationToaster } from './SimulationToaster'
+import { AnalysisToaster } from './AnalysisToaster'
 import { PersonaProgressToaster } from './PersonaProgressToaster'
 
 export function ToasterProvider() {
   return (
     <>
-      <SimulationToaster />
+      <AnalysisToaster />
       <PersonaProgressToaster />
     </>
   )

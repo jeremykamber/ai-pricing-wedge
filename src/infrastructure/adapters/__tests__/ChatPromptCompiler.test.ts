@@ -85,7 +85,7 @@ describe("ChatPromptCompiler", () => {
     expect(system).toContain("interviewing you about your thoughts");
   });
 
-  it("includes simulation-response grounding when analysis is a PersonaResponse", () => {
+  it("includes analysis-response grounding when analysis is a PersonaResponse", () => {
     const compiler = new ChatPromptCompiler();
     const messages = compiler.compileChatMessages({
       persona: basePersona,
@@ -124,7 +124,7 @@ describe("ChatPromptCompiler", () => {
     expect(system).toContain("What does it cost?");
     expect(system).toContain("Pricing visibility is the blocker.");
     expect(system).toContain("interviewing you about what you just saw and experienced");
-    // The legacy pricing branch must NOT leak into simulation grounding.
+    // The legacy pricing branch must NOT leak into analysis grounding.
     expect(system).not.toContain("CONTEXT OF YOUR RECENT PRICING ANALYSIS");
   });
 

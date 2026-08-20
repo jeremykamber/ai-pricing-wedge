@@ -1,14 +1,14 @@
 import type { PersonaResponse } from '@/domain/entities/PersonaResponse'
 
-interface StoredSimulation {
+interface StoredAnalysis {
   analyses: PersonaResponse[]
   completedAt: string
   error?: string
 }
 
 /**
- * Server-side in-memory store for completed simulation results.
- * Simulations run in a fire-and-forget IIFE inside the server action.
+ * Server-side in-memory store for completed analysis results.
+ * Analyses run in a fire-and-forget IIFE inside the server action.
  * When the client disconnects (reload/navigate away), the IIFE continues
  * running but the streaming response has no reader. This store captures
  * the results so they can be fetched on reconnection.
@@ -19,15 +19,15 @@ interface StoredSimulation {
  * Without this, module re-evaluation during hot reload wipes the in-memory
  * data while the running IIFE writes to the old instance.
  */
-const GLOBAL_KEY = '__kynd_simulation_results';
-const GLOBAL_CLEANUP_KEY = '__kynd_simulation_cleanups';
+const GLOBAL_KEY = '__kynd_analysis_results';
+const GLOBAL_CLEANUP_KEY = '__kynd_analysis_cleanups';
 
 function getGlobalMap<K, V>(key: string): Map<K, V> {
   return ((globalThis as any)[key] ?? ((globalThis as any)[key] = new Map()));
 }
 
-class SimulationResultStore {
-  private get results() { return getGlobalMap<string, StoredSimulation>(GLOBAL_KEY); }
+class AnalysisResultStore {
+  private get results() { return getGlobalMap<string, StoredAnalysis>(GLOBAL_KEY); }
   private get cleanups() { return getGlobalMap<string, ReturnType<typeof setTimeout>>(GLOBAL_CLEANUP_KEY); }
 
   save(runId: string, analyses: PersonaResponse[]): void {
@@ -49,7 +49,7 @@ class SimulationResultStore {
     this.scheduleCleanup(runId)
   }
 
-  get(runId: string): StoredSimulation | undefined {
+  get(runId: string): StoredAnalysis | undefined {
     return this.results.get(runId)
   }
 
@@ -72,4 +72,4 @@ class SimulationResultStore {
   }
 }
 
-export const simulationResultStore = new SimulationResultStore()
+export const analysisResultStore = new AnalysisResultStore()

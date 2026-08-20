@@ -12,7 +12,7 @@ import type { ArtifactSynthesis } from "@/domain/entities/ArtifactSynthesis";
 import { LlmServiceImpl } from "@/infrastructure/adapters/LlmServiceImpl";
 import { cancellationManager } from "@/infrastructure/RequestCancellationManager";
 import { AnalysisLogger } from "@/infrastructure/AnalysisLogger";
-import { simulationResultStore } from "@/infrastructure/SimulationResultStore";
+import { analysisResultStore } from "@/infrastructure/AnalysisResultStore";
 import { storeProgress, storeCompleted } from "./getProgress";
 import { shouldRunLocally, VPS_BACKEND_URL, getVpsAuthToken } from "@/infrastructure/config";
 import { computeSynthesis } from "@/ui/dashboard/utils/computeSynthesis";
@@ -118,8 +118,8 @@ async function runLocally(
                         if (progress.step || progress.completedCount !== undefined) {
                             storeProgress(id, {
                                 step: progress.step,
-                                completedAnalyses: progress.completedCount,
-                                totalAnalyses: personas.length,
+                                completedResponses: progress.completedCount,
+                                totalResponses: personas.length,
                                 title: progress.title,
                             });
                         }
@@ -157,7 +157,7 @@ async function runLocally(
                     });
                 }
 
-                simulationResultStore.save(id, responses);
+                analysisResultStore.save(id, responses);
                 storeCompleted(id);
                 stream.done({
                     step: "DONE",
@@ -166,17 +166,17 @@ async function runLocally(
                     requestId: id,
                 });
             } else {
-                simulationResultStore.saveError(id, 'Request was cancelled');
+                analysisResultStore.saveError(id, 'Request was cancelled');
                 stream.done({ step: "CANCELLED", requestId: id });
             }
         } catch (error) {
             if (abortSignal.aborted) {
-                simulationResultStore.saveError(id, 'Request was cancelled');
+                analysisResultStore.saveError(id, 'Request was cancelled');
                 try { stream.done({ step: "CANCELLED", requestId: id }); } catch {}
             } else {
                 const errMsg = (error as Error).message;
                 log.error("analyzeArtifactAction", "Error analyzing artifact", { error: errMsg });
-                simulationResultStore.saveError(id, errMsg);
+                analysisResultStore.saveError(id, errMsg);
                 storeProgress(id, { error: errMsg });
                 try { stream.done({ step: "ERROR", error: errMsg, requestId: id }); } catch {}
             }

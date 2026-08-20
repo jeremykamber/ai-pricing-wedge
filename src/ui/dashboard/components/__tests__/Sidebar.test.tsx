@@ -84,8 +84,8 @@ describe("Sidebar", () => {
     expect(personasBtn.className).not.toContain("bg-primary/10");
   });
 
-  it("does NOT highlight Personas when on /dashboard/simulations", () => {
-    mockUsePathname.mockReturnValue("/dashboard/simulations");
+  it("does NOT highlight Personas when on /dashboard/analyses", () => {
+    mockUsePathname.mockReturnValue("/dashboard/analyses");
     const { container } = render(<Sidebar />);
 
     const personasBtn = getPersonasButton(container);
@@ -101,11 +101,11 @@ describe("Sidebar", () => {
     expect(link!.className).toContain("bg-primary/10");
   });
 
-  it("highlights Simulations when on /dashboard/simulations", () => {
-    mockUsePathname.mockReturnValue("/dashboard/simulations");
+  it("highlights Analyses when on /dashboard/analyses", () => {
+    mockUsePathname.mockReturnValue("/dashboard/analyses");
     const { container } = render(<Sidebar />);
 
-    const link = container.querySelector('a[href="/dashboard/simulations"]');
+    const link = container.querySelector('a[href="/dashboard/analyses"]');
     expect(link).not.toBeNull();
     expect(link!.className).toContain("bg-primary/10");
   });

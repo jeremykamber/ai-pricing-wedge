@@ -111,7 +111,7 @@ STAY IN CHARACTER.`;
 
   /**
    * Panel synthesis chat — the user questions the whole cohort at once.
-   * Grounds every answer in the personas' actual simulation responses and the
+   * Grounds every answer in the personas' actual analysis responses and the
    * cross-persona synthesis, so "what would our users think of X?" gets an
    * evidence-backed answer, not a guess.
    */
@@ -181,7 +181,7 @@ Structure every substantive answer in FOUR LAYERS:
    say so instead of inventing.
 3. INTERPRETATION — what this likely means for the product, clearly labeled as interpretation.
 4. VALIDATION — what this does NOT establish, and what to test next (e.g. "This is a hypothesis:
-   rerun the simulation with clear pricing, or validate with real users"). Include this layer
+   rerun the analysis with clear pricing, or validate with real users"). Include this layer
    whenever you recommend an action.
 
 Rules:
@@ -205,13 +205,13 @@ ${synthesisSection}
   }
 }
 
-/** Narrow a chat context to the modern simulation-response type. */
+/** Narrow a chat context to the modern analysis-response type. */
 function isPersonaResponse(analysis: ChatAnalysisContext): analysis is PersonaResponse {
   return !!analysis && "customerJourney" in analysis;
 }
 
 /**
- * "What you saw" grounding — renders a persona's own simulation response as
+ * "What you saw" grounding — renders a persona's own analysis response as
  * first-person context so the chat can talk about the artifact they just
  * experienced, not generic personality.
  */
