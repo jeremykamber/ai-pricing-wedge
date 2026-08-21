@@ -256,63 +256,66 @@ export function PersonaDetailSheet({
                         {persona.name} — Profile &amp; Chat
                     </DialogTitle>
                     {/* Header */}
-                    <div className="flex items-center justify-between border-b border-border/40 px-5 py-4 shrink-0">
-                        <div className="flex items-center gap-3 min-w-0">
+                    <div className="flex flex-wrap items-center justify-between border-b border-border/40 px-5 py-4 shrink-0">
+                        <div className="flex items-center gap-3 flex-1 min-w-56">
                             <PersonaAvatar name={persona.name} size="md" className="w-10 h-10 shrink-0" />
                             <div className="flex flex-col min-w-0">
                                 <h2 className="text-base font-semibold tracking-tight truncate">{persona.name}</h2>
                                 <p className="text-xs text-muted-foreground truncate">{persona.occupation}</p>
                                 {persona.generationMode && (
-                                    <span className="text-[10px] font-medium text-primary/70 mt-0.5">
+                                    <span className="text-[10px] font-medium text-primary/70 mt-0.5 whitespace-nowrap">
                                         {persona.generationMode === 'research' ? 'Transcript-based' : persona.generationMode === 'cluster' ? 'Synthesized from interviews' : 'Description-based'}
                                     </span>
                                 )}
                             </div>
                         </div>
-                        <div className="flex items-center gap-1 ml-4 shrink-0">
+                        <div className="flex flex-wrap items-center gap-1 ml-4 shrink-0">
                             <button
                                 onClick={() => setActiveTab("profile")}
+                                aria-label="Profile"
                                 className={cn(
-                                    "inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md transition-colors",
+                                    "inline-flex items-center gap-1.5 px-2 sm:px-3 py-1.5 text-xs font-medium rounded-md transition-colors",
                                     activeTab === "profile"
                                         ? "bg-primary/10 text-primary"
                                         : "text-muted-foreground hover:text-foreground"
                                 )}
                             >
                                 <User className="w-3.5 h-3.5" />
-                                Profile
+                                <span className="hidden sm:inline">Profile</span>
                             </button>
                             <button
                                 onClick={() => setActiveTab("chat")}
+                                aria-label="Chat"
                                 className={cn(
-                                    "inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md transition-colors",
+                                    "inline-flex items-center gap-1.5 px-2 sm:px-3 py-1.5 text-xs font-medium rounded-md transition-colors",
                                     activeTab === "chat"
                                         ? "bg-primary/10 text-primary"
                                         : "text-muted-foreground hover:text-foreground"
                                 )}
                             >
                                 <MessageSquare className="w-3.5 h-3.5" />
-                                Chat
+                                <span className="hidden sm:inline">Chat</span>
                             </button>
                             {onCreateVariant && (
                                 <button
                                     onClick={() => setActiveTab("variant")}
+                                    aria-label="Variant"
                                     className={cn(
-                                        "inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md transition-colors",
+                                        "inline-flex items-center gap-1.5 px-2 sm:px-3 py-1.5 text-xs font-medium rounded-md transition-colors",
                                         activeTab === "variant"
                                             ? "bg-primary/10 text-primary"
                                             : "text-muted-foreground hover:text-foreground"
                                     )}
                                 >
                                     <CopyIcon className="w-3.5 h-3.5" />
-                                    Variant
+                                    <span className="hidden sm:inline">Variant</span>
                                 </button>
                             )}
                             {onEdit && (
                                 <button
                                     onClick={isEditing ? handleCancelEdit : handleStartEdit}
                                     className={cn(
-                                        "inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md transition-colors",
+                                        "inline-flex items-center gap-1.5 px-2 sm:px-3 py-1.5 text-xs font-medium rounded-md transition-colors",
                                         isEditing
                                             ? "bg-primary/10 text-primary"
                                             : "text-muted-foreground hover:text-foreground"
@@ -320,18 +323,19 @@ export function PersonaDetailSheet({
                                     aria-label={isEditing ? "Cancel editing" : "Edit persona"}
                                 >
                                     {isEditing ? <XIcon className="w-3.5 h-3.5" /> : <PenIcon className="w-3.5 h-3.5" />}
-                                    {isEditing ? "Cancel" : "Edit"}
+                                    <span className="hidden sm:inline">{isEditing ? "Cancel" : "Edit"}</span>
                                 </button>
                             )}
                             {persona.generationMode === 'strategy' && (
                                 <button
                                     onClick={handleCounterfactual}
                                     disabled={isRunningCounterfactual}
-                                    className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md text-muted-foreground hover:text-foreground hover:bg-muted/30 transition-colors"
+                                    aria-label="Check for risky synthetic details"
+                                    className="inline-flex items-center gap-1.5 px-2 sm:px-3 py-1.5 text-xs font-medium rounded-md text-muted-foreground hover:text-foreground hover:bg-muted/30 transition-colors"
                                     title="Check for risky synthetic details"
                                 >
                                     <ShieldAlertIcon className="w-3.5 h-3.5" />
-                                    {isRunningCounterfactual ? "Checking..." : "Check"}
+                                    <span className="hidden sm:inline">{isRunningCounterfactual ? "Checking..." : "Check"}</span>
                                 </button>
                             )}
                             <div className="w-px h-5 bg-border/40 mx-1" />
