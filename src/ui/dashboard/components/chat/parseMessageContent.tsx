@@ -2,6 +2,7 @@ import React from "react"
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip"
 import { ThinkingBlock } from "@/components/custom/ThinkingBlock"
 import { ChatMarkdown } from "./ChatMarkdown"
+import { Brain } from "lucide-react"
 
 const REASONING_OPEN = "<<REASONING>>"
 const REASONING_CLOSE = "<</REASONING>>"
@@ -124,13 +125,20 @@ export function parseMessageContent(content: string): React.ReactNode[] {
         )
       } else if (match[5]) {
         const memoryText = match[6].trim()
+        // Perplexity-style inline citation pill with icon + tooltip
+        const truncated = memoryText.length > 35 ? memoryText.slice(0, 35) + '…' : memoryText
         parts.push(
-          <span
-            key={`memory-inline-${keyCounter++}`}
-            className="inline-block text-xs italic text-muted-foreground/70 bg-muted/30 rounded px-1.5 py-0.5 my-0.5"
-          >
-            {memoryText}
-          </span>
+          <Tooltip key={`memory-inline-${keyCounter++}`} delayDuration={200}>
+            <TooltipTrigger asChild>
+              <span className="inline-flex items-center gap-1 align-middle mx-0.5 px-1.5 py-0.5 rounded text-[11px] font-medium bg-muted/50 border border-border/40 text-muted-foreground/80 cursor-help hover:bg-muted/70 hover:text-foreground/90 transition-colors">
+                <Brain className="w-3 h-3 shrink-0 text-primary/60" />
+                <span className="truncate max-w-[180px]">{truncated}</span>
+              </span>
+            </TooltipTrigger>
+            <TooltipContent side="top" className="max-w-[280px] text-xs leading-relaxed">
+              <p>{memoryText}</p>
+            </TooltipContent>
+          </Tooltip>
         )
       }
 
