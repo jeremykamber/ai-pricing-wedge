@@ -77,7 +77,7 @@ export function parseMessageContent(content: string): React.ReactNode[] {
     const body = segment.text.trim()
     if (!body) continue
 
-    const combinedRegex = /(<%(.*?)%>)|(\[Memory:\s*(.*?)\])/g
+    const combinedRegex = /(<%(.*?)%>)|(\[Memory:\s*(.*?)\])|(<I\s(.*?)>)/g
     let match = combinedRegex.exec(body)
     let lastIndex = 0
 
@@ -121,6 +121,16 @@ export function parseMessageContent(content: string): React.ReactNode[] {
           >
             {memoryCounter}
           </sup>
+        )
+      } else if (match[5]) {
+        const memoryText = match[6].trim()
+        parts.push(
+          <span
+            key={`memory-inline-${keyCounter++}`}
+            className="inline-block text-xs italic text-muted-foreground/70 bg-muted/30 rounded px-1.5 py-0.5 my-0.5"
+          >
+            {memoryText}
+          </span>
         )
       }
 
