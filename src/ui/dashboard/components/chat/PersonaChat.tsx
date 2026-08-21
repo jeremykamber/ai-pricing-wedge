@@ -36,32 +36,29 @@ export function PersonaChat({ persona, isOpen, onClose, analysis = null }: Perso
   const [messages, setMessages] = useLocalStorage<Message[]>(storageKey, [])
   const [input, setInput] = useState("")
   const [isPending, startTransition] = useTransition()
-  const messagesEndRef = useRef<HTMLDivElement>(null)
   const chatRef = useRef<HTMLDivElement>(null)
+  // True while the user is at (or near) the bottom of the chat pane. Auto-follow
+  // only applies then; scrolling up to read earlier messages suspends it.
+  const stickToBottomRef = useRef(true)
 
-  // Scroll to the newest message only when the conversation changes.
-  // Runs per-token during streaming, so an instant (non-smooth) scroll keeps
-  // up with the stream; smooth scrolling here stacks animations and jitters.
-  useEffect(() => {
-    const el = messagesEndRef.current
-    if (!el) return
-    const frame = requestAnimationFrame(() => {
-      el.scrollIntoView({ behavior: "auto", block: "end" })
-    })
-    return () => cancelAnimationFrame(frame)
-  }, [messages])
-
-  // Keep the chat pane pinned to the newest message while streaming.
+  // Pin to the newest message while the conversation grows. Runs per-token
+  // during streaming, so an instant (non-smooth) assignment keeps up with the
+  // stream without stacking animation jitter. Skipped when the user has
+  // scrolled away to read older messages.
   useEffect(() => {
     const el = chatRef.current
-    if (!el) return
-    el.scrollTop = el.scrollHeight
-  }, [isPending])
+    if (el && stickToBottomRef.current) {
+      el.scrollTop = el.scrollHeight
+    }
+  }, [messages, isPending])
 
   const handleSend = (overrideMessage?: string) => {
     const messageToSend = (overrideMessage || input).trim()
     if (!messageToSend || isPending) return
 
+    // Sending a message means the user wants to watch the reply arrive —
+    // re-engage follow mode.
+    stickToBottomRef.current = true
     setInput("")
     const newMessages: Message[] = [...messages, { role: 'user', content: messageToSend }]
     setMessages(newMessages)
@@ -109,7 +106,7 @@ export function PersonaChat({ persona, isOpen, onClose, analysis = null }: Perso
   return (
     <TooltipProvider>
       <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-        <DialogContent className="max-w-md sm:max-w-lg max-h-[85vh] flex flex-col p-0 gap-0">
+        <DialogContent className="max-w-md sm:max-w-lg max-h-[85vh] flex flex-col overflow-hidden p-0 gap-0">
           <DialogHeader className="px-6 py-4 border-b border-border/40 shrink-0">
             <div className="flex items-center gap-3">
               <div className="flex h-10 w-10 items-center justify-center rounded-full bg-secondary font-medium text-secondary-foreground">
@@ -124,7 +121,11 @@ export function PersonaChat({ persona, isOpen, onClose, analysis = null }: Perso
 
           <div 
             ref={chatRef}
-            className="flex-1 overflow-y-auto p-6 flex flex-col gap-6 custom-scrollbar"
+            onScroll={(e) => {
+              const el = e.currentTarget
+              stickToBottomRef.current = el.scrollHeight - el.scrollTop - el.clientHeight < 80
+            }}
+            className="flex-1 min-h-0 overflow-y-auto p-6 flex flex-col gap-6 custom-scrollbar"
           >
             {messages.length === 0 ? (
               <div className="flex-1 flex flex-col items-center justify-center text-center gap-4 text-muted-foreground">
@@ -149,7 +150,7 @@ export function PersonaChat({ persona, isOpen, onClose, analysis = null }: Perso
                       ? 'var(--chat-user-bubble)' 
                       : 'var(--chat-assistant-bubble)',
                   }}
-                  className={`px-4 py-3 rounded-2xl text-sm leading-relaxed text-foreground ${
+                  className={`px-4 py-3 rounded-2xl text-sm leading-relaxed break-words min-w-0 max-w-full text-foreground ${
                     m.role === 'user' ? 'rounded-tr-sm whitespace-pre-wrap' : 'rounded-tl-sm border border-border/40'
                   }`}
                 >
@@ -173,7 +174,6 @@ export function PersonaChat({ persona, isOpen, onClose, analysis = null }: Perso
                </div>
             </div>
           )}
-          <div ref={messagesEndRef} />
         </div>
 
         <div className="p-4 bg-card border-t border-border/40 shrink-0">
