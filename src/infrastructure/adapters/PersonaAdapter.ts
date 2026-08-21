@@ -363,9 +363,14 @@ export class PersonaAdapter {
         /** Record array whose entry names must also be covered (name field 'name'). */
         dynamicNamesField?: string;
       };
+      /**
+       * Invoked immediately before a retry attempt fires (attempt 2+), so
+       * callers can surface that generation is retrying rather than stuck.
+       */
+      onRetry?: (attempt: number, attempts: number) => void;
     } = {},
   ): Promise<Record<string, unknown>[]> {
-    const { schema = PersonaSchema, requiredFields, distinctFields, verbatim, coverage } = options;
+    const { schema = PersonaSchema, requiredFields, distinctFields, verbatim, coverage, onRetry } = options;
     // Three attempts, not two: a single run can fail twice in a row — e.g.
     // the model fabricates quotes (verbatim nudge), then over-corrects on the
     // retry and drops attributeConfidence (coverage nudge). A third attempt
@@ -378,6 +383,7 @@ export class PersonaAdapter {
     let lastFailure: { rule: 'required' | 'distinct' | 'verbatim' | 'coverage'; detail?: string } | undefined;
     for (let attempt = 1; attempt <= attempts; attempt++) {
       console.log(`[PersonaAdapter] [${context}] Generating ${expectedCount} personas (attempt ${attempt}/${attempts})...`);
+      if (attempt > 1) onRetry?.(attempt, attempts);
       try {
         const retryNudge = attempt > 1
           ? PersonaAdapter.retryNudgeFor(lastFailure, { requiredFields, distinctFields, verbatim, coverage })
@@ -1205,9 +1211,10 @@ Base your analysis on explicit life experiences, attitudes toward money/risk, an
   async generateResearchPersonas(
     config: ResearchPersonaConfig,
     onPhase?: PersonaPhaseCallback,
+    onRetry?: (attempt: number, attempts: number) => void,
   ): Promise<Persona[]> {
     onPhase?.("profiles", { completed: 0, total: 1 });
-    const records = await this.generateResearchProfiles(config);
+    const records = await this.generateResearchProfiles(config, onRetry);
     onPhase?.("profiles", { completed: 1, total: 1 });
 
     const chosenNames = PersonaAdapter.neutralNames(config.personaDescription, records.length);
@@ -1324,7 +1331,10 @@ Base your analysis on explicit life experiences, attitudes toward money/risk, an
     'identityContext', 'situationContext',
   ] as const;
 
-  private async generateResearchProfiles(config: ResearchPersonaConfig): Promise<Record<string, unknown>[]> {
+  private async generateResearchProfiles(
+    config: ResearchPersonaConfig,
+    onRetry?: (attempt: number, attempts: number) => void,
+  ): Promise<Record<string, unknown>[]> {
     const system = `You are a research-grade persona generator. Your task is to create personas grounded in evidence.
 
 CRITICAL RULES:
@@ -1400,6 +1410,7 @@ ${config.contextNotes ? `\nAdditional context: ${config.contextNotes}` : ""}`;
           requiredNames: ['values', 'fears', 'goals', 'backstory'],
           dynamicNamesField: 'behavioralDimensions',
         },
+        onRetry,
       },
     );
   }
@@ -1438,9 +1449,10 @@ Return plain text only. No labels, no markdown, no headers.`;
   async generateStrategyPersonas(
     config: StrategyPersonaConfig,
     onPhase?: PersonaPhaseCallback,
+    onRetry?: (attempt: number, attempts: number) => void,
   ): Promise<Persona[]> {
     onPhase?.("profiles", { completed: 0, total: 1 });
-    const records = await this.generateStrategyProfiles(config);
+    const records = await this.generateStrategyProfiles(config, onRetry);
     onPhase?.("profiles", { completed: 1, total: 1 });
 
     // Names are assigned between the phases, so the backstory call knows the
@@ -1577,7 +1589,10 @@ Return plain text only. No labels, no markdown, no headers.`;
     'identityContext', 'situationContext', 'evidenceLinks',
   ] as const;
 
-  private async generateStrategyProfiles(config: StrategyPersonaConfig): Promise<Record<string, unknown>[]> {
+  private async generateStrategyProfiles(
+    config: StrategyPersonaConfig,
+    onRetry?: (attempt: number, attempts: number) => void,
+  ): Promise<Record<string, unknown>[]> {
     const system = `You are a strategic persona generator creating buyer personas for product decision-making.
 
 GUIDELINES:
@@ -1648,6 +1663,7 @@ ${config.contextNotes ? `Additional context: ${config.contextNotes}` : ""}`;
           requiredNames: ['values', 'fears', 'goals', 'backstory'],
           dynamicNamesField: 'behavioralDimensions',
         },
+        onRetry,
       },
     );
   }

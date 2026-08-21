@@ -56,7 +56,9 @@ export function FlowDialog({
   const cycledText = currentStepTexts?.length
     ? currentStepTexts[textIndex % currentStepTexts.length]
     : null
-  const displayText = cycledText ?? (streamingText ?? null)
+  // Live streamingText (e.g. a retry status) is the primary caption;
+  // per-step cycling texts animate only when no streamingText is set.
+  const displayText = streamingText ?? (cycledText ?? null)
   // Sub-line telemetry only shown when main caption is from cyclingTexts
   const showSubLine = !!currentStepTexts?.length
   const hasTelemetry = showSubLine && (streamingText || personaName)

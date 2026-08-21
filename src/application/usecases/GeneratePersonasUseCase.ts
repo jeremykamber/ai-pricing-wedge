@@ -62,11 +62,22 @@ export class GeneratePersonasUseCase {
                 }
             };
 
+            // A retry of the profiles batch is invisible to the user without
+            // this: surface it as a friendly status line rather than leaving
+            // the UI parked on the static "Generating persona profiles...".
+            const onRetry = () => {
+                onProgress?.({
+                    step: 'BRAINSTORMING_PERSONAS',
+                    streamingText: "We ran into an issue generating the personas, so we're retrying.",
+                });
+            };
+
             personas = mode === 'research'
-                ? await this.llmService.generateResearchPersonas({ count: targetCount, personaDescription, contextNotes }, onPhase)
+                ? await this.llmService.generateResearchPersonas({ count: targetCount, personaDescription, contextNotes }, onPhase, onRetry)
                 : await this.llmService.generateStrategyPersonas(
                     { count: targetCount, personaDescription, contextNotes, allowSyntheticBackstory: true, storytellingLevel: 'moderate' },
                     onPhase,
+                    onRetry,
                   );
 
             // PB&J rationalization for both modes; stored in pbjRationales so
@@ -92,7 +103,7 @@ export class GeneratePersonasUseCase {
                     console.warn(`[GeneratePersonasUseCase] Attempt ${attempt + 1} failed: ${msg} — retrying`);
                     onProgress?.({
                         step: 'BRAINSTORMING_PERSONAS',
-                        streamingText: "Retrying with corrected persona count..."
+                        streamingText: "We ran into an issue generating the personas, so we're retrying.",
                     });
                     continue;
                 }

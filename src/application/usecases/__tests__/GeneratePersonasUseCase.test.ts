@@ -143,4 +143,23 @@ describe('GeneratePersonasUseCase', () => {
     expect(backstorySteps[1]).toMatchObject({ personaName: 'A', completedCount: 1, totalCount: 2 });
     expect(backstorySteps[2]).toMatchObject({ personaName: 'B', completedCount: 2, totalCount: 2 });
   });
+
+  it('should surface a friendly retry status when profile generation retries', async () => {
+    mockLlmService.generateStrategyPersonas.mockImplementation(async (_config: any, _onPhase?: any, onRetry?: any) => {
+      // Simulate the adapter firing onRetry right before attempt 2 (a real retry).
+      onRetry?.(2, 3);
+      return [{ ...fullPersona, generationMode: 'strategy' } as Persona];
+    });
+    mockLlmService.rationalizePersonas.mockImplementation(async (ps: Persona[]) => ps);
+
+    const progress: any[] = [];
+    await useCase.execute('Test', (p) => progress.push(p), 1, undefined, 'strategy');
+
+    const retryUpdates = progress.filter(
+      (p) => p.step === 'BRAINSTORMING_PERSONAS' && typeof p.streamingText === 'string',
+    );
+    expect(retryUpdates.length).toBeGreaterThan(0);
+    const retryText = retryUpdates[retryUpdates.length - 1]?.streamingText;
+    expect(retryText.toLowerCase()).toContain('retrying');
+  });
 });

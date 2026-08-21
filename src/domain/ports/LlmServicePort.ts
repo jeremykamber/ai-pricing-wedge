@@ -457,16 +457,22 @@ export interface LlmServicePort {
      * Produces personas with provenance tracking, minimal invention, no fabricated memories.
      * Phased: batched profiles, then per-persona parallel backstories.
      * @param onPhase - Optional progress callback (profiles -> backstories).
+     * @param onRetry - Optional callback fired before a retry attempt of the
+     *                  profiles batch (attempt 2+), so the UI can surface
+     *                  that generation is retrying.
      */
-    generateResearchPersonas(config: ResearchPersonaConfig, onPhase?: PersonaPhaseCallback): Promise<Persona[]>;
+    generateResearchPersonas(config: ResearchPersonaConfig, onPhase?: PersonaPhaseCallback, onRetry?: (attempt: number, attempts: number) => void): Promise<Persona[]>;
 
     /**
      * Strategy Mode: richer storytelling persona generation from ICP/market descriptions.
      * Representative assumptions allowed for imagination and decision-making.
      * Phased: batched profiles, then per-persona parallel backstories.
      * @param onPhase - Optional progress callback (profiles -> backstories).
+     * @param onRetry - Optional callback fired before a retry attempt of the
+     *                  profiles batch (attempt 2+), so the UI can surface
+     *                  that generation is retrying.
      */
-    generateStrategyPersonas(config: StrategyPersonaConfig, onPhase?: PersonaPhaseCallback): Promise<Persona[]>;
+    generateStrategyPersonas(config: StrategyPersonaConfig, onPhase?: PersonaPhaseCallback, onRetry?: (attempt: number, attempts: number) => void): Promise<Persona[]>;
 
     /**
      * Cluster Mode: synthetic representative personas from multiple interview signals.

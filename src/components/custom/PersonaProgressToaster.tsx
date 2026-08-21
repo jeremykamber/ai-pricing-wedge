@@ -184,7 +184,9 @@ export function PersonaProgressToaster() {
 
         const step = p.progress?.step
         const progress = STEP_PROGRESS[step ?? ''] ?? 0
-        const subtext = formatStepName(step)
+        // Live streamingText (e.g. a retry status) wins over the step name so
+        // the toast surfaces what is actually happening.
+        const subtext = p.progress?.streamingText || formatStepName(step)
 
         const content = (
           <PersonaToastContent
