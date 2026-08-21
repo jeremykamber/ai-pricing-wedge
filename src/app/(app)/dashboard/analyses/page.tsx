@@ -126,7 +126,7 @@ function AnalysisCard({ analysis }: { analysis: import('@/domain/entities/Artifa
   )
 }
 
-function NewAnalysisForm({ onRun }: { onRun: (url: string, personas: Persona[], imageBase64?: string, businessGoal?: string, researchQuestion?: string) => void }) {
+function NewAnalysisForm({ onRun }: { onRun: (url: string, personas: Persona[], imageBase64?: string, businessGoal?: string, researchQuestion?: string, batchId?: string) => void }) {
   const batches = usePersonaStore((s) => s.batches)
   const [selectedBatchId, setSelectedBatchId] = useState<string>('')
   const [url, setUrl] = useState('')
@@ -217,10 +217,10 @@ function NewAnalysisForm({ onRun }: { onRun: (url: string, personas: Persona[], 
 
     if (inputMode === 'url') {
       if (!url.trim()) return
-      onRun(url, selectedBatch.personas, undefined, businessGoal, researchQuestion)
+      onRun(url, selectedBatch.personas, undefined, businessGoal, researchQuestion, selectedBatchId)
     } else {
       if (!imageBase64Ref.current) return
-      onRun('Screenshot Upload', selectedBatch.personas, imageBase64Ref.current, businessGoal, researchQuestion)
+      onRun('Screenshot Upload', selectedBatch.personas, imageBase64Ref.current, businessGoal, researchQuestion, selectedBatchId)
     }
   }
 
@@ -405,7 +405,7 @@ export default function AnalysesPage() {
   const inProgress = analyses.filter((s) => s.status === 'IN_PROGRESS')
   const completed = analyses.filter((s) => s.status !== 'IN_PROGRESS')
 
-  const handleRunAnalysis = (url: string, personas: Persona[], imageBase64?: string, businessGoal?: string, researchQuestion?: string) => {
+  const handleRunAnalysis = (url: string, personas: Persona[], imageBase64?: string, businessGoal?: string, researchQuestion?: string, batchId?: string) => {
     const input = imageBase64
       ? { type: 'screenshot' as const, imageBase64, url }
       : { type: 'url' as const, url }
@@ -413,7 +413,7 @@ export default function AnalysesPage() {
     if (imageBase64) analysisFlow.setArtifactImageBase64(imageBase64)
     if (businessGoal) analysisFlow.setBusinessGoal(businessGoal)
     if (researchQuestion) analysisFlow.setResearchQuestion(researchQuestion)
-    analysisFlow.handleAnalyzeArtifact(personas, input, businessGoal, researchQuestion)
+    analysisFlow.handleAnalyzeArtifact(personas, input, businessGoal, researchQuestion, batchId)
     setShowNewForm(false)
   }
 

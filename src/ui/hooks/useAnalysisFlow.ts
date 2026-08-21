@@ -64,6 +64,7 @@ export function useAnalysisFlow(onSuccess?: (analyses: PersonaResponse[]) => voi
     overrideInput?: ArtifactInput,
     overrideBusinessGoal?: string,
     overrideResearchQuestion?: string,
+    batchId?: string,
   ) => {
     const activeGoal = (overrideBusinessGoal || businessGoal).trim()
     const activeQuestion = (overrideResearchQuestion || researchQuestion).trim()
@@ -99,6 +100,7 @@ export function useAnalysisFlow(onSuccess?: (analyses: PersonaResponse[]) => voi
       currentStep: 'STARTING',
       completedResponses: 0,
       totalResponses: personas.length,
+      batchId,
     })
 
     setIsPending(true)

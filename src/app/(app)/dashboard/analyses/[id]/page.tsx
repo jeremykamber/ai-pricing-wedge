@@ -460,8 +460,8 @@ function CompletedView({
   // Resolve each response back to a full Persona once — chat needs the
   // psychometrics/backstory, not just the display projection.
   const resolvedPersonas = useMemo(
-    () => (analyses ?? []).map((a) => resolveChatPersona(a, batches)),
-    [analyses, batches]
+    () => (analyses ?? []).map((a) => resolveChatPersona(a, batches, analysis?.batchId)),
+    [analyses, batches, analysis?.batchId]
   )
 
   const togglePersona = (index: number) => {
