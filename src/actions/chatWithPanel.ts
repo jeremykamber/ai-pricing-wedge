@@ -77,7 +77,16 @@ async function runRemote(
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
-        fullText = decoder.decode(value, { stream: true });
+        const chunk = decoder.decode(value, { stream: true });
+        // The endpoint's wire format varies by deployment: raw delta tokens,
+        // or `<<REASONING>>…<</REASONING>>` + accumulated content repeated
+        // per token (reads may coalesce several of these payloads). When a
+        // reasoning marker is present, the payload after the LAST marker is
+        // the newest accumulated state, so replace with it; otherwise append
+        // the delta token. This reconstructs the complete reply exactly
+        // once for either format.
+        const lastMarker = chunk.lastIndexOf("<<REASONING>>");
+        fullText = lastMarker === -1 ? fullText + chunk : chunk.slice(lastMarker);
         stream.update(fullText);
       }
 
