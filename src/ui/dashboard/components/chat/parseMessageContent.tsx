@@ -125,13 +125,12 @@ export function parseMessageContent(content: string): React.ReactNode[] {
         )
       } else if (match[5]) {
         const memoryText = match[6].trim()
-        // Perplexity-style inline citation pill — minimal label with full memory on hover
+        // Inline citation pill — icon only, full memory on hover
         parts.push(
           <Tooltip key={`memory-inline-${keyCounter++}`} delayDuration={200}>
             <TooltipTrigger asChild>
-              <span className="inline-flex items-center gap-1 align-middle mx-0.5 px-1.5 py-0.5 rounded text-[11px] font-medium bg-muted/50 border border-border/40 text-muted-foreground/80 cursor-help hover:bg-muted/70 hover:text-foreground/90 transition-colors">
-                <Brain className="w-3 h-3 shrink-0 text-primary/60" />
-                <span>I remember</span>
+              <span className="inline-flex items-center align-middle mx-0.5 px-1 py-0.5 rounded bg-muted/50 border border-border/40 text-muted-foreground/80 cursor-help hover:bg-muted/70 hover:text-foreground/90 transition-colors">
+                <Brain className="w-3 h-3 text-primary/60" />
               </span>
             </TooltipTrigger>
             <TooltipContent side="top" className="max-w-[280px] text-xs leading-relaxed">
