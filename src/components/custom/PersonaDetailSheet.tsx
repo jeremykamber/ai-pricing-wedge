@@ -250,7 +250,7 @@ export function PersonaDetailSheet({
             <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
                 <DialogContent
                     showCloseButton={false}
-                    className="sm:max-w-[600px] md:max-w-[680px] h-[85dvh] overflow-y-auto flex flex-col p-0"
+                    className="max-w-[calc(100vw-2rem)] sm:max-w-[600px] md:max-w-[680px] h-[80dvh] sm:h-[85dvh] overflow-y-auto flex flex-col p-0"
                 >
                     <DialogTitle className="sr-only">
                         {persona.name} — Profile &amp; Chat
@@ -338,14 +338,7 @@ export function PersonaDetailSheet({
                                     <span className="hidden sm:inline">{isRunningCounterfactual ? "Checking..." : "Check"}</span>
                                 </button>
                             )}
-                            <div className="w-px h-5 bg-border/40 mx-1" />
-                            <button
-                                onClick={onClose}
-                                className="inline-flex items-center justify-center h-7 w-7 p-0 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted/30 transition-colors"
-                                aria-label="Close"
-                            >
-                                <XIcon className="w-3.5 h-3.5" />
-                            </button>
+
                         </div>
                     </div>
 
