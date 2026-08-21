@@ -7,6 +7,7 @@ import { getProgressAction } from '@/actions/getProgress'
 import { getAnalysisResultAction } from '@/actions/getAnalysisResult'
 import { ClockIcon, CheckCircleIcon, XCircleIcon, AlertCircleIcon, XIcon } from 'lucide-react'
 import type { ArtifactAnalysis } from '@/domain/entities/ArtifactAnalysis'
+import { summarizeError } from '@/lib/errorSummary'
 
 /**
  * Module-level toast ID map — survives component remounts so existing toasts
@@ -51,7 +52,7 @@ function AnalysisToastContent({
     },
     ERROR: {
       icon: <XCircleIcon className="h-4 w-4 shrink-0 text-destructive" />,
-      label: analysis.error || 'Analysis failed',
+      label: summarizeError(analysis.error || 'Analysis failed'),
       accentClass: 'bg-destructive/[0.06]',
       ringClass: 'ring-destructive/20',
       progressWidth: '100%',

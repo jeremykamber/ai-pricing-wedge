@@ -27,6 +27,7 @@ import { Persona } from '@/domain/entities/Persona'
 import { readStreamableValue } from '@ai-sdk/rsc'
 import { generateSimilarPersonasAction } from '@/actions/generateSimilarPersonas'
 import { useAnalysisStore } from '@/ui/stores/analysisStore'
+import { summarizeError } from '@/lib/errorSummary'
 
 export function DashboardClient() {
     const router = useRouter()
@@ -231,7 +232,7 @@ export function DashboardClient() {
                         if (toastIdRef.current) {
                             toast.error('Failed to generate variations', {
                                 id: toastIdRef.current,
-                                description: update.error ?? 'Unknown error',
+                                description: summarizeError(update.error ?? 'Unknown error'),
                             })
                             toastIdRef.current = null
                         }
@@ -248,7 +249,7 @@ export function DashboardClient() {
                 if (toastIdRef.current) {
                     toast.error('Failed to generate variations', {
                         id: toastIdRef.current,
-                        description: (err as Error).message,
+                        description: summarizeError(err instanceof Error ? err.message : String(err)),
                     })
                     toastIdRef.current = null
                 }
@@ -384,10 +385,10 @@ export function DashboardClient() {
                         </div>
                     ) : (
                         <div className="flex flex-col gap-6">
-                            <div className="flex items-center justify-between border-b border-border/40 pb-4">
-                                <div className="flex flex-col gap-1">
-                                    <div className="flex items-center gap-3">
-                                        <h2 className="text-xl font-bold tracking-tight">
+                            <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 border-b border-border/40 pb-4">
+                                <div className="flex flex-col gap-1 min-w-0">
+                                    <div className="flex flex-wrap items-center gap-3">
+                                        <h2 className="text-xl font-bold tracking-tight min-w-0">
                                             <InlineRenamable
                                                 value={activeBatch.label}
                                                 onRename={(label) => updateBatchLabel(activeBatch.id, label)}
