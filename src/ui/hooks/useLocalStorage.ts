@@ -8,12 +8,15 @@ export function useLocalStorage<T>(key: string, initialValue: T): [T, Dispatch<S
   const [storedValue, setStoredValue] = useState<T>(initialValue)
   const [isInitialized, setIsInitialized] = useState(false)
 
-  // Load from localStorage after mount
+  // Load from localStorage after mount, or reset to initialValue when
+  // the key changes and no value exists for the new key.
   useEffect(() => {
     try {
       const item = window.localStorage.getItem(key)
       if (item) {
         setStoredValue(JSON.parse(item))
+      } else {
+        setStoredValue(initialValue)
       }
     } catch (error) {
       console.warn(`Error reading localStorage key "${key}":`, error)
