@@ -7,8 +7,8 @@ export default function InterviewsLoading() {
     <div className="flex flex-col gap-16 max-w-4xl mx-auto w-full animate-in fade-in duration-300">
       {/* Header */}
       <div className="flex flex-col gap-4 text-center items-center">
-        <div className="h-12 w-96 rounded bg-muted animate-pulse" />
-        <div className="h-5 w-[500px] rounded bg-muted animate-pulse" />
+        <div className="h-12 w-full max-w-96 rounded bg-muted animate-pulse" />
+        <div className="h-5 w-full max-w-[500px] rounded bg-muted animate-pulse" />
       </div>
 
       {/* Step 1: Upload */}
@@ -21,15 +21,15 @@ export default function InterviewsLoading() {
         <div className="rounded-lg border border-border bg-card p-6">
           <div className="flex flex-col gap-6">
             <div className="flex flex-col gap-2">
-              <div className="h-6 w-56 rounded bg-muted animate-pulse" />
-              <div className="h-4 w-72 rounded bg-muted animate-pulse" />
+              <div className="h-6 w-full max-w-56 rounded bg-muted animate-pulse" />
+              <div className="h-4 w-full max-w-72 rounded bg-muted animate-pulse" />
             </div>
 
             {/* Drop zone */}
             <div className="flex flex-col items-center justify-center rounded-lg border-2 border-dashed border-border/40 p-12 gap-4">
               <div className="h-12 w-12 rounded bg-muted animate-pulse" />
-              <div className="h-4 w-64 rounded bg-muted animate-pulse" />
-              <div className="h-3 w-36 rounded bg-muted animate-pulse" />
+              <div className="h-4 w-full max-w-64 rounded bg-muted animate-pulse" />
+              <div className="h-3 w-full max-w-36 rounded bg-muted animate-pulse" />
             </div>
           </div>
         </div>
@@ -44,11 +44,11 @@ export default function InterviewsLoading() {
         <div className="rounded-lg border border-border bg-card p-6">
           <div className="flex flex-col gap-6">
             <div className="flex flex-col gap-2">
-              <div className="h-6 w-40 rounded bg-muted animate-pulse" />
-              <div className="h-4 w-80 rounded bg-muted animate-pulse" />
+              <div className="h-6 w-full max-w-40 rounded bg-muted animate-pulse" />
+              <div className="h-4 w-full max-w-80 rounded bg-muted animate-pulse" />
             </div>
             <div className="flex justify-end">
-              <div className="h-12 w-64 rounded-md bg-muted animate-pulse" />
+              <div className="h-12 w-full max-w-64 rounded-md bg-muted animate-pulse" />
             </div>
           </div>
         </div>

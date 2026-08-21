@@ -150,14 +150,14 @@ export default function GeneratingPage() {
       ) : (
         /* ── Progress view ── */
         <div className="rounded-xl border border-border bg-card overflow-hidden">
-          <div className="px-8 pt-6 pb-2 border-b border-border/40">
+          <div className="px-4 sm:px-8 pt-6 pb-2 border-b border-border/40">
             <div className="flex items-center justify-between">
-              <h3 className="text-lg font-semibold tracking-tight">
+              <h3 className="text-lg font-semibold tracking-tight min-w-0">
                 {flowType === 'pipeline' ? 'Processing Interview Transcripts' : 'Synthesizing Personas'}
               </h3>
             </div>
           </div>
-          <div className="flex flex-col md:flex-row gap-8 px-8 py-6">
+          <div className="flex flex-col md:flex-row gap-8 px-4 sm:px-8 py-6">
             <div className="flex-shrink-0 w-full md:w-48">
               <StepIndicator steps={steps} currentStep={currentStep} />
             </div>

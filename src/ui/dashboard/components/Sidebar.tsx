@@ -26,7 +26,7 @@ export function Sidebar() {
   }
 
   return (
-    <aside className="w-60 shrink-0 border-r border-border/40 bg-sidebar flex flex-col h-full">
+    <aside className="hidden md:flex w-60 shrink-0 border-r border-border/40 bg-sidebar flex flex-col h-full">
       {/* Logo area */}
       <div className="h-14 flex items-center px-6 border-b border-border/40">
         <Link href="/" className="font-bold tracking-tight text-lg select-none">Kynd</Link>

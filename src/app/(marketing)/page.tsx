@@ -39,7 +39,7 @@ export default function MarketingPage() {
       </section>
 
       {/* Feature Showcase */}
-      <section id="features" className="w-full py-24 md:py-32 bg-secondary/20">
+      <section id="features" className="w-full py-24 md:py-32 bg-secondary/20 overflow-hidden">
         <div className="container max-w-screen-xl mx-auto px-4 md:px-8">
           <div className="flex flex-col md:flex-row gap-16 lg:gap-24 items-center">
 
@@ -64,10 +64,10 @@ export default function MarketingPage() {
               <div className="grid gap-6 relative">
                 {/* Floating Mock Components */}
                 <MinimalCard className="relative md:translate-x-8 md:rotate-2 z-20" hoverable>
-                  <div className="flex items-start gap-4">
-                    <PersonaAvatar name="Sarah Jenkins" size="lg" className="border-primary/20" />
-                    <div className="flex flex-col gap-1">
-                      <div className="flex items-center justify-between gap-4">
+                  <div className="flex items-start gap-4 flex-wrap">
+                    <PersonaAvatar name="Sarah Jenkins" size="lg" className="border-primary/20 shrink-0" />
+                    <div className="flex flex-col gap-1 min-w-0">
+                      <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1">
                         <span className="font-semibold text-lg">Sarah Jenkins</span>
                         <StatusBadge variant="default">Skeptical</StatusBadge>
                       </div>
@@ -80,10 +80,10 @@ export default function MarketingPage() {
                 </MinimalCard>
 
                 <MinimalCard className="relative md:-translate-x-8 md:-rotate-1 z-10 opacity-90" hoverable>
-                  <div className="flex items-start gap-4">
-                    <PersonaAvatar name="Marcus Chen" size="lg" />
-                    <div className="flex flex-col gap-1">
-                      <div className="flex items-center justify-between gap-4">
+                  <div className="flex items-start gap-4 flex-wrap">
+                    <PersonaAvatar name="Marcus Chen" size="lg" className="shrink-0" />
+                    <div className="flex flex-col gap-1 min-w-0">
+                      <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1">
                         <span className="font-semibold text-lg">Marcus Chen</span>
                         <StatusBadge variant="outline">Enthusiastic</StatusBadge>
                       </div>

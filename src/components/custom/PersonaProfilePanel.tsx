@@ -80,9 +80,9 @@ export function PersonaProfilePanel({ persona, onChatClick, onCreateVariant, onD
           <div className="flex flex-col gap-3">
             {/* Big Five: show the two most distinctive traits */}
             <div className="flex flex-col gap-1.5">
-              <div className="flex justify-between items-end">
-                <span className="text-xs font-bold text-muted-foreground uppercase tracking-widest">Conscientiousness</span>
-                <span className="text-xs font-bold font-variant-numeric tabular-nums">{persona.conscientiousness}%</span>
+              <div className="flex justify-between items-end gap-3">
+                <span className="text-xs font-bold text-muted-foreground uppercase tracking-widest min-w-0 truncate">Conscientiousness</span>
+                <span className="text-xs font-bold font-variant-numeric tabular-nums shrink-0">{persona.conscientiousness}%</span>
               </div>
               <div className="h-1.5 w-full bg-muted rounded-sm overflow-hidden">
                 <div className="h-full bg-primary rounded-sm" style={{ width: `${persona.conscientiousness}%` }} />
@@ -94,9 +94,9 @@ export function PersonaProfilePanel({ persona, onChatClick, onCreateVariant, onD
             </div>
 
             <div className="flex flex-col gap-1.5">
-              <div className="flex justify-between items-end">
-                <span className="text-xs font-bold text-muted-foreground uppercase tracking-widest">Neuroticism</span>
-                <span className="text-xs font-bold font-variant-numeric tabular-nums">{persona.neuroticism}%</span>
+              <div className="flex justify-between items-end gap-3">
+                <span className="text-xs font-bold text-muted-foreground uppercase tracking-widest min-w-0 truncate">Neuroticism</span>
+                <span className="text-xs font-bold font-variant-numeric tabular-nums shrink-0">{persona.neuroticism}%</span>
               </div>
               <div className="h-1.5 w-full bg-muted rounded-sm overflow-hidden">
                 <div className="h-full bg-primary rounded-sm" style={{ width: `${persona.neuroticism}%` }} />
@@ -124,7 +124,7 @@ export function PersonaProfilePanel({ persona, onChatClick, onCreateVariant, onD
           </div>
         </div>
 
-        <div className="mt-auto flex gap-2">
+        <div className="mt-auto flex flex-wrap gap-2">
           {onCreateVariant && (
             <button
               type="button"

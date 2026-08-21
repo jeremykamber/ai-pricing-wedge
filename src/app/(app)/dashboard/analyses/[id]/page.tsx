@@ -216,13 +216,13 @@ export default function AnalysisDetailPage({ params }: { params: Promise<{ id: s
       </div>
 
       {/* Title area */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-border/40 pb-6">
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 border-b border-border/40 pb-6">
         <div className="flex flex-col gap-2">
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-3">
             <InlineRenamable
               value={analysis.name}
               onRename={(name) => updateAnalysis(analysis.id, { name })}
-              className="text-2xl"
+              className="text-2xl flex-1"
             />
             <StatusBadge status={analysis.status} />
           </div>
@@ -237,7 +237,7 @@ export default function AnalysisDetailPage({ params }: { params: Promise<{ id: s
         </div>
 
         {analysis.status === 'COMPLETED' && (
-          <div className="flex items-center gap-3 self-start md:self-auto">
+          <div className="flex items-center gap-3 self-start lg:self-auto">
             <button
               onClick={handleExportPdf}
               disabled={isExporting}

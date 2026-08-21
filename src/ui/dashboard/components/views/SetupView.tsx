@@ -32,7 +32,7 @@ export function SetupView({ personaFlow, onBack }: SetupViewProps) {
 
   return (
     <div className="flex flex-col gap-16 max-w-4xl mx-auto w-full">
-      <div className="flex justify-between">
+      <div className="flex flex-wrap justify-between gap-2">
         {onBack && (
           <Button variant="ghost" size="sm" onClick={onBack} className="text-muted-foreground hover:text-foreground">
             ← Back to batches
@@ -64,7 +64,7 @@ export function SetupView({ personaFlow, onBack }: SetupViewProps) {
       </div>
 
       <div className="grid gap-12">
-        <section className="flex flex-col gap-6 relative">
+        <section className="flex flex-col gap-6 relative min-w-0">
           <div className="absolute -left-12 top-0 flex h-8 w-8 items-center justify-center rounded-full border-2 border-primary text-primary font-bold hidden md:flex">
             1
           </div>

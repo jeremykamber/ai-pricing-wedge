@@ -49,7 +49,7 @@ function AnalysisCard({ analysis }: { analysis: import('@/domain/entities/Artifa
               <InlineRenamable
                 value={analysis.name}
                 onRename={(name) => updateAnalysis(analysis.id, { name })}
-                className="min-w-0"
+                className="min-w-0 flex-1"
               />
               <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium border ${statusConfig.class}`}>
                 <StatusIcon className="h-3 w-3" />
@@ -59,10 +59,10 @@ function AnalysisCard({ analysis }: { analysis: import('@/domain/entities/Artifa
                 )}
               </span>
             </div>
-            <div className="flex items-center gap-4 text-xs text-muted-foreground">
-              <span className="flex items-center gap-1">
-                <GlobeIcon className="h-3 w-3" />
-                {analysis.url}
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
+              <span className="flex items-center gap-1 min-w-0">
+                <GlobeIcon className="h-3 w-3 shrink-0" />
+                <span className="truncate">{analysis.url}</span>
               </span>
               <span className="flex items-center gap-1">
                 <UsersIcon className="h-3 w-3" />
@@ -419,7 +419,7 @@ export default function AnalysesPage() {
 
   return (
     <div className="flex flex-col gap-8 w-full h-full animate-in fade-in duration-500">
-      <div className="flex items-start justify-between">
+      <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="flex flex-col gap-2">
           <h1 className="text-2xl font-bold tracking-tight">Analyses</h1>
           <p className="text-sm text-muted-foreground">

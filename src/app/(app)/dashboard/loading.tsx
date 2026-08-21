@@ -8,8 +8,8 @@ export default function DashboardLoading() {
     <div className="flex flex-col gap-8 w-full h-full animate-in fade-in duration-300">
       {/* Headline skeleton */}
       <div className="flex flex-col gap-2">
-        <div className="h-9 w-64 rounded bg-muted animate-pulse" />
-        <div className="h-4 w-96 rounded bg-muted animate-pulse" />
+        <div className="h-9 w-full max-w-64 rounded bg-muted animate-pulse" />
+        <div className="h-4 w-full max-w-96 rounded bg-muted animate-pulse" />
       </div>
 
       {/* Audience Description card */}
@@ -35,9 +35,9 @@ export default function DashboardLoading() {
       </div>
 
       {/* Demo buttons */}
-      <div className="flex gap-3">
-        <div className="h-10 w-44 rounded-md bg-muted animate-pulse" />
-        <div className="h-10 w-44 rounded-md bg-muted animate-pulse" />
+      <div className="flex flex-wrap gap-3">
+        <div className="h-10 w-full sm:w-44 rounded-md bg-muted animate-pulse" />
+        <div className="h-10 w-full sm:w-44 rounded-md bg-muted animate-pulse" />
       </div>
     </div>
   )

@@ -25,7 +25,7 @@ export function DebateSidebar({ onNewDebate }: DebateSidebarProps) {
   };
 
   return (
-    <aside className="w-64 shrink-0 border-r border-border/40 bg-sidebar flex flex-col h-full">
+    <aside className="hidden md:flex w-64 shrink-0 border-r border-border/40 bg-sidebar flex flex-col h-full">
       <div className="h-14 flex items-center px-5 border-b border-border/40">
         <span className="text-sm font-semibold tracking-tight flex items-center gap-2">
           <MessageSquareIcon className="h-4 w-4" />

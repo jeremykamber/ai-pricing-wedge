@@ -150,7 +150,7 @@ export function InterviewUploadClient() {
 
       <div className="grid gap-12">
         {/* Step 1: File Upload */}
-        <section className="flex flex-col gap-6 relative">
+        <section className="flex flex-col gap-6 relative min-w-0">
           <div className="absolute -left-12 top-0 flex h-8 w-8 items-center justify-center rounded-full border-2 border-primary text-primary font-bold hidden md:flex">
             1
           </div>
@@ -172,7 +172,7 @@ export function InterviewUploadClient() {
                 onDragLeave={handleDragLeave}
                 onDrop={handleDrop}
                 onClick={() => fileInputRef.current?.click()}
-                className={`flex flex-col items-center justify-center rounded-lg border-2 border-dashed p-12 gap-4 transition-colors cursor-pointer ${
+                className={`flex flex-col items-center justify-center rounded-lg border-2 border-dashed p-6 md:p-12 gap-4 transition-colors cursor-pointer ${
                   isDragging
                     ? 'border-primary/70 bg-primary/5'
                     : 'border-border/60 hover:border-primary/50 bg-secondary/20'
@@ -229,7 +229,7 @@ export function InterviewUploadClient() {
         </section>
 
         {/* Step 2: Generate */}
-        <section className="flex flex-col gap-6 relative">
+        <section className="flex flex-col gap-6 relative min-w-0">
           <div className="absolute -left-12 top-0 flex h-8 w-8 items-center justify-center rounded-full border-2 border-primary text-primary font-bold hidden md:flex">
             2
           </div>
@@ -249,11 +249,11 @@ export function InterviewUploadClient() {
               {/* Generation Mode Toggle */}
               <div className="flex flex-col gap-3">
                 <label className="text-sm font-medium text-foreground">How should we combine the transcripts?</label>
-                <div className="flex gap-2">
+                <div className="flex gap-2 min-w-0">
                   <button
                     type="button"
                     onClick={() => setGenerationMode('individual')}
-                    className={`flex-1 rounded-lg border px-4 py-3 text-left transition-colors ${
+                    className={`flex-1 min-w-0 rounded-lg border px-4 py-3 text-left transition-colors ${
                       generationMode === 'individual'
                         ? 'border-primary bg-primary/5'
                         : 'border-border bg-secondary/20 hover:border-primary/30'
@@ -265,7 +265,7 @@ export function InterviewUploadClient() {
                   <button
                     type="button"
                     onClick={() => setGenerationMode('synthesized')}
-                    className={`flex-1 rounded-lg border px-4 py-3 text-left transition-colors ${
+                    className={`flex-1 min-w-0 rounded-lg border px-4 py-3 text-left transition-colors ${
                       generationMode === 'synthesized'
                         ? 'border-primary bg-primary/5'
                         : 'border-border bg-secondary/20 hover:border-primary/30'

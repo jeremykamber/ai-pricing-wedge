@@ -77,8 +77,8 @@ export function InlineRenamable({
   }
 
   return (
-    <span className={`group/title inline-flex items-center gap-1.5 ${className ?? ''}`}>
-      <span className="truncate font-semibold">{value}</span>
+    <span className={`group/title flex items-center gap-1.5 min-w-0 w-full ${className ?? ''}`}>
+      <span className="truncate min-w-0 flex-1 font-semibold">{value}</span>
       <button
         type="button"
         onClick={(e) => {
