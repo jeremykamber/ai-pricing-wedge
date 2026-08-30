@@ -302,7 +302,7 @@ async function runArtifactMode(args: Record<string, unknown>): Promise<void> {
     { runId },
   );
 
-  const completed = responses.filter((r) => r.overview && r.customerJourney.length > 0);
+  const completed = responses.filter((r) => r.overview && r.customerJourney.length > 0 && !r.overview.startsWith("Analysis could not be completed."));
   const synthesis = completed.length > 0 ? await new SynthesizeArtifactResultsUseCase(llm).execute(completed, researchQuestion, { runId }) : null;
 
 
