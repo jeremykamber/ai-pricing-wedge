@@ -42,14 +42,19 @@ describe('buildVisceralMonologueSystemPrompt (System 1 — Actor)', () => {
     expect(prompt).toContain('find affordable health insurance')
   })
 
-  it('carries the operating rules verbatim and ends with the stream-opening cue', () => {
+  it('carries the voice rules and ends with the stream-opening cue', () => {
     const prompt = buildVisceralMonologueSystemPrompt(makePersona(), 'rq')
-    expect(prompt).toContain('You are an impatient human browsing a website')
-    expect(prompt).toContain('Never use consultant jargon')
-    expect(prompt).toContain('implicit attention budget')
-    expect(prompt).toContain('unfiltered, fragmented stream-of-consciousness')
-    expect(prompt).toContain('Do not justify or over-rationalize. React viscerally.')
-    expect(prompt.trimEnd().endsWith('Begin your raw stream of thought now:')).toBe(true)
+    // Performance bans: no stage directions, no sign-offs, no structure.
+    expect(prompt).toContain('No scene-setting')
+    expect(prompt).toContain('no dialogue formatting, no sign-off')
+    expect(prompt).toContain('no headers, no bullet lists')
+    // Jargon ban.
+    expect(prompt).toContain('Never use consultant words')
+    // Register: short bursts, reactive, no verdict.
+    expect(prompt).toContain('Short bursts. Half-thoughts.')
+    expect(prompt).toContain('React, don\'t report')
+    expect(prompt).toContain('You do NOT summarize the page')
+    expect(prompt.trimEnd().endsWith('Start wherever your eyes land first:')).toBe(true)
   })
 
   it('never leaks DOM-grade context: no PAGE FACT SUMMARY, no intake summary text', () => {
