@@ -45,7 +45,7 @@ describe('buildVisceralMonologueSystemPrompt (System 1 — Actor)', () => {
   it('carries the operating rules verbatim and ends with the stream-opening cue', () => {
     const prompt = buildVisceralMonologueSystemPrompt(makePersona(), 'rq')
     expect(prompt).toContain('You are an impatient human browsing a website')
-    expect(prompt).toContain('"CTA", "social proof", "value proposition", or "friction"')
+    expect(prompt).toContain('Never use consultant jargon')
     expect(prompt).toContain('implicit attention budget')
     expect(prompt).toContain('unfiltered, fragmented stream-of-consciousness')
     expect(prompt).toContain('Do not justify or over-rationalize. React viscerally.')
