@@ -219,6 +219,8 @@ async function runRemote(
         const errBody = await res.text().catch(() => res.statusText);
         throw new Error(`VPS analysis failed (${res.status}): ${errBody}`);
     }
+    // NOTE: the VPS stores the run under ITS OWN runId when the request omits
+    // one — we pass ours through so the client's polling key matches.
     const data = await res.json();
     return { streamData: undefined as unknown as ReturnType<typeof createStreamableValue>['value'], requestId: data.runId };
 }
