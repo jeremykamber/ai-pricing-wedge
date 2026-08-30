@@ -1520,7 +1520,7 @@ Return ONLY the JSON object.`;
             "", // callLLM sends a single user message; instructions live in the prompt
             prompt,
             "Cohort Synthesis",
-            120_000,
+            240_000, // reasoning models emit a long CoT before the JSON; 120s timed out live
             options,
         );
 
