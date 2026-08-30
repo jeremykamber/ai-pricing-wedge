@@ -27,5 +27,6 @@ export async function GET(req: NextRequest) {
     analyses: result.analyses,
     error: result.error,
     completedAt: result.completedAt,
+    synthesis: result.synthesis ?? null,
   });
 }

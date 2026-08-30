@@ -1,9 +1,11 @@
 import type { PersonaResponse } from '@/domain/entities/PersonaResponse'
+import type { ArtifactSynthesis } from '@/domain/entities/ArtifactSynthesis'
 
 interface StoredAnalysis {
   analyses: PersonaResponse[]
   completedAt: string
   error?: string
+  synthesis?: ArtifactSynthesis
 }
 
 /**
@@ -30,11 +32,12 @@ class AnalysisResultStore {
   private get results() { return getGlobalMap<string, StoredAnalysis>(GLOBAL_KEY); }
   private get cleanups() { return getGlobalMap<string, ReturnType<typeof setTimeout>>(GLOBAL_CLEANUP_KEY); }
 
-  save(runId: string, analyses: PersonaResponse[]): void {
+  save(runId: string, analyses: PersonaResponse[], synthesis?: ArtifactSynthesis): void {
     console.log(`[RESULT_STORE] Saving ${analyses.length} analyses for ${runId}`);
     this.results.set(runId, {
       analyses,
       completedAt: new Date().toISOString(),
+      synthesis,
     })
     this.scheduleCleanup(runId)
   }
