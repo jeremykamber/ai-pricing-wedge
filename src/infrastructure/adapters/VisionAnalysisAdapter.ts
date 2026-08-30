@@ -88,8 +88,14 @@ RULES:
  */
 const EvidenceLocatorSchema = z.object({
   personaId: z.string().min(1),
-  uniqueAnchorPhrase: z.string().min(1),
-});
+  // Models emit null/empty anchors when they can't find verbatim text; a
+  // null anchor is filtered out downstream (citation grounding drops it)
+  // rather than failing the whole synthesis parse.
+  uniqueAnchorPhrase: z.string().min(1).nullable().optional(),
+}).transform((loc) => ({
+  personaId: loc.personaId,
+  uniqueAnchorPhrase: loc.uniqueAnchorPhrase ?? '',
+}));
 
 
 const CohortSynthesisSchema = z.object({
