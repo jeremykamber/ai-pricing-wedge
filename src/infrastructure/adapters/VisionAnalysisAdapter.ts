@@ -353,6 +353,10 @@ Follow these rules strictly. Findings describe observed behavior, not inferred p
                     this.llmService.createChatCompletion(
                         [
                             {
+                                role: "system",
+                                content: system,
+                            },
+                            {
                                 role: "user",
                                 content: [
                                     { type: "text", text: prompt },
