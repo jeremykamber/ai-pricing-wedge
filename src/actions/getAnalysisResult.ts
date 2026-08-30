@@ -9,6 +9,7 @@ export async function getAnalysisResultAction(runId: string): Promise<{
   analyses?: import('@/domain/entities/PersonaResponse').PersonaResponse[];
   error?: string;
   completedAt?: string;
+  synthesis?: import('@/domain/entities/ArtifactSynthesis').ArtifactSynthesis | null;
 }> {
   if (shouldRunLocally()) {
     const result = analysisResultStore.get(runId);
@@ -22,6 +23,7 @@ export async function getAnalysisResultAction(runId: string): Promise<{
       analyses: result.analyses,
       error: result.error,
       completedAt: result.completedAt,
+      synthesis: result.synthesis ?? null,
     };
   }
 

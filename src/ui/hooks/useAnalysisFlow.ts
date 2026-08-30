@@ -23,7 +23,7 @@ export interface AnalysisProgress {
   synthesis?: ArtifactSynthesis
 }
 
-export function useAnalysisFlow(onSuccess?: (analyses: PersonaResponse[]) => void) {
+export function useAnalysisFlow(onSuccess?: (analyses: PersonaResponse[], synthesis?: ArtifactSynthesis | null) => void) {
   const [artifactUrl, setArtifactUrl] = useState('')
   const [artifactImageBase64, setArtifactImageBase64] = useState<string | null>(null)
   const [businessGoal, setBusinessGoal] = useState('')
@@ -230,13 +230,14 @@ export function useAnalysisFlow(onSuccess?: (analyses: PersonaResponse[]) => voi
             }
 
             const responses = result.analyses ?? []
+            if (result.synthesis) setSynthesis(result.synthesis)
             useAnalysisStore.getState().markComplete(analysisId, responses)
             if (mountedRef.current) {
               setAnalyses(responses)
               setAnalysisProgress(null)
               setCurrentRequestId(null)
             }
-            if (responses.length > 0 && onSuccess) onSuccess(responses)
+            if (responses.length > 0 && onSuccess) onSuccess(responses, result.synthesis)
             return
           } catch { /* retry */ }
         }
