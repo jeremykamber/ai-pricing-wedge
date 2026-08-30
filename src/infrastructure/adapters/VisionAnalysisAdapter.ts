@@ -1502,8 +1502,8 @@ FIELD RULES:
 - overview: one paragraph on what the GROUP collectively experienced.
 - researchQuestionAnswer: one paragraph directly answering the research question from the evidence.
 - topFindings: 3-5 patterns MULTIPLE personas experienced. Group language only, no persona names. evidenceLocators: 1-3 per finding, each a 5-8 word CONTINUOUS phrase copied EXACTLY (verbatim, same casing) from ONE persona's transcript that best evidences the finding, with that persona's id.
-- disagreements: where personas OPPOSED each other on the same thing; empty array if none.
-- biggestFrictions: 2-3 friction points that MULTIPLE personas hit.
+- disagreements: topics where personas' reactions genuinely DIVERGED (one acted, another bounced or doubted) — a split with each view and its persona count. Prefer 1-3 entries; empty ONLY if the transcripts show no divergence at all.
+- biggestFrictions: 2-3 specific moments where personas hesitated, doubted, or nearly dropped — quote the element that caused it ("the unexplained score", "the AI-agent promise"). Every cohort has friction; if the homepage converts perfectly, name what ALMOST stopped them.
 - affectedPersonaCount: honest count of personas whose transcripts show the pattern.
 
 CRITICAL RULES:
