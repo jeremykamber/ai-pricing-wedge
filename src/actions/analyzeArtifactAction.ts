@@ -15,7 +15,7 @@ import { AnalysisLogger } from "@/infrastructure/AnalysisLogger";
 import { analysisResultStore } from "@/infrastructure/AnalysisResultStore";
 import { storeProgress, storeCompleted } from "./getProgress";
 import { shouldRunLocally, VPS_BACKEND_URL, getVpsAuthToken } from "@/infrastructure/config";
-import { computeSynthesis } from "@/ui/dashboard/utils/computeSynthesis";
+import { SynthesizeArtifactResultsUseCase } from "@/application/usecases/synthesizeArtifactResults";
 
 const AUDIT_RATE_LIMIT_MAX = parseInt(process.env.AUDIT_RATE_LIMIT_MAX || '5');
 const AUDIT_RATE_LIMIT_WINDOW_MS = parseInt(process.env.AUDIT_RATE_LIMIT_WINDOW_MS || '60000');
@@ -147,9 +147,11 @@ async function runLocally(
                     if (completedResponses.length === 0) {
                         log.warn("analyzeArtifactAction", "No completed responses — skipping synthesis");
                     } else {
-                        synthesis = computeSynthesis(completedResponses);
-                        synthesis.failedCount = failedCount;
-                        synthesis.totalPersonaCount = responses.length;
+                        synthesis = await new SynthesizeArtifactResultsUseCase(llmService).execute(
+                            completedResponses,
+                            researchQuestion,
+                            { runId: id, failedCount, totalPersonaCount: responses.length },
+                        );
                     }
                 } catch (synthErr) {
                     log.warn("analyzeArtifactAction", "Synthesis generation failed, proceeding without", {

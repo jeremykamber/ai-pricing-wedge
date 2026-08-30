@@ -1,9 +1,10 @@
+import { z } from "zod";
 import { Persona } from "@/domain/entities/Persona";
 import { PricingAnalysisSchema } from "@/domain/entities/PricingAnalysis";
 import { PersonaResponseSchema } from "@/domain/entities/PersonaResponse";
 import type { ArtifactIntake } from "@/domain/entities/ArtifactIntake";
 import type { PersonaResponse } from "@/domain/entities/PersonaResponse";
-import type { ArtifactSynthesis, SynthesizedFinding, Disagreement } from "@/domain/entities/ArtifactSynthesis";
+import type { CohortSynthesisContent } from "@/domain/entities/ArtifactSynthesis";
 import { LlmServiceImpl } from "./LlmServiceImpl";
 import { PersonaPromptCompiler } from "./PersonaPromptCompiler";
 import { IdRagStore } from "./IdRagStore";
@@ -25,6 +26,7 @@ function detectNonLatin(text: string): string[] {
 }
 
 /**
+# conflict resolution 1: keep BOTH — A's prompt builders (module top) and B's synthesis wire schema
  * System 1 — the Actor. Exported so tests can assert on the prompt
  * contract without LLM mocks. Identity comes from this small template:
  * the compartment system prompt is the over-rationalization source, so it
@@ -74,6 +76,45 @@ RULES:
 3. Ground every statement entirely in the transcript. Never invent UI elements not mentioned in it.
 4. The five journey stages MUST all appear in canonical order (interpretation, understanding, belief, motivation, action); skipping is expressed through outcomes, not omission.`;
 }
+ * Wire schema for the single cohort-synthesis LLM call. Evidence anchors ride
+ * on each finding (one call instead of two — locators must be chosen by the
+ * same pass that forms the finding); the model never emits counts of the run
+ * itself, and never emits citations — those are resolved from transcripts by
+ * application/synthesis/citations.ts.
+ */
+const EvidenceLocatorSchema = z.object({
+  personaId: z.string().min(1),
+  uniqueAnchorPhrase: z.string().min(1),
+});
+
+const CohortSynthesisSchema = z.object({
+  overview: z.string(),
+  researchQuestionAnswer: z.string(),
+  topFindings: z.array(
+    z.object({
+      observation: z.string(),
+      evidence: z.string(),
+      impact: z.string(),
+      confidence: z.enum(["strongly supported", "some support", "weakly supported"]),
+      affectedPersonaCount: z.number().int().min(0),
+      totalPersonaCount: z.number().int().min(0),
+      evidenceLocators: z.array(EvidenceLocatorSchema).optional(),
+    }),
+  ),
+  disagreements: z.array(
+    z.object({
+      topic: z.string(),
+      split: z.array(
+        z.object({
+          view: z.string(),
+          personaCount: z.number().int().min(0),
+        }),
+      ),
+      significance: z.enum(["High", "Medium", "Low"]),
+    }),
+  ),
+  biggestFrictions: z.array(z.string()),
+});
 
 export class VisionAnalysisAdapter {
     private promptCompiler: PersonaPromptCompiler;
@@ -1375,18 +1416,6 @@ Return ONLY the JSON object.`;
         }
     }
 
-    private buildPersonaSummaries(responses: PersonaResponse[]): string {
-        return responses.map((r, i) => {
-            return `=== Persona ${i + 1} ===
-Overview: ${r.overview || "(none)"}
-Journey: ${(r.customerJourney || []).map(s => `${s.stage}: ${s.outcome} (${s.sentiment})`).join(" | ") || "(none)"}
-Findings: ${(r.majorFindings || []).map(f => `- ${f.observation}: ${f.evidence}`).join("\n") || "(none)"}
-Friction: ${(r.pointsOfFriction || []).join("; ") || "(none)"}
-Questions: ${(r.unansweredQuestions || []).join("; ") || "(none)"}
-`;
-        }).join("\n\n");
-    }
-
     private async callLLM(
         system: string,
         prompt: string,
@@ -1411,175 +1440,94 @@ Questions: ${(r.unansweredQuestions || []).join("; ") || "(none)"}
         ]);
     }
 
-    async generateTopFindings(
-        responses: PersonaResponse[],
-        businessGoal: string,
+    /**
+     * One structured LLM call over the cohort's RAW monologue transcripts.
+     * Replaces the four shallow per-section calls: the model sees each
+     * persona's unedited reasoning trace (source of truth) rather than
+     * pre-digested summaries, so findings, disagreements and frictions come
+     * from one coherent pass instead of four that never saw each other's
+     * output. Findings carry evidenceLocators — anchor phrases resolved into
+     * verbatim citations by application/synthesis/citations.ts, never by the
+     * model. Parse failure throws: the caller decides how to degrade, and
+     * partial/empty synthesis must not silently pass as data.
+     */
+    async generateCohortSynthesis(
         researchQuestion: string,
+        transcripts: Array<{ personaId: string; personaName: string; transcript: string }>,
         options?: { runId?: string },
-    ): Promise<SynthesizedFinding[]> {
-        const log = options?.runId ? AnalysisLogger.forRun(options?.runId) : null;
-        const summaries = this.buildPersonaSummaries(responses);
+    ): Promise<CohortSynthesisContent> {
+        const log = options?.runId ? AnalysisLogger.forRun(options.runId) : null;
 
-        const system = `You are analyzing simulated customer research. You have responses from ${responses.length} simulated personas.
+        const personaSections = transcripts
+            .map((t, i) =>
+                `=== Persona ${i + 1}: ${t.personaName} (id: ${t.personaId}) ===\n"""${t.transcript}"""`)
+            .join("\n\n");
 
-Business Goal: ${businessGoal}
+        const prompt = `You are synthesizing simulated customer research. Below are the complete reasoning transcripts of ${transcripts.length} simulated personas who interacted with a product.
+
 Research Question: ${researchQuestion}
 
-Your job: Identify the top 3-5 patterns that MULTIPLE personas experienced. Each finding must describe a cross-persona pattern.
+Your job: produce a cross-persona synthesis of what this cohort experienced.
+
+REQUIRED OUTPUT SHAPE (JSON object):
+{
+  "overview": string,
+  "researchQuestionAnswer": string,
+  "topFindings": [
+    {
+      "observation": string,
+      "evidence": string,
+      "impact": string,
+      "confidence": "strongly supported" | "some support" | "weakly supported",
+      "affectedPersonaCount": number,
+      "totalPersonaCount": ${transcripts.length},
+      "evidenceLocators": [
+        { "personaId": string, "uniqueAnchorPhrase": string }
+      ]
+    }
+  ],
+  "disagreements": [
+    {
+      "topic": string,
+      "split": [{ "view": string, "personaCount": number }],
+      "significance": "High" | "Medium" | "Low"
+    }
+  ],
+  "biggestFrictions": [string]
+}
+
+FIELD RULES:
+- overview: one paragraph on what the GROUP collectively experienced.
+- researchQuestionAnswer: one paragraph directly answering the research question from the evidence.
+- topFindings: 3-5 patterns MULTIPLE personas experienced. Group language only, no persona names. evidenceLocators: 1-3 per finding, each a 5-8 word CONTINUOUS phrase copied EXACTLY (verbatim, same casing) from ONE persona's transcript that best evidences the finding, with that persona's id.
+- disagreements: where personas OPPOSED each other on the same thing; empty array if none.
+- biggestFrictions: 2-3 friction points that MULTIPLE personas hit.
+- affectedPersonaCount: honest count of personas whose transcripts show the pattern.
 
 CRITICAL RULES:
-1. Do NOT reference individual persona names. Use group language: "Most personas...", "Several personas...", "A majority...", "All personas..."
-2. Evidence should cite what multiple personas said, not just one.
-3. Do NOT assign confidence (computed externally).
-4. Do NOT make recommendations.
-5. Do NOT use persona traits as causal explanations.
-6. Write all output in English.
+1. Findings, overview and answers use group language ("Most personas...", "Several...") — no persona names.
+2. Anchor phrases MUST be copied character-for-character from the cited persona's transcript. The user-facing quote is extracted from the transcript by code — anything not verbatim fails silently.
+3. Do NOT make recommendations. Do NOT use persona traits as causal explanations.
+4. Write all output in English.
 
-Return a JSON array of { observation: string, evidence: string, impact: string }`;
+${personaSections}
 
-        const prompt = `${summaries}\n\nIdentify the top patterns across these personas. Return ONLY valid JSON.`;
+Return ONLY the JSON object.`;
 
-        const content = await this.callLLM(system, prompt, "Top Findings", 90_000, options);
+        const content = await this.callLLM(
+            "", // callLLM sends a single user message; instructions live in the prompt
+            prompt,
+            "Cohort Synthesis",
+            120_000,
+            options,
+        );
 
-        try {
-            const parsed = JSON.parse(content);
-            const findings = Array.isArray(parsed) ? parsed : parsed.topFindings || parsed.findings || [];
-            return findings.map((f: any) => ({
-                observation: f.observation || "",
-                evidence: f.evidence || "",
-                impact: f.impact || "",
-                confidence: "Medium" as const,
-                affectedPersonaCount: 0,
-                totalPersonaCount: responses.length,
-            }));
-        } catch (e) {
-            log?.error("generateTopFindings", "Parse failed", { error: String(e), preview: content.slice(0, 200) });
-            return [];
-        }
-    }
-
-    async generateDisagreements(
-        responses: PersonaResponse[],
-        options?: { runId?: string },
-    ): Promise<Disagreement[]> {
-        const log = options?.runId ? AnalysisLogger.forRun(options?.runId) : null;
-        const summaries = this.buildPersonaSummaries(responses);
-
-        const system = `You are analyzing simulated customer research. You have responses from ${responses.length} simulated personas.
-
-Your job: Identify where personas had OPPOSING reactions to the same thing. A disagreement exists when some personas reacted positively and others reacted negatively to the same feature, claim, or aspect.
-
-If most personas agreed on everything, return an empty array.
-
-CRITICAL: Do NOT reference individual persona names. Use group language.
-Write all output in English.
-
-Return a JSON array of { topic: string, split: [{ view: string, personaCount: number }], significance: "High" | "Medium" | "Low" }`;
-
-        const prompt = `${summaries}\n\nIdentify disagreements across these personas. Return ONLY valid JSON.`;
-
-        const content = await this.callLLM(system, prompt, "Disagreements", 60_000, options);
-
-        try {
-            const parsed = JSON.parse(content);
-            const items = Array.isArray(parsed) ? parsed : parsed.disagreements || [];
-            return items.map((d: any) => ({
-                topic: d.topic || "",
-                split: (d.split || []).map((s: any) => ({ view: s.view || "", personaCount: s.personaCount || 0 })),
-                significance: d.significance || "Medium",
-            }));
-        } catch (e) {
-            log?.error("generateDisagreements", "Parse failed", { error: String(e), preview: content.slice(0, 200) });
-            return [];
-        }
-    }
-
-    async generateFrictions(
-        responses: PersonaResponse[],
-        options?: { runId?: string },
-    ): Promise<string[]> {
-        const log = options?.runId ? AnalysisLogger.forRun(options?.runId) : null;
-        const summaries = this.buildPersonaSummaries(responses);
-
-        const system = `You are analyzing simulated customer research. You have responses from ${responses.length} simulated personas.
-
-Your job: Identify the 2-3 biggest friction points that MULTIPLE personas experienced. A friction point is something that confused, frustrated, or stopped personas.
-
-CRITICAL: Do NOT reference individual persona names. Use group language.
-Write all output in English.
-
-Return a JSON array of strings.`;
-
-        const prompt = `${summaries}\n\nIdentify the biggest friction points across these personas. Return ONLY valid JSON.`;
-
-        const content = await this.callLLM(system, prompt, "Frictions", 60_000, options);
-
-        try {
-            const parsed = JSON.parse(content);
-            return Array.isArray(parsed) ? parsed : parsed.frictions || parsed.biggestFrictions || [];
-        } catch (e) {
-            log?.error("generateFrictions", "Parse failed", { error: String(e), preview: content.slice(0, 200) });
-            return [];
-        }
-    }
-
-    async generateSynthesisOverview(
-        responses: PersonaResponse[],
-        businessGoal: string,
-        researchQuestion: string,
-        topFindings: SynthesizedFinding[],
-        disagreements: Disagreement[],
-        frictions: string[],
-        options?: { runId?: string },
-    ): Promise<{ overview: string; researchQuestionAnswer: string }> {
-        const log = options?.runId ? AnalysisLogger.forRun(options?.runId) : null;
-
-        const findingsText = topFindings.map(f => `- ${f.observation}`).join("\n");
-        const disagreementsText = disagreements.map(d => `- ${d.topic}`).join("\n");
-        const frictionsText = frictions.map(f => `- ${f}`).join("\n");
-
-        const system = `You are synthesizing customer research findings into a final report.
-
-Business Goal: ${businessGoal}
-Research Question: ${researchQuestion}
-
-You have been given the top findings, disagreements, and friction points identified across simulated personas.
-
-Your job: Produce two short summaries.
-
-1. overview: One paragraph describing what the GROUP of personas collectively experienced. Focus on the most important pattern.
-2. researchQuestionAnswer: One paragraph that directly answers the research question using evidence from the findings.
-
-CRITICAL:
-- Do NOT reference individual persona names. Use group language: "Most personas...", "Several personas..."
-- Do NOT make recommendations.
-- Do NOT use persona traits as causal explanations.
-- Keep each paragraph concise (3-5 sentences).
-
-Return a JSON object with { overview: string, researchQuestionAnswer: string }`;
-
-        const prompt = `Top Findings:
-${findingsText || "(none found)"}
-
-Disagreements:
-${disagreementsText || "(none found)"}
-
-Friction Points:
-${frictionsText || "(none found)"}
-
-Synthesize these into an overview and research question answer. Return ONLY valid JSON.`;
-
-        const content = await this.callLLM(system, prompt, "Synthesis Overview", 60_000, options);
-
-        try {
-            const parsed = JSON.parse(content);
-            return {
-                overview: parsed.overview || "",
-                researchQuestionAnswer: parsed.researchQuestionAnswer || "",
-            };
-        } catch (e) {
-            log?.error("generateSynthesisOverview", "Parse failed", { error: String(e), preview: content.slice(0, 200) });
-            return { overview: "", researchQuestionAnswer: "" };
-        }
+        const parsed = CohortSynthesisSchema.parse(JSON.parse(content));
+        log?.info("generateCohortSynthesis", "Cohort synthesis parsed", {
+            findings: parsed.topFindings.length,
+            disagreements: parsed.disagreements.length,
+            frictions: parsed.biggestFrictions.length,
+        });
+        return parsed;
     }
 }

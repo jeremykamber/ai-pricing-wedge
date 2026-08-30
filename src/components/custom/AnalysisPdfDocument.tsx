@@ -2,7 +2,7 @@ import React from 'react'
 import { Document, Page, View, Text, StyleSheet } from '@react-pdf/renderer'
 import type { ArtifactAnalysis } from '@/domain/entities/ArtifactAnalysis'
 import type { ArtifactSynthesis } from '@/domain/entities/ArtifactSynthesis'
-import { computeSynthesis } from '@/ui/dashboard/utils/computeSynthesis'
+import { fallbackSynthesis } from '@/ui/dashboard/utils/fallbackSynthesis'
 
 // ── Typography & Palette ───────────────────────────────────────────────────
 // Simple, clean, editorial design with high legibility and quiet accents.
@@ -296,7 +296,7 @@ export interface AnalysisPdfDocumentProps {
 export function AnalysisPdfDocument({ analysis }: AnalysisPdfDocumentProps) {
   const responses = analysis.responses ?? []
   const synthesis: ArtifactSynthesis =
-    analysis.synthesis ?? computeSynthesis(responses)
+    analysis.synthesis ?? fallbackSynthesis(responses)
 
   const formattedDate = new Date(
     analysis.completedAt || analysis.createdAt || Date.now()

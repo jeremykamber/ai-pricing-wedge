@@ -1,7 +1,7 @@
 import { Persona } from "../entities/Persona";
 import { PricingAnalysis } from "../entities/PricingAnalysis";
 import { PersonaResponse } from "../entities/PersonaResponse";
-import { ArtifactSynthesis } from "../entities/ArtifactSynthesis";
+import { ArtifactSynthesis, CohortSynthesisContent } from "../entities/ArtifactSynthesis";
 import { ArtifactIntake } from "../entities/ArtifactIntake";
 import { StreamOfConsciousness } from "../entities/StreamOfConsciousness";
 import { ExtractedInterviewSignals } from "@/application/interviewPipeline/types";
@@ -290,48 +290,23 @@ export interface LlmServicePort {
         keySignals: string[];
     }>;
 
-    // --- Cross-persona synthesis (focused calls, run in phases) ---
+    // --- Cross-persona cohort synthesis ---
 
     /**
-     * Phase 1a: Identify top 3-5 patterns across all personas.
-     * Must use group language — no individual persona names.
+     * One structured LLM call over the cohort's RAW monologue transcripts:
+     * overview, research-question answer, top findings (each carrying
+     * evidence locators for code-side citation grounding), disagreements and
+     * frictions. Evidence anchors ride on the findings in this same call — a
+     * separate locateEvidenceAnchors call would force findings and locators
+     * through two prompts that must agree with each other.
+     * Completion counts are deliberately absent: the caller knows them; the
+     * model must not fabricate them.
      */
-    generateTopFindings(
-        responses: PersonaResponse[],
-        businessGoal: string,
+    generateCohortSynthesis(
         researchQuestion: string,
+        transcripts: Array<{ personaId: string; personaName: string; transcript: string }>,
         options?: { runId?: string }
-    ): Promise<import("../entities/ArtifactSynthesis").SynthesizedFinding[]>;
-
-    /**
-     * Phase 1b: Identify where personas had opposing reactions.
-     */
-    generateDisagreements(
-        responses: PersonaResponse[],
-        options?: { runId?: string }
-    ): Promise<import("../entities/ArtifactSynthesis").Disagreement[]>;
-
-    /**
-     * Phase 1c: Identify 2-3 biggest friction points that multiple personas experienced.
-     */
-    generateFrictions(
-        responses: PersonaResponse[],
-        options?: { runId?: string }
-    ): Promise<string[]>;
-
-    /**
-     * Phase 2: Generate overview and research question answer, informed by
-     * the top findings, disagreements, and frictions from Phase 1.
-     */
-    generateSynthesisOverview(
-        responses: PersonaResponse[],
-        businessGoal: string,
-        researchQuestion: string,
-        topFindings: import("../entities/ArtifactSynthesis").SynthesizedFinding[],
-        disagreements: import("../entities/ArtifactSynthesis").Disagreement[],
-        frictions: string[],
-        options?: { runId?: string }
-    ): Promise<{ overview: string; researchQuestionAnswer: string }>;
+    ): Promise<CohortSynthesisContent>;
 
     /**
      * Validates if a user's prompt is within the persona's expected domain.
