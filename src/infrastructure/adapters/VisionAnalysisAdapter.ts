@@ -26,7 +26,6 @@ function detectNonLatin(text: string): string[] {
 }
 
 /**
-# conflict resolution 1: keep BOTH — A's prompt builders (module top) and B's synthesis wire schema
  * System 1 — the Actor. Exported so tests can assert on the prompt
  * contract without LLM mocks. Identity comes from this small template:
  * the compartment system prompt is the over-rationalization source, so it
@@ -76,6 +75,8 @@ RULES:
 3. Ground every statement entirely in the transcript. Never invent UI elements not mentioned in it.
 4. The five journey stages MUST all appear in canonical order (interpretation, understanding, belief, motivation, action); skipping is expressed through outcomes, not omission.`;
 }
+
+/**
  * Wire schema for the single cohort-synthesis LLM call. Evidence anchors ride
  * on each finding (one call instead of two — locators must be chosen by the
  * same pass that forms the finding); the model never emits counts of the run
@@ -86,6 +87,7 @@ const EvidenceLocatorSchema = z.object({
   personaId: z.string().min(1),
   uniqueAnchorPhrase: z.string().min(1),
 });
+
 
 const CohortSynthesisSchema = z.object({
   overview: z.string(),
