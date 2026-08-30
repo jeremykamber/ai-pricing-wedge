@@ -393,7 +393,7 @@ Follow these rules strictly. Findings describe observed behavior, not inferred p
     ): Promise<PersonaResponse> {
         const log = options.runId ? AnalysisLogger.forRun(options.runId) : null;
         const tokenLimit = options.tokenLimit ?? 2000;
-        const TIMEOUT_MS = 90_000;
+        const TIMEOUT_MS = 240_000; // reasoning CoT under load regularly exceeds 90s
         const MAX_RETRIES = 2;
         const RETRY_DELAY_MS = 2_000;
 
@@ -567,7 +567,7 @@ Return ONLY the JSON object.`;
             "", // callLLM sends a single user message; instructions live in the prompt
             prompt,
             "Cohort Synthesis",
-            240_000, // reasoning models emit a long CoT before the JSON; 120s timed out live
+            420_000, // reasoning models emit a long CoT before the JSON; 240s timed out under concurrent load
             options,
         );
 
