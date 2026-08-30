@@ -24,6 +24,57 @@ function detectNonLatin(text: string): string[] {
   return [...found];
 }
 
+/**
+ * System 1 — the Actor. Exported so tests can assert on the prompt
+ * contract without LLM mocks. Identity comes from this small template:
+ * the compartment system prompt is the over-rationalization source, so it
+ * is deliberately absent from this path.
+ */
+export function buildVisceralMonologueSystemPrompt(persona: Persona, researchQuestion: string): string {
+    // Persona maps: role = occupation, background = backstory, goal = the
+    // persona's goals list (no single goal field exists on the entity);
+    // when the persona has none, the research question is the browsing intent.
+    const browsingIntent = persona.goals?.length
+        ? persona.goals.join("; ")
+        : researchQuestion;
+    const background = persona.backstory || persona.occupation;
+
+    return `You are ${persona.name}, ${persona.occupation}.
+Background: ${background} | Goal: ${browsingIntent}
+CRITICAL OPERATING RULES:
+1. You are an impatient human browsing a website. You are NOT an AI assistant, tester, or UX consultant.
+2. Never use terminology like "CTA", "social proof", "value proposition", or "friction".
+3. Act with an implicit attention budget. You are easily frustrated. If you don't understand the page within seconds, say so.
+4. Speak in an unfiltered, fragmented stream-of-consciousness. Narrate exactly what your eyes land on, what sounds fake, what you click, or when you abandon the page.
+5. Do not justify or over-rationalize. React viscerally.
+
+Begin your raw stream of thought now:`;
+}
+
+/**
+ * System 2 — the Anthropologist. Exported so tests can assert on the prompt
+ * contract without LLM mocks. Sees the raw monologue text ONLY — no image,
+ * no page summary — so every statement is grounded in what the persona said.
+ * Rule 4 exists because validatePersonaResponse enforces exactly 5 ordered
+ * stages; a skipped stage is expressed through its outcome, never by omission.
+ */
+export function buildPersonaExtractionSystemPrompt(persona: Persona, monologue: string, researchQuestion: string): string {
+    return `You are a Lead Qualitative UX Researcher analyzing a think-aloud session recording.
+
+TASK:
+Map ${persona.name}'s unfiltered behavior into the structured JSON schema.
+
+INPUTS:
+- Research Question: ${researchQuestion}
+- Raw Think-Aloud Transcript: """${monologue}"""
+
+RULES:
+1. Write strictly in the THIRD PERSON ("The user observed...", "They grew skeptical of...").
+2. DO NOT fabricate steps. If the user never reached a stage — got confused and bounced — mark that stage outcome as "blocked" or "stopped" with negative sentiment rather than inventing progress.
+3. Ground every statement entirely in the transcript. Never invent UI elements not mentioned in it.
+4. The five journey stages MUST all appear in canonical order (interpretation, understanding, belief, motivation, action); skipping is expressed through outcomes, not omission.`;
+}
+
 export class VisionAnalysisAdapter {
     private promptCompiler: PersonaPromptCompiler;
     private ragStore: IdRagStore;
@@ -840,64 +891,7 @@ Return ONLY a JSON array of strings.`;
         }
     }
 
-    // ─── New artifact-agnostic pipeline (5 cognitive stages) ────────────────
-
-    private buildCognitiveStreamSystemPrompt(
-        persona: Persona,
-        compartments: string,
-        personaAnchor: string,
-        ragContextString: string,
-        businessGoal: string,
-        researchQuestion: string,
-    ): string {
-        return `You are a persona experiencing an artifact. Think aloud as this persona.
-
-${compartments}
-
-${ragContextString ? `<<RETRIEVED MEMORY>>\n${ragContextString}\n` : ""}
-
-<<ARTIFACT CONTEXT>>
-You are looking at a user experience — a page, a flow, or a design. You have been provided with:
-1. A screenshot of what a user sees on first load.
-2. A factual summary of the page's full content — including content that may be hidden behind interactions you cannot perform (expandable FAQs, dropdowns, menus, modals, pagination).
-
-Treat the summary as the page's full content: if it mentions something not visible in the screenshot, that content exists but is behind an interaction. If you cannot tell whether something is present (for example, whether an FAQ question has an answer), say you couldn't verify it — do not claim it is absent. Only react to details you can actually see or that appear in the summary; do not invent specifics.
-
-<<LANGUAGE>>
-Write everything in English, even if the artifact or the persona's background suggests another language.
-
-<<BUSINESS CONTEXT>>
-The creator of this artifact wants to accomplish: ${businessGoal}
-
-You are not here to evaluate design. You are here to react honestly as yourself.
-
-<<VOICE AND AUDIENCE>>
-Write as the persona in FIRST PERSON. "I think...", "This concerns me...", "I'd want to see..."
-
-<<PERSONALITY BIAS APPLICATION>>
-Your personality profile drives how you react:
-- Your Neuroticism determines what concerns or worries you pick up on.
-- Your Conscientiousness determines how closely you examine details.
-- Your Openness determines whether new concepts excite or concern you.
-- Your Extraversion determines whether you think about what others would say.
-- Your Agreeableness determines whether you give benefit of doubt.
-These are WHO YOU ARE.
-
-<<OPENNESS PRIMING>>
-${personaAnchor} You're open to this. You're approaching this as someone who COULD genuinely engage with this. You're not looking for reasons to reject it — you're reacting honestly. A skeptical but fair assessment.
-
-Think through your mental state as you experience this artifact. For each stage, answer the cognitive question — not what you saw, but what you thought.
-
-1. INTERPRETATION — What did I initially believe this product or page was? (Not: what did I see first. Answer: my first impression of what this is and who it might be for.)
-2. UNDERSTANDING — What became clear? What remained confusing?
-3. BELIEF — Which claims, signals, or details increased or decreased trust?
-4. MOTIVATION — Did this become valuable enough for me to continue? Why or why not?
-5. ACTION — What exact next step would I, this persona, take?
-
-IMPORTANT: Your personality profile (Big Five, values, fears) is synthetic. It may contextualize your reactions but it does not cause them. Describe what you observe and how you feel — do not explain your behavior using personality labels.
-
-Think as your persona. Narrate your thinking, not your browsing. Write freely — no JSON, no formatting constraints.`;
-    }
+    // ─── Persona pipeline (deprecated one-pass + Observer-Actor two-stage) ───
 
     private buildArtifactAnalysisSystemPrompt(
         persona: Persona,
@@ -983,50 +977,33 @@ CRITICAL RULES — Follow these exactly:
 Follow these rules strictly. Findings describe observed behavior, not inferred psychology.`;
     }
 
-    async generateCognitiveStream(
+    async generateVisceralMonologue(
         persona: Persona,
         context: ArtifactIntake,
-        businessGoal: string,
         researchQuestion: string,
         options: { tokenLimit?: number; runId?: string } = {},
-    ) {
+    ): Promise<{ text: string }> {
         const log = options.runId ? AnalysisLogger.forRun(options.runId) : null;
         const tokenLimit = options.tokenLimit ?? 2000;
         const TIMEOUT_MS = 120_000;
         const MAX_RETRIES = 2;
         const RETRY_DELAY_MS = 3_000;
 
-        log?.info("VisionAnalysisAdapter", `generateCognitiveStream START for "${persona.name}"`, { tokenLimit });
+        log?.info("VisionAnalysisAdapter", `generateVisceralMonologue START for "${persona.name}"`, { tokenLimit });
 
-        this.ensureIngested(persona, options.runId);
-
-        const ragStart = Date.now();
-        const query = context.summary ? `Artifact about ${context.summary.slice(0, 200)}` : "Experiencing an artifact";
-        const ragContext = this.ragService.retrieveContext(persona, query, 3);
-        log?.info("VisionAnalysisAdapter", `ID-RAG retrieval for "${persona.name}"`, {
-            chunkCount: ragContext.chunkCount,
-            durationMs: Date.now() - ragStart,
-        });
-
-        const compartments = this.promptCompiler.compileSystemPrompt(persona);
-        const personaAnchor = this.promptCompiler.generateAnchor(persona);
-
-        const system = this.buildCognitiveStreamSystemPrompt(
-            persona, compartments, personaAnchor, ragContext.contextString, businessGoal, researchQuestion,
-        );
-
-        const prompt = `Experience this artifact. Think aloud as ${persona.name}.${context.summary ? `\n\nPAGE FACT SUMMARY:\n"""\n${context.summary}\n"""` : ""}`;
-
-        log?.info("VisionAnalysisAdapter", `Calling LLM for cognitive stream for "${persona.name}"...`, {
-            model: this.llmService.visionModel,
-            systemPromptLength: system.length,
-        });
+        const system = buildVisceralMonologueSystemPrompt(persona, researchQuestion);
+        // Screenshot ONLY. Deliberately not context.summary/pageHtml: the
+        // actor must react to visual salience, not DOM-structure facts it
+        // could never see in a first glance — over-informed personas
+        // rationalize instead of reacting.
+        const streamStart = Date.now();
+        const prompt = `Experience this artifact. Think aloud as ${persona.name}.`;
 
         let lastError: Error | null = null;
 
         for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
             if (attempt > 0) {
-                log?.warn("VisionAnalysisAdapter", `generateCognitiveStream retry ${attempt}/${MAX_RETRIES} for "${persona.name}"`);
+                log?.warn("VisionAnalysisAdapter", `generateVisceralMonologue retry ${attempt}/${MAX_RETRIES} for "${persona.name}"`);
                 await new Promise((resolve) => setTimeout(resolve, RETRY_DELAY_MS));
             }
 
@@ -1043,73 +1020,62 @@ Follow these rules strictly. Findings describe observed behavior, not inferred p
                             },
                         ],
                         {
-                            temperature: 0.4,
+                            temperature: 0.7,
                             max_tokens: tokenLimit,
                             model: this.llmService.visionModel,
-                            purpose: `Cognitive Stream — ${persona.name}`,
+                            purpose: `Visceral Monologue — ${persona.name}`,
                             runId: options.runId,
                         }
                     ),
-                    new Promise<string>((_, reject) =>
-                        setTimeout(() => reject(new Error(`Cognitive stream timed out after ${TIMEOUT_MS}ms`)), TIMEOUT_MS)
+                    new Promise<never>((_, reject) =>
+                        setTimeout(() => reject(new Error(`Visceral monologue timed out after ${TIMEOUT_MS}ms`)), TIMEOUT_MS)
                     ),
                 ]);
 
-                log?.info("VisionAnalysisAdapter", `generateCognitiveStream completed for "${persona.name}"`, {
-                    durationMs: Date.now() - ragStart,
+                log?.info("VisionAnalysisAdapter", `generateVisceralMonologue completed for "${persona.name}"`, {
+                    durationMs: Date.now() - streamStart,
                     textLength: text.length,
                 });
 
-                return {
-                    text,
-                    personaId: persona.id,
-                    personaName: persona.name,
-                };
+                return { text };
             } catch (e) {
                 lastError = e as Error;
-                log?.warn("VisionAnalysisAdapter", `generateCognitiveStream attempt ${attempt + 1} failed for "${persona.name}"`, {
+                log?.warn("VisionAnalysisAdapter", `generateVisceralMonologue attempt ${attempt + 1} failed for "${persona.name}"`, {
                     error: String(e),
                 });
                 if (attempt === MAX_RETRIES) throw lastError;
             }
         }
 
-        throw lastError || new Error("generateCognitiveStream failed after all retries");
+        throw lastError || new Error("generateVisceralMonologue failed after all retries");
     }
 
-    async formatPersonaResponse(
+    async extractPersonaResponse(
         persona: Persona,
-        stream: { text: string; personaId: string; personaName: string },
-        businessGoal: string,
+        monologueText: string,
         researchQuestion: string,
         options: { tokenLimit?: number; runId?: string } = {},
-    ) {
+    ): Promise<PersonaResponse> {
         const log = options.runId ? AnalysisLogger.forRun(options.runId) : null;
         const tokenLimit = options.tokenLimit ?? 2000;
         const TIMEOUT_MS = 90_000;
         const MAX_RETRIES = 2;
         const RETRY_DELAY_MS = 2_000;
 
-        log?.info("VisionAnalysisAdapter", `formatPersonaResponse START for "${persona.name}"`, {
-            streamLength: stream.text.length,
+        log?.info("VisionAnalysisAdapter", `extractPersonaResponse START for "${persona.name}"`, {
+            monologueLength: monologueText.length,
         });
 
-        const compartments = this.promptCompiler.compileSystemPrompt(persona);
-        const system = this.buildPersonaResponseFormatterSystemPrompt(persona, compartments, businessGoal, researchQuestion);
+        // Text model, no image: the anthropologist must ground every claim in
+        // the transcript, not re-interpret the screenshot.
+        const system = buildPersonaExtractionSystemPrompt(persona, monologueText, researchQuestion);
+        const prompt = `Analyze the think-aloud transcript above and return the structured PersonaResponse JSON.`;
 
-        const prompt = `Here is the raw cognitive stream from ${persona.name}:
-
----
-${stream.text}
----
-
-Convert this into a structured PersonaResponse JSON object. Return ONLY the JSON.`;
-
-        let responseObj: any = null;
+        let responseObj: unknown = null;
 
         for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
             if (attempt > 0) {
-                log?.info("VisionAnalysisAdapter", `formatPersonaResponse retry ${attempt}/${MAX_RETRIES} for "${persona.name}"`);
+                log?.info("VisionAnalysisAdapter", `extractPersonaResponse retry ${attempt}/${MAX_RETRIES} for "${persona.name}"`);
                 await new Promise((resolve) => setTimeout(resolve, RETRY_DELAY_MS));
             }
 
@@ -1118,7 +1084,7 @@ Convert this into a structured PersonaResponse JSON object. Return ONLY the JSON
                     model: this.llmService.provider(this.llmService.textModel),
                     schema: PersonaResponseSchema,
                     schemaName: "PersonaResponse",
-                    schemaDescription: "A persona's structured response to an artifact based on five cognitive stages.",
+                    schemaDescription: "A third-person qualitative analysis of a persona's think-aloud session across five cognitive stages.",
                     system,
                     messages: [{ role: "user", content: prompt }],
                     temperature: 0.1,
@@ -1134,14 +1100,14 @@ Convert this into a structured PersonaResponse JSON object. Return ONLY the JSON
 
                 responseObj = await Promise.race([
                     drainAndResolve,
-                    new Promise<any>((_, reject) =>
-                        setTimeout(() => reject(new Error(`Formatter timed out after ${TIMEOUT_MS}ms`)), TIMEOUT_MS)
+                    new Promise<never>((_, reject) =>
+                        setTimeout(() => reject(new Error(`Extraction timed out after ${TIMEOUT_MS}ms`)), TIMEOUT_MS)
                     ),
                 ]);
 
                 if (responseObj) break;
             } catch (e) {
-                log?.warn("VisionAnalysisAdapter", `formatPersonaResponse attempt ${attempt + 1} failed for "${persona.name}"`, {
+                log?.warn("VisionAnalysisAdapter", `extractPersonaResponse attempt ${attempt + 1} failed for "${persona.name}"`, {
                     error: String(e),
                 });
                 if (attempt === MAX_RETRIES) throw e;
@@ -1149,7 +1115,7 @@ Convert this into a structured PersonaResponse JSON object. Return ONLY the JSON
         }
 
         if (!responseObj) {
-            throw new Error(`formatPersonaResponse returned null for "${persona.name}"`);
+            throw new Error(`extractPersonaResponse returned null for "${persona.name}"`);
         }
 
         const nonLatinFields = detectNonLatin(JSON.stringify(responseObj));
@@ -1159,9 +1125,7 @@ Convert this into a structured PersonaResponse JSON object. Return ONLY the JSON
             });
         }
 
-        log?.info("VisionAnalysisAdapter", `formatPersonaResponse completed for "${persona.name}"`, {
-            durationMs: Date.now() - (options.runId ? 0 : 0),
-        });
+        log?.info("VisionAnalysisAdapter", `extractPersonaResponse completed for "${persona.name}"`);
 
         return responseObj as PersonaResponse;
     }

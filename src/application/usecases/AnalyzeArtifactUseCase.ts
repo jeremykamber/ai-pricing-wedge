@@ -135,27 +135,28 @@ export class AnalyzeArtifactUseCase {
           try {
             const pipelineStart = Date.now();
 
-            // Stage 1: Generate cognitive stream through 5 stages
+            // Stage 1: visceral first-person monologue (screenshot only — no
+            // page summary reaches the actor), then Stage 2: third-person
+            // extraction from that monologue. businessGoal intentionally does
+            // not enter the persona pipeline; identity lives in the persona.
             const streamStart = Date.now();
-            const stream = await this.llmService.generateCognitiveStream(
+            const monologue = await this.llmService.generateVisceralMonologue(
               persona,
               intake,
-              businessGoal,
               researchQuestion,
               { tokenLimit, runId },
             );
             const streamDuration = Date.now() - streamStart;
-            log.info("AnalyzeArtifactUseCase", `${personaLog} Cognitive stream completed`, {
-              textLength: stream.text.length,
+            log.info("AnalyzeArtifactUseCase", `${personaLog} Visceral monologue completed`, {
+              textLength: monologue.text.length,
               durationMs: streamDuration,
             });
 
             if (abortSignal?.aborted) throw new Error("Request cancelled during formatting");
 
-            const response = await this.llmService.formatPersonaResponse(
+            const response = await this.llmService.extractPersonaResponse(
               persona,
-              stream,
-              businessGoal,
+              monologue.text,
               researchQuestion,
               { tokenLimit, runId },
             );
@@ -188,7 +189,7 @@ export class AnalyzeArtifactUseCase {
             const fullResponse: PersonaResponse = {
               id: `${persona.name.replace(/[\s-]+/g, "_")}-${Date.now()}`,
               screenshotBase64: intake.screenshotBase64,
-              rawAnalysis: stream.text,
+              rawAnalysis: monologue.text,
               overview: response.overview,
               customerJourney: response.customerJourney,
               researchQuestionAnswer: response.researchQuestionAnswer,

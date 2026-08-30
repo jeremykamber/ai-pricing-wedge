@@ -253,29 +253,25 @@ export interface LlmServicePort {
     ): Promise<any>;
 
     /**
-     * Stage 1: Generate stream of consciousness using the 5-stage cognitive model.
-     * No pricing-specific framing. Persona thinks through:
-     * 1. Interpretation — What is this? Who is it for?
-     * 2. Understanding — Do I get it? What am I supposed to do?
-     * 3. Belief — Do I trust it? Does it feel credible?
-     * 4. Motivation — Do I care? Is it worth my time?
-     * 5. Action — What would I do next?
+     * System 1 — the Actor. Generates a visceral, first-person stream-of-
+     * consciousness monologue of the persona experiencing the artifact,
+     * grounded in the screenshot ONLY (visual salience over DOM structure).
      */
-    generateCognitiveStream(
+    generateVisceralMonologue(
         persona: Persona,
         context: ArtifactIntake,
-        businessGoal: string,
         researchQuestion: string,
         options?: { tokenLimit?: number; runId?: string }
-    ): Promise<StreamOfConsciousness>;
+    ): Promise<{ text: string }>;
 
     /**
-     * Stage 2a: Format cognitive stream into structured PersonaResponse.
+     * System 2 — the Anthropologist. Maps the raw monologue into a
+     * structured PersonaResponse, strictly third-person, grounded in the
+     * transcript alone (no image, no page summary).
      */
-    formatPersonaResponse(
+    extractPersonaResponse(
         persona: Persona,
-        stream: StreamOfConsciousness,
-        businessGoal: string,
+        monologueText: string,
         researchQuestion: string,
         options?: { tokenLimit?: number; runId?: string }
     ): Promise<PersonaResponse>;

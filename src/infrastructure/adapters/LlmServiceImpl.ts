@@ -619,33 +619,29 @@ export class LlmServiceImpl implements LlmServicePort {
         );
     }
 
-    async generateCognitiveStream(
+    async generateVisceralMonologue(
         persona: Persona,
         context: ArtifactIntake,
-        businessGoal: string,
         researchQuestion: string,
         options?: { tokenLimit?: number; runId?: string }
-    ): Promise<StreamOfConsciousness> {
-        return this.visionAdapter.generateCognitiveStream(
+    ): Promise<{ text: string }> {
+        return this.visionAdapter.generateVisceralMonologue(
             persona,
             context,
-            businessGoal,
             researchQuestion,
             options,
         );
     }
 
-    async formatPersonaResponse(
+    async extractPersonaResponse(
         persona: Persona,
-        stream: StreamOfConsciousness,
-        businessGoal: string,
+        monologueText: string,
         researchQuestion: string,
         options?: { tokenLimit?: number; runId?: string }
     ): Promise<PersonaResponse> {
-        return this.visionAdapter.formatPersonaResponse(
+        return this.visionAdapter.extractPersonaResponse(
             persona,
-            stream,
-            businessGoal,
+            monologueText,
             researchQuestion,
             options,
         );
