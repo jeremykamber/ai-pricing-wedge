@@ -14,7 +14,7 @@ import type { Persona } from '@/domain/entities/Persona'
 import type { PersonaResponse } from '@/domain/entities/PersonaResponse'
 import type { MajorFinding } from '@/domain/entities/MajorFinding'
 import type { StageSentiment, StageOutcome } from '@/domain/entities/StageJourney'
-import { computeSynthesis } from '@/ui/dashboard/utils/computeSynthesis'
+import { fallbackSynthesis } from '@/ui/dashboard/utils/fallbackSynthesis'
 import { resolveChatPersona } from '@/ui/dashboard/utils/resolveChatPersona'
 import { PersonaChat } from '@/ui/dashboard/components/chat/PersonaChat'
 import { PanelChat } from '@/ui/dashboard/components/chat/PanelChat'
@@ -451,8 +451,8 @@ function CompletedView({
     () => {
       if (analysis.synthesis) return analysis.synthesis
       if (!analyses) return null
-      // Fall back to computed synthesis when LLM-generated one isn't available
-      return computeSynthesis(analyses)
+      // Legacy analyses saved without a synthesis: counts-only placeholder
+      return fallbackSynthesis(analyses)
     },
     [analyses, analysis.synthesis]
   )

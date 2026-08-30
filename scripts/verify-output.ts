@@ -280,7 +280,7 @@ async function runArtifactMode(args: Record<string, unknown>): Promise<void> {
   const { ArtifactIntakeAdapter } = await import('@/infrastructure/adapters/ArtifactIntakeAdapter');
   const { RemotePlaywrightAdapter } = await import('@/infrastructure/adapters/RemotePlaywrightAdapter');
   const { LlmServiceImpl } = await import('@/infrastructure/adapters/LlmServiceImpl');
-  const { computeSynthesis } = await import('@/ui/dashboard/utils/computeSynthesis');
+  const { SynthesizeArtifactResultsUseCase } = await import('@/application/usecases/synthesizeArtifactResults');
 
   const llm = LlmServiceImpl.createFromEnv('openrouter');
   const browserService = RemotePlaywrightAdapter.createFromEnv();
@@ -303,11 +303,8 @@ async function runArtifactMode(args: Record<string, unknown>): Promise<void> {
   );
 
   const completed = responses.filter((r) => r.overview && r.customerJourney.length > 0);
-  const synthesis = completed.length > 0 ? computeSynthesis(completed) : null;
-  if (synthesis) {
-    synthesis.failedCount = responses.length - completed.length;
-    synthesis.totalPersonaCount = responses.length;
-  }
+  const synthesis = completed.length > 0 ? await new SynthesizeArtifactResultsUseCase(llm).execute(completed, researchQuestion, { runId }) : null;
+
 
   report('artifact', checkResponses(responses));
   report('synthesis', checkSynthesis(synthesis, responses.length));
