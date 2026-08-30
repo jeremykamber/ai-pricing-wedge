@@ -1,7 +1,7 @@
 import React from 'react'
 import { Document, Page, View, Text, StyleSheet } from '@react-pdf/renderer'
 import type { ArtifactAnalysis } from '@/domain/entities/ArtifactAnalysis'
-import type { ArtifactSynthesis } from '@/domain/entities/ArtifactSynthesis'
+import type { ArtifactSynthesis, SynthesizedFinding } from '@/domain/entities/ArtifactSynthesis'
 import { fallbackSynthesis } from '@/ui/dashboard/utils/fallbackSynthesis'
 
 // ── Typography & Palette ───────────────────────────────────────────────────
@@ -293,6 +293,20 @@ export interface AnalysisPdfDocumentProps {
   analysis: ArtifactAnalysis
 }
 
+// Slice B owns SynthesizedFinding.citations; narrow it structurally here so
+// this file compiles before Slice B's type lands. Replace with the typed
+// field on merge.
+function citationNames(finding: SynthesizedFinding): string {
+  if (!finding || typeof finding !== 'object' || !('citations' in finding)) return finding.evidence
+  const citations: unknown = finding.citations
+  if (!Array.isArray(citations)) return finding.evidence
+  const names = citations
+    .map((c) => (c && typeof c === 'object' && 'personaName' in c ? String(c.personaName) : null))
+    .filter((name): name is string => name !== null)
+  const unique = names.filter((name, i) => names.indexOf(name) === i)
+  return unique.length > 0 ? `${finding.evidence} (${unique.join(', ')})` : finding.evidence
+}
+
 export function AnalysisPdfDocument({ analysis }: AnalysisPdfDocumentProps) {
   const responses = analysis.responses ?? []
   const synthesis: ArtifactSynthesis =
@@ -382,7 +396,8 @@ export function AnalysisPdfDocument({ analysis }: AnalysisPdfDocumentProps) {
                 </View>
                 <View style={styles.findingBody}>
                   <Text style={styles.findingLabel}>Evidence</Text>
-                  <Text style={styles.findingText}>{finding.evidence}</Text>
+                  {/* react-pdf can't host popovers, so citations degrade to plain persona names after the evidence text. */}
+                  <Text style={styles.findingText}>{citationNames(finding)}</Text>
                   {finding.impact && (
                     <>
                       <Text style={styles.findingLabel}>Impact</Text>

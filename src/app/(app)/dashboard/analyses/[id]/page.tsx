@@ -7,7 +7,7 @@ import { useRouter } from 'next/navigation'
 import { getAnalysisResultAction } from '@/actions/getAnalysisResult'
 import { getProgressAction } from '@/actions/getProgress'
 import { StepIndicator } from '@/components/custom/StepIndicator'
-import { ArrowLeftIcon, ClockIcon, CheckCircleIcon, XCircleIcon, AlertTriangleIcon, ChevronDownIcon, ChevronRightIcon, UsersIcon, MessageCircleIcon, DownloadIcon, Loader2Icon } from 'lucide-react'
+import { ArrowLeftIcon, ClockIcon, CheckCircleIcon, XCircleIcon, AlertTriangleIcon, ChevronDownIcon, ChevronRightIcon, UsersIcon, MessageCircleIcon, DownloadIcon, Loader2Icon, FileTextIcon } from 'lucide-react'
 import { toast } from 'sonner'
 import { exportAnalysisAsPdf } from '@/lib/exportPdf'
 import type { Persona } from '@/domain/entities/Persona'
@@ -19,6 +19,21 @@ import { resolveChatPersona } from '@/ui/dashboard/utils/resolveChatPersona'
 import { PersonaChat } from '@/ui/dashboard/components/chat/PersonaChat'
 import { PanelChat } from '@/ui/dashboard/components/chat/PanelChat'
 import { InlineRenamable } from '@/components/custom/InlineRenamable'
+import { CitationTooltip, type EvidenceCitation } from '@/components/custom/CitationTooltip'
+import { RawThinkAloudSheet } from '@/components/custom/RawThinkAloudSheet'
+// Slice B owns SynthesizedFinding.citations; narrow it structurally here so
+// this page compiles before Slice B's type lands. Replace with the typed
+// field on merge.
+function citationsOf(finding: import('@/domain/entities/ArtifactSynthesis').SynthesizedFinding): EvidenceCitation[] {
+  if (!finding || typeof finding !== 'object' || !('citations' in finding)) return []
+  const citations: unknown = finding.citations
+  if (!Array.isArray(citations)) return []
+  return citations.filter(
+    (c): c is EvidenceCitation =>
+      !!c && typeof c === 'object' && 'personaId' in c && 'personaName' in c && 'quote' in c
+  )
+}
+
 
 const ANALYSIS_STEPS = [
   { title: 'Starting', description: 'Initializing analysis' },
@@ -445,6 +460,13 @@ function CompletedView({
   const [expandedPersonas, setExpandedPersonas] = useState<Set<number>>(new Set())
   const [chatTarget, setChatTarget] = useState<{ persona: Persona; analysis: PersonaResponse } | null>(null)
   const [isPanelChatOpen, setIsPanelChatOpen] = useState(false)
+  // Think-aloud drawer state: which persona's transcript is open, and which
+  // citation quote (if any) to scroll to and mark.
+  const [transcriptTarget, setTranscriptTarget] = useState<{
+    personaName: string
+    transcript: string
+    highlight?: string
+  } | null>(null)
   const batches = usePersonaStore((s) => s.batches)
 
   const synthesis = useMemo(
@@ -531,6 +553,30 @@ function CompletedView({
                   </div>
                   <p className="text-xs text-muted-foreground"><span className="font-medium">Evidence:</span> {finding.evidence}</p>
                   <p className="text-xs text-muted-foreground"><span className="font-medium">Impact:</span> {finding.impact}</p>
+                  {citationsOf(finding).length > 0 && (
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      <CitationTooltip
+                        citations={citationsOf(finding)}
+                        onOpenTranscript={(citation) => {
+                          const response = analyses?.find(
+                            (a) => a.personaProfile?.name === citation.personaName || a.personaId === citation.personaId
+                          )
+                          if (!response) return
+                          setTranscriptTarget({
+                            personaName: citation.personaName,
+                            transcript: response.rawAnalysis,
+                            highlight: citation.quote,
+                          })
+                        }}
+                        getPersonaRole={(citation) => {
+                          const response = analyses?.find(
+                            (a) => a.personaProfile?.name === citation.personaName || a.personaId === citation.personaId
+                          )
+                          return response?.personaProfile?.occupation
+                        }}
+                      />
+                    </div>
+                  )}
                   <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
                     <UsersIcon className="h-3 w-3" />
                     <span>Observed in {finding.affectedPersonaCount}/{finding.totalPersonaCount} personas</span>
@@ -624,6 +670,17 @@ function CompletedView({
                     >
                       <MessageCircleIcon className="h-3.5 w-3.5" />
                       Ask {personaName} about what they saw
+                    </button>
+                  )}
+                  {analysis.rawAnalysis && (
+                    <button
+                      onClick={() =>
+                        setTranscriptTarget({ personaName, transcript: analysis.rawAnalysis })
+                      }
+                      className="inline-flex h-9 items-center justify-center gap-2 rounded-md border border-border bg-background px-4 text-xs font-semibold text-foreground transition-colors hover:bg-muted/40 w-fit"
+                    >
+                      <FileTextIcon className="h-3.5 w-3.5" />
+                      Raw think-aloud
                     </button>
                   )}
                   {analysis.personaProfile && <PersonaIdentityCard profile={analysis.personaProfile} />}
@@ -726,6 +783,16 @@ function CompletedView({
           onClose={() => setChatTarget(null)}
         />
       )}
+
+      <RawThinkAloudSheet
+        open={!!transcriptTarget}
+        onOpenChange={(open) => {
+          if (!open) setTranscriptTarget(null)
+        }}
+        personaName={transcriptTarget?.personaName ?? ''}
+        transcript={transcriptTarget?.transcript ?? ''}
+        highlight={transcriptTarget?.highlight}
+      />
 
       <PanelChat
         responses={analyses}
