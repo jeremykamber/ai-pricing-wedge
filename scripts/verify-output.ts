@@ -206,6 +206,66 @@ function report(label: string, checks: { pass: string[]; fail: string[] }): void
   for (const line of checks.fail) console.log(`  FAIL  ${line}`);
 }
 
+// Banned UX-consultant jargon — the Visceral Actor must never produce these.
+// Mirrors the operating rules in buildVisceralMonologueSystemPrompt.
+const BANNED_JARGON = ['cta', 'social proof', 'value proposition', 'value prop', 'friction', 'conversion funnel', 'user journey map'];
+
+function checkMonologues(responses: any[]): { pass: string[]; fail: string[] } {
+  const pass: string[] = [];
+  const fail: string[] = [];
+  for (const [i, r] of responses.entries()) {
+    const personaName = r?.personaProfile?.name ?? `#${i + 1}`;
+    const raw: string = r?.rawAnalysis ?? '';
+    if (raw.length < 200) {
+      fail.push(`${personaName}: monologue suspiciously short (${raw.length} chars)`);
+      continue;
+    }
+    pass.push(`${personaName}: monologue ${raw.length} chars`);
+    const lower = raw.toLowerCase();
+    const hits = BANNED_JARGON.filter((j) => lower.includes(j));
+    if (hits.length === 0) pass.push(`${personaName}: no UX jargon`);
+    else fail.push(`${personaName}: jargon found: ${hits.join(', ')}`);
+    // Third-person extraction: the structured report must not speak as the persona.
+    const structured = [r?.overview ?? '', r?.researchQuestionAnswer ?? ''].join(' ');
+    const firstPerson = /\b(I|I'm|I've|my|me)\b/i.test(structured);
+    if (structured && firstPerson) fail.push(`${personaName}: extraction speaks in first person`);
+    else if (structured) pass.push(`${personaName}: third person`);
+  }
+  return { pass, fail };
+}
+
+// Evidence accuracy: every citation quote must be a verbatim substring of the
+// quoted persona's raw monologue (the immutable source of truth).
+function checkCitations(synthesis: any, responses: any[]): { pass: string[]; fail: string[] } {
+  const pass: string[] = [];
+  const fail: string[] = [];
+  const findings = synthesis?.topFindings ?? [];
+  const transcriptById: Record<string, string> = {};
+  const transcriptByName: Record<string, string> = {};
+  for (const r of responses) {
+    const id = r?.personaId ?? r?.id;
+    if (id) transcriptById[id] = r?.rawAnalysis ?? '';
+    const name = r?.personaProfile?.name;
+    if (name) transcriptByName[name] = r?.rawAnalysis ?? '';
+  }
+  let total = 0;
+  let exact = 0;
+  for (const f of findings) {
+    for (const c of f?.citations ?? []) {
+      total++;
+      const transcript = transcriptById[c.personaId] ?? transcriptByName[c.personaName] ?? '';
+      if (c.quote && transcript.includes(c.quote)) {
+        exact++;
+      } else {
+        fail.push(`citation quote NOT a substring of ${c.personaName}'s transcript: "${String(c.quote).slice(0, 60)}…"`);
+      }
+    }
+  }
+  if (total === 0) fail.push('no citations present on any finding');
+  else pass.push(`citations: ${exact}/${total} are verbatim transcript substrings`);
+  return { pass, fail };
+}
+
 // ── Modes ───────────────────────────────────────────────────────────────────
 
 async function generatePersonas(description: string, count: number, modeArg: string | undefined) {
@@ -303,11 +363,16 @@ async function runArtifactMode(args: Record<string, unknown>): Promise<void> {
   );
 
   const completed = responses.filter((r) => r.overview && r.customerJourney.length > 0 && !r.overview.startsWith("Analysis could not be completed."));
-  const synthesis = completed.length > 0 ? await new SynthesizeArtifactResultsUseCase(llm).execute(completed, researchQuestion, { runId }) : null;
-
+  const synthesis = completed.length > 0 ? await new SynthesizeArtifactResultsUseCase(llm).execute(
+    completed,
+    researchQuestion,
+    { runId, failedCount: responses.length - completed.length, totalPersonaCount: responses.length },
+  ) : null;
 
   report('artifact', checkResponses(responses));
+  report('monologues', checkMonologues(responses));
   report('synthesis', checkSynthesis(synthesis, responses.length));
+  report('citations', checkCitations(synthesis, responses));
 
   const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
   const outPath = path.resolve(args.out as string ?? path.join(OUT_DIR, `${timestamp}-artifact.json`));
