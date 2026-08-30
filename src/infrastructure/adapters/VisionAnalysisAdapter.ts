@@ -118,7 +118,20 @@ const CohortSynthesisSchema = z.object({
       significance: z.enum(["High", "Medium", "Low"]),
     }),
   ),
-  biggestFrictions: z.array(z.string()),
+  // Models sometimes emit {friction: string, why: string} objects here despite
+  // the prompt; coerce any object entry to its friction string instead of
+  // failing the whole synthesis over presentation drift.
+  biggestFrictions: z.array(
+    z.union([z.string(), z.record(z.string(), z.unknown())])
+      .transform((v) => {
+        if (typeof v === 'string') return v;
+        const obj = v as Record<string, unknown>;
+        const first = ['friction', 'issue', 'point', 'description', 'title']
+          .map((k) => obj[k])
+          .find((x) => typeof x === 'string' && x.trim());
+        return typeof first === 'string' ? first : JSON.stringify(obj);
+      }),
+  ),
 });
 
 export class VisionAnalysisAdapter {
