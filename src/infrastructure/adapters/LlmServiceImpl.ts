@@ -507,117 +507,11 @@ export class LlmServiceImpl implements LlmServicePort {
         });
     }
 
-    async isPricingVisible(screenshot: string, runId?: string): Promise<boolean> {
-        return this.visionAdapter.isPricingVisible(screenshot, runId);
-    }
-
-    async isPricingVisibleInHtml(html: string, runId?: string): Promise<PricingLocation> {
-        return this.visionAdapter.isPricingVisibleInHtml(html, runId);
-    }
-
-    async analyzePricingPageStream(
-        persona: Persona,
-        screenshot: string,
-        html?: string,
-        options?: { tokenLimit?: number; runId?: string }
-    ): Promise<any> {
-        return this.visionAdapter.analyzePricingPageStream(
-            persona,
-            screenshot,
-            html,
-            options,
-        );
-    }
-
-    async analyzePricingPageCompletion(
-        persona: Persona,
-        screenshot: string,
-        html?: string,
-        options?: { tokenLimit?: number; runId?: string }
-    ): Promise<any> {
-        return this.visionAdapter.analyzePricingPageCompletion(
-            persona,
-            screenshot,
-            html,
-            options,
-        );
-    }
-
-    async generateStreamOfConsciousness(
-        persona: Persona,
-        screenshot: string,
-        html?: string,
-        options?: { tokenLimit?: number; runId?: string }
-    ): Promise<StreamOfConsciousness> {
-        return this.visionAdapter.generateStreamOfConsciousness(
-            persona,
-            screenshot,
-            html,
-            options,
-        );
-    }
-
-    async formatStreamOfConsciousness(
-        persona: Persona,
-        stream: StreamOfConsciousness,
-        options?: { tokenLimit?: number; runId?: string }
-    ): Promise<PricingAnalysis> {
-        return this.visionAdapter.formatStreamOfConsciousness(
-            persona,
-            stream,
-            options,
-        ) as Promise<PricingAnalysis>;
-    }
-
-    async summarizeStreamOfConsciousness(
-        persona: Persona,
-        stream: StreamOfConsciousness,
-        options?: { runId?: string }
-    ): Promise<string[]> {
-        return this.visionAdapter.summarizeStreamOfConsciousness(
-            persona,
-            stream,
-            options,
-        );
-    }
-
     async summarizeHtml(html: string, runId?: string): Promise<string> {
         return this.htmlSummarizer.summarizeHtml(html, runId);
     }
 
     // ─── New artifact-agnostic analysis pipeline ──────────────────
-
-    async analyzeArtifactStream(
-        persona: Persona,
-        context: ArtifactIntake,
-        businessGoal: string,
-        researchQuestion: string,
-        options?: { tokenLimit?: number; runId?: string }
-    ): Promise<any> {
-        return this.visionAdapter.analyzeArtifactStream(
-            persona,
-            context,
-            businessGoal,
-            researchQuestion,
-            options,
-        );
-    }
-
-    async analyzeArtifactCompletion(
-        persona: Persona,
-        context: ArtifactIntake,
-        businessGoal: string,
-        researchQuestion: string,
-        options?: { tokenLimit?: number; runId?: string }
-    ): Promise<any> {
-        return this.visionAdapter.analyzeArtifactCompletion(
-            persona,
-            context,
-            businessGoal,
-            researchQuestion,
-            options,
-        );
-    }
 
     async generateVisceralMonologue(
         persona: Persona,
@@ -646,19 +540,6 @@ export class LlmServiceImpl implements LlmServicePort {
             options,
         );
     }
-
-    async deriveResponseSignals(
-        persona: Persona,
-        stream: StreamOfConsciousness,
-        options?: { runId?: string }
-    ): Promise<{ highestStageReached: string; finalAction: string; keySignals: string[] }> {
-        return this.visionAdapter.deriveResponseSignals(
-            persona,
-            stream,
-            options,
-        );
-    }
-
     async generateCohortSynthesis(
         researchQuestion: string,
         transcripts: Array<{ personaId: string; personaName: string; transcript: string }>,
@@ -788,30 +669,6 @@ export class LlmServiceImpl implements LlmServicePort {
     }
 
     // --- Legacy / Compatibility ---
-
-    async analyzeStaticPage(
-        persona: Persona,
-        screenshot: string,
-    ): Promise<PricingAnalysis> {
-        throw new Error("analyzeStaticPage is deprecated. Use analyzePricingPageStream instead.");
-    }
-
-    async *analyzeStaticPageStream(
-        persona: Persona,
-        screenshots: string[],
-    ): AsyncIterable<string> {
-        const result = await this.analyzePricingPageStream(persona, screenshots[0]);
-        for await (const partial of result.partialObjectStream) {
-            if (partial.thoughts) yield partial.thoughts;
-        }
-    }
-
-    async extractInsights(
-        persona: Persona,
-        rawThoughts: string,
-    ): Promise<Partial<PricingAnalysis>> {
-        throw new Error("extractInsights is deprecated. Use analyzePricingPageStream for consolidated results.");
-    }
 
     async chatWithPersona(
         persona: Persona,

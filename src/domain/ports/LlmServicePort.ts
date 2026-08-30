@@ -3,7 +3,6 @@ import { PricingAnalysis } from "../entities/PricingAnalysis";
 import { PersonaResponse } from "../entities/PersonaResponse";
 import { ArtifactSynthesis, CohortSynthesisContent } from "../entities/ArtifactSynthesis";
 import { ArtifactIntake } from "../entities/ArtifactIntake";
-import { StreamOfConsciousness } from "../entities/StreamOfConsciousness";
 import { ExtractedInterviewSignals } from "@/application/interviewPipeline/types";
 import type { ResearchPersonaConfig, StrategyPersonaConfig, ClusterPersonaConfig } from "../dtos/PersonaGenerationConfig";
 
@@ -105,29 +104,6 @@ export interface LlmServicePort {
         actionHistory: string[],
     ): Promise<AgentAction>;
 
-    /** @deprecated Use analyzeArtifactStream instead. */
-    analyzeStaticPage(
-        persona: Persona,
-        screenshotBase64: string,
-    ): Promise<PricingAnalysis>;
-
-    /** @deprecated Use analyzeArtifactStream instead. */
-    analyzeStaticPageStream(
-        persona: Persona,
-        screenshots: string[],
-    ): AsyncIterable<string>;
-
-    /** @deprecated Use formatStreamOfConsciousness → PersonaResponse instead. */
-    extractInsights(
-        persona: Persona,
-        rawThoughts: string,
-    ): Promise<Partial<PricingAnalysis>>;
-
-    /** @deprecated Pricing-specific scouting — use generic ArtifactIntakeAdapter instead. */
-    isPricingVisible(screenshotBase64: string): Promise<boolean>;
-
-    /** @deprecated Pricing-specific scouting — use generic ArtifactIntakeAdapter instead. */
-    isPricingVisibleInHtml(html: string): Promise<PricingLocation>;
 
     /**
      * Chat with a persona about their analysis.
@@ -185,72 +161,8 @@ export interface LlmServicePort {
         history: { role: "user" | "assistant"; content: string }[],
     ): AsyncIterable<string>;
 
-    /** @deprecated Use analyzeArtifactStream instead. */
-    analyzePricingPageStream(
-        persona: Persona,
-        screenshotBase64: string,
-        pageHtml?: string,
-        options?: { tokenLimit?: number; runId?: string }
-    ): Promise<any>;
 
-    /** @deprecated Use analyzeArtifactCompletion instead. */
-    analyzePricingPageCompletion(
-        persona: Persona,
-        screenshotBase64: string,
-        pageHtml?: string,
-        options?: { tokenLimit?: number; runId?: string }
-    ): Promise<any>;
 
-    /**
-     * Stage 1: Generate stream of consciousness (natural first-person thinking).
-     * No JSON constraints — just free-form text.
-     * The persona reasons through all five cognitive stages.
-     */
-    generateStreamOfConsciousness(
-        persona: Persona,
-        screenshotBase64: string,
-        pageHtml?: string,
-        options?: { tokenLimit?: number; runId?: string }
-    ): Promise<StreamOfConsciousness>;
-
-    /** @deprecated Use the new formatStreamOfConsciousness (PersonaResponse output) instead. */
-    formatStreamOfConsciousness(
-        persona: Persona,
-        stream: StreamOfConsciousness,
-        options?: { tokenLimit?: number; runId?: string }
-    ): Promise<PricingAnalysis>;
-
-    /** @deprecated Use the new summarizeStreamOfConsciousness instead. */
-    summarizeStreamOfConsciousness(
-        persona: Persona,
-        stream: StreamOfConsciousness,
-        options?: { runId?: string }
-    ): Promise<string[]>;
-
-    // --- New artifact-agnostic analysis pipeline ---
-
-    /**
-     * One-pass artifact analysis returning a structured PersonaResponse.
-     * The persona reasons through all five cognitive stages.
-     */
-    analyzeArtifactStream(
-        persona: Persona,
-        context: ArtifactIntake,
-        businessGoal: string,
-        researchQuestion: string,
-        options?: { tokenLimit?: number; runId?: string }
-    ): Promise<any>;
-
-    /**
-     * Non-streaming variant — awaits the full PersonaResponse result.
-     */
-    analyzeArtifactCompletion(
-        persona: Persona,
-        context: ArtifactIntake,
-        businessGoal: string,
-        researchQuestion: string,
-        options?: { tokenLimit?: number; runId?: string }
-    ): Promise<any>;
 
     /**
      * System 1 — the Actor. Generates a visceral, first-person stream-of-
@@ -276,19 +188,6 @@ export interface LlmServicePort {
         options?: { tokenLimit?: number; runId?: string }
     ): Promise<PersonaResponse>;
 
-    /**
-     * Stage 2b: Derive summary signals from the cognitive stream.
-     * Returns highest stage reached, final action, and key signals.
-     */
-    deriveResponseSignals(
-        persona: Persona,
-        stream: StreamOfConsciousness,
-        options?: { runId?: string }
-    ): Promise<{
-        highestStageReached: string;
-        finalAction: string;
-        keySignals: string[];
-    }>;
 
     // --- Cross-persona cohort synthesis ---
 
