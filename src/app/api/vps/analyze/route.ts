@@ -9,6 +9,8 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { NextRequest, NextResponse } from "next/server";
+import type { ArtifactSynthesis } from "@/domain/entities/ArtifactSynthesis";
+import { SynthesizeArtifactResultsUseCase } from "@/application/usecases/synthesizeArtifactResults";
 import { RateLimiterMemory } from "rate-limiter-flexible";
 
 import { AnalyzeArtifactUseCase } from "@/application/usecases/AnalyzeArtifactUseCase";
@@ -170,7 +172,27 @@ async function runAnalysis(
         log.info("runAnalysis", `useCase.execute() completed with ${responses.length} responses`);
 
         if (!abortSignal.aborted) {
-            analysisResultStore.save(id, responses);
+            // Generate cross-persona synthesis; failure is non-fatal (logged,
+            // the UI renders persona results without the cohort report).
+            let synthesis: ArtifactSynthesis | undefined;
+            const completedResponses = responses.filter((r) => r.overview && r.customerJourney.length > 0 && !r.overview.startsWith("Analysis could not be completed."));
+            if (completedResponses.length > 0) {
+                try {
+                    log.info("runAnalysis", "Generating cross-persona synthesis...");
+                    synthesis = await new SynthesizeArtifactResultsUseCase(llmService).execute(
+                        completedResponses,
+                        researchQuestion || "",
+                        { runId: id, failedCount: responses.length - completedResponses.length, totalPersonaCount: responses.length },
+                    );
+                } catch (synthErr) {
+                    log.warn("runAnalysis", "Synthesis generation failed, proceeding without", {
+                        error: String(synthErr),
+                    });
+                }
+            } else {
+                log.warn("runAnalysis", "No completed responses — skipping synthesis");
+            }
+            analysisResultStore.save(id, responses, synthesis);
             storeCompleted(id);
             log.info("runAnalysis", "Results stored — client can now poll");
         } else {
