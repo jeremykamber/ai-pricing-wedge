@@ -170,7 +170,7 @@ export function useAnalysisFlow(onSuccess?: (analyses: PersonaResponse[], synthe
               clearScreenshotPoll()
               const results = update.analyses as PersonaResponse[] | undefined
               const synth = (update as any).synthesis as ArtifactSynthesis | undefined
-              useAnalysisStore.getState().markComplete(analysisId, results ?? [])
+              useAnalysisStore.getState().markComplete(analysisId, results ?? [], synth)
               if (mountedRef.current) {
                 setAnalyses(results ?? null)
                 setSynthesis(synth ?? null)
@@ -230,8 +230,7 @@ export function useAnalysisFlow(onSuccess?: (analyses: PersonaResponse[], synthe
             }
 
             const responses = result.analyses ?? []
-            if (result.synthesis) setSynthesis(result.synthesis)
-            useAnalysisStore.getState().markComplete(analysisId, responses)
+            useAnalysisStore.getState().markComplete(analysisId, responses, result.synthesis)
             if (mountedRef.current) {
               setAnalyses(responses)
               setAnalysisProgress(null)

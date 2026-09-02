@@ -128,7 +128,7 @@ export default function AnalysisDetailPage({ params }: { params: Promise<{ id: s
             if (result.error) {
               useAnalysisStore.getState().markError(analysis.id, result.error)
             } else if (result.analyses && result.analyses.length > 0) {
-              useAnalysisStore.getState().markComplete(analysis.id, result.analyses)
+              useAnalysisStore.getState().markComplete(analysis.id, result.analyses, result.synthesis)
             }
             return
           }
@@ -172,7 +172,7 @@ export default function AnalysisDetailPage({ params }: { params: Promise<{ id: s
           clearInterval(interval);
           const result2 = await getAnalysisResultAction(analysis.id);
           if (result2.found && result2.analyses && result2.analyses.length > 0) {
-            useAnalysisStore.getState().markComplete(analysis.id, result2.analyses);
+            useAnalysisStore.getState().markComplete(analysis.id, result2.analyses, result2.synthesis);
           }
         }
 
