@@ -31,7 +31,7 @@ function detectNonLatin(text: string): string[] {
  * the compartment system prompt is the over-rationalization source, so it
  * is deliberately absent from this path.
  */
-export function buildVisceralMonologueSystemPrompt(persona: Persona, researchQuestion: string): string {
+export function buildVisceralMonologueSystemPrompt(persona: Persona, researchQuestion: string, artifactName?: string): string {
     // Persona maps: role = occupation, background = backstory, goal = the
     // persona's goals list (no single goal field exists on the entity);
     // when the persona has none, the research question is the browsing intent.
@@ -39,10 +39,11 @@ export function buildVisceralMonologueSystemPrompt(persona: Persona, researchQue
         ? persona.goals.join("; ")
         : researchQuestion;
     const background = persona.backstory || persona.occupation;
+    const brand = artifactName ? `The site you're on is called "${artifactName}" — that's its name; read it and use it.\n` : "";
 
 return `You are ${persona.name}, ${persona.occupation}.
 Background: ${background} | You are browsing because: ${browsingIntent}
-
+${brand}
 HOW YOUR INNER VOICE WORKS:
 - Write like a person thinking, not a person performing. Short bursts. Half-thoughts. "Okay, green background. Looks clean, maybe a little sterile." — that's the register. No scene-setting ("adjusts glasses"), no narrated stage directions, no dialogue formatting, no sign-off ("— Remy, signing off").
 - No structure, no headers, no bullet lists, no numbered sections, no markdown emphasis. Just a plain wall of reactive thought with line breaks where attention jumps.
@@ -51,6 +52,7 @@ HOW YOUR INNER VOICE WORKS:
 - You judge with your own life, not like a reviewer. If something doesn't apply to you, notice it and move on ("this is for job seekers, not me"). If a claim sounds fake, call it fake. If you'd click, say why — in your own selfish terms (curiosity, saving time, free stuff, no credit card).
 - You do NOT summarize the page, score it, or conclude with an overall verdict. When you're done — clicked away, found the answer, got bored — the thought just stops mid-momentum.
 - React, don't report. First person, present tense, impatient, a little messy.
+- This is a website visit, not a memoir. Reactions come from your work, money, time, and habits — the actual texture of your life. Do NOT invent cinematic detail (smells, weather, dead relatives, candlelight); a real person at a screen mostly notices what's ON the screen.
 
 Start wherever your eyes land first:`;
 }
@@ -62,7 +64,12 @@ Start wherever your eyes land first:`;
  * Rule 4 exists because validatePersonaResponse enforces exactly 5 ordered
  * stages; a skipped stage is expressed through its outcome, never by omission.
  */
-export function buildPersonaExtractionSystemPrompt(persona: Persona, monologue: string, researchQuestion: string): string {
+export function buildPersonaExtractionSystemPrompt(
+    persona: Persona,
+    monologue: string,
+    researchQuestion: string,
+    artifactName?: string,
+): string {
     return `You are a Lead Qualitative UX Researcher analyzing a think-aloud session recording.
 
 TASK:
@@ -70,13 +77,18 @@ Map ${persona.name}'s unfiltered behavior into the structured JSON schema.
 
 INPUTS:
 - Research Question: ${researchQuestion}
-- Raw Think-Aloud Transcript: """${monologue}"""
+${artifactName ? `- The site/product being evaluated is named "${artifactName}" — always spell it exactly this way when you mention it.\n` : ""}- Raw Think-Aloud Transcript: """${monologue}"""
 
 RULES:
 1. Write strictly in the THIRD PERSON ("The user observed...", "They grew skeptical of...").
-2. DO NOT fabricate steps. If the user never reached a stage — got confused and bounced — mark that stage outcome as "blocked" or "stopped" with negative sentiment rather than inventing progress.
-3. Ground every statement entirely in the transcript. Never invent UI elements not mentioned in it.
-4. The five journey stages MUST all appear in canonical order (interpretation, understanding, belief, motivation, action); skipping is expressed through outcomes, not omission.`;
+2. Ground every statement entirely in the transcript. Never invent UI elements not mentioned in it.
+3. State machine — process stages in order and let outcomes cascade:
+   - If the user was blocked or stopped at a stage, every LATER stage is "not reached": outcome "stopped", sentiment "neutral", description starting "Not reached — abandoned at <earlier stage>." followed by the specific reason from the transcript.
+   - Never mark a later stage "blocked" or "succeeded" once an earlier stage blocked or stopped the user; being blocked means they never evaluated it.
+   - Never describe a not-reached stage by restating what the stage is about — describe what happened (or why nothing could happen) in THIS session.
+4. The five journey stages MUST all appear in canonical order (interpretation, understanding, belief, motivation, action); skipping is expressed through outcomes, not omission.
+5. Evidence quotes in majorFindings must be COMPLETE sentences copied from the transcript. Never cut a quote off mid-phrase — if the thought is long, quote its first full sentence.
+6. unansweredQuestions must be questions THE USER was left asking, in the user's own first-person voice ("Does this work on my phone between jobs?"), not researcher hypotheses about the user ("Would the user have...?"). If the transcript shows no open questions, return an empty list.`;
 }
 
 /**
@@ -101,7 +113,21 @@ const EvidenceLocatorSchema = z.object({
 const CohortSynthesisSchema = z.object({
   overview: z.string(),
   researchQuestionAnswer: z.string(),
-  topFindings: z.array(
+  // Models occasionally emit one finding object instead of an array, or nest
+  // the array under another key; normalize both instead of failing the whole
+  // synthesis over presentation drift.
+  topFindings: z.preprocess((v) => {
+    if (v == null) return [];
+    if (Array.isArray(v)) return v;
+    if (typeof v === "object") {
+      const obj = v as Record<string, unknown>;
+      for (const key of ["topFindings", "findings"]) {
+        if (Array.isArray(obj[key])) return obj[key];
+      }
+      return [v]; // a single finding object emitted directly
+    }
+    return [];
+  }, z.array(
     z.object({
       observation: z.string(),
       evidence: z.string(),
@@ -111,7 +137,7 @@ const CohortSynthesisSchema = z.object({
       totalPersonaCount: z.number().int().min(0),
       evidenceLocators: z.array(EvidenceLocatorSchema).optional(),
     }),
-  ),
+  )),
   disagreements: z.array(
     z.object({
       topic: z.string(),
@@ -121,7 +147,9 @@ const CohortSynthesisSchema = z.object({
           personaCount: z.number().int().min(0),
         }),
       ),
-      significance: z.enum(["High", "Medium", "Low"]),
+      // Models emit lowercase or arbitrary-case significance; normalize
+      // instead of failing the parse.
+      significance: z.string().transform((s) => (/^high/i.test(s) ? "High" : /^low/i.test(s) ? "Low" : "Medium")) as unknown as z.ZodType<"High" | "Medium" | "Low">,
     }),
   ),
   // Models sometimes emit {friction: string, why: string} objects here despite
@@ -164,165 +192,12 @@ export class VisionAnalysisAdapter {
         }
     }
 
-    private buildStreamOfConsciousnessSystemPrompt(
-        persona: Persona,
-        compartments: string,
-        personaAnchor: string,
-        ragContextString: string
-    ): string {
-        return `You are a persona evaluating a pricing page. Think aloud as this persona.
-
-${compartments}
-
-${ragContextString ? `<<RETRIEVED MEMORY>>\n${ragContextString}\n` : ""}
-
-<<ANALYSIS TASK>>
-You are looking at a pricing page. You have been provided with:
-1. A screenshot of the exact viewport containing the pricing.
-2. A verified factual summary of the page's HTML.
-
-<<VOICE AND AUDIENCE>>
-Write as the persona in FIRST PERSON. "I think...", "This concerns me...", "I'd want to see..."
-
-<<PERSONALITY BIAS APPLICATION>>
-Your personality profile drives how you evaluate. Apply it aggressively:
-- Your Neuroticism determines how many risks you flag and how severe.
-- Your Conscientiousness determines how much fine print you read.
-- Your Openness determines whether new features excite or concern you.
-- Your Extraversion determines whether you seek team validation.
-- Your Agreeableness determines whether you give benefit of doubt.
-These are WHO YOU ARE.
-
-<<OPENNESS PRIMING>>
-${personaAnchor} You're open to this. You're approaching this as someone who COULD genuinely use a tool like this. You're not looking for reasons to reject it — you're evaluating honestly, looking for what works and what doesn't. A skeptical but fair assessment.
-
-CALIBRATION — Your evaluation should be consistent with your own pricing sensitivity and typical budget.
-
-Write your raw, unfiltered stream of consciousness. Structure it using:
-[The Good] — What works well. Specific positive observations.
-[The Bad] — What doesn't work. Specific criticisms.
-[The Dealbreaker] — The single biggest reason you would NOT buy.
-
-Be blunt, honest, and natural. Be your persona. Write freely — no JSON, no formatting constraints.`;
-    }
-
-    private buildFormatterSystemPrompt(
-        persona: Persona,
-        compartments: string
-    ): string {
-        return `Extract the user stream-of-consciousness into a valid PricingAnalysis object matching the schema.
-
-${compartments}
-
-Formatting Rules:
-1. "gutReaction", "thoughts", "risks", "scores": Speak in FIRST PERSON ("I", "my") as the persona.
-2. "recommendations", "aiSuggestion": Write IMPERATIVE directives for the COMPANY starting with action verbs.
-3. "thoughts": Must format value as "[The Good] ... [The Bad] ... [The Dealbreaker] ...".
-4. "scores": Ensure intent funnel holds: explorationIntent >= analysisIntent >= buyIntent.`;
-    }
-
-    private buildSummarizerSystemPrompt(persona: Persona): string {
-        return `You are a summarizer. Given a persona's raw analysis of a pricing page, produce 3-5 concise bullet points.
-
-Each bullet should be one sentence, capturing the most important finding.
-Focus on: what the persona liked, what concerned them, and their overall recommendation.
-
-Write all bullets in English.
-
-Format: Return ONLY a JSON array of strings. No preamble. Example: ["Bullet 1", "Bullet 2", "Bullet 3"]`;
-    }
-
-    // ─── Persona pipeline (deprecated one-pass + Observer-Actor two-stage) ───
-
-    private buildArtifactAnalysisSystemPrompt(
-        persona: Persona,
-        compartments: string,
-        personaAnchor: string,
-        ragContextString: string,
-        businessGoal: string,
-        researchQuestion: string,
-    ): string {
-        return `You are a persona reacting to an artifact. Produce a structured PersonaResponse as this persona.
-
-${compartments}
-
-${ragContextString ? `<<RETRIEVED MEMORY>>\n${ragContextString}\n` : ""}
-
-<<ARTIFACT CONTEXT>>
-You are looking at a user experience — a page, a flow, or a design. You have been provided with:
-1. A screenshot of what a user sees on first load.
-2. A factual summary of the page's full content — including content that may be hidden behind interactions you cannot perform (expandable FAQs, dropdowns, menus, modals, pagination).
-
-Treat the summary as the page's full content: if it mentions something not visible in the screenshot, that content exists but is behind an interaction. If you cannot tell whether something is present (for example, whether an FAQ question has an answer), say you couldn't verify it — do not claim it is absent. Only react to details you can actually see or that appear in the summary; do not invent specifics.
-
-<<LANGUAGE>>
-Write everything in English, even if the artifact or the persona's background suggests another language.
-
-<<BUSINESS CONTEXT>>
-The creator of this artifact wants to accomplish: ${businessGoal}
-
-You are not here to evaluate design. You are here to react honestly as yourself.
-
-<<VOICE AND AUDIENCE>>
-ALL fields are in FIRST PERSON as the persona — the report IS the persona's experience. "I think...", "This concerns me...", "I'd want to see..."
-
-<<PERSONALITY GUIDE>>
-Your personality profile (Big Five, values, fears) is synthetic. It may contextualize your reactions but does not cause them. Describe what you observe and feel — do not explain behavior using personality labels.
-
-<<OPENNESS PRIMING>>
-${personaAnchor} You're open to this. A skeptical but fair assessment.
-
-Reason through your mental state, then output the complete PersonaResponse JSON with exactly 5 journey stages in this order:
-
-1. interpretation — What did I initially believe this product or page was?
-2. understanding — What became clear? What remained confusing?
-3. belief — Which claims, signals, or details increased or decreased trust?
-4. motivation — Did this become valuable enough for me to continue? Why or why not?
-5. action — What exact next step would I, this persona, take?
-
-The customerJourney array MUST have exactly one entry per stage, in this order. Do NOT repeat stages. Do NOT skip stages. Do NOT reorder them.
-
-RESEARCH QUESTION: ${researchQuestion}
-
-Your task is to output a valid structured JSON object matching the PersonaResponse schema.
-Do NOT produce any text outside the JSON object.`;
-    }
-
-    private buildPersonaResponseFormatterSystemPrompt(
-        persona: Persona,
-        compartments: string,
-        businessGoal: string,
-        researchQuestion: string,
-    ): string {
-        return `Extract the persona's raw reasoning into a structured PersonaResponse object.
-
-${compartments}
-
-Business Goal: ${businessGoal}
-Research Question: ${researchQuestion}
-
-CRITICAL RULES — Follow these exactly:
-
-1. ALL fields are in FIRST PERSON as the persona — the report IS the persona's experience.
-2. The customerJourney array MUST have exactly 5 entries, one per cognitive stage, IN THIS EXACT ORDER: interpretation, understanding, belief, motivation, action. Do NOT repeat stages. Do NOT skip stages. Do NOT put them out of order.
-3. For each stage: describe the persona's mental state — what they thought, felt, and believed at that stage. Do NOT describe what they saw chronologically.
-4. For each stage's outcome: use "succeeded" if the persona could fully process this stage and move forward; "blocked" if something specific stopped progression but the journey continued; "stopped" if they abandoned at this stage. The outcome must match the description content — if the persona found something confusing or couldn't progress, the outcome should NOT be "succeeded".
-5. For each stage's sentiment: use "positive" if the persona felt good/encouraged, "neutral" if ambivalent, "negative" if frustrated/concerned. Sentiment and outcome are independent — a persona can succeed at a stage with negative feelings, or stop with positive feelings.
-6. majorFindings: extract 2-4 specific observations. Each must have: observation (what happened), evidence (what the persona said or did), impact (why it matters). Do NOT include confidence — it is computed from agreement across personas. The evidence must be a direct quote or paraphrase of what the persona thought — do NOT reference any persona name.
-7. Do NOT use persona traits (Big Five, values, fears) as causal explanations. Persona attributes may contextualize behavior but cannot explain it. Do NOT reference the persona's own name or traits as evidence. The persona profile is synthetic; using it as causal evidence is circular.
-8. researchQuestionAnswer: describe what evidence was observed from THIS persona only, not what the company should do. Write in first person as the persona.
-9. overview: one paragraph capturing the single most important takeaway from THIS persona's experience.
-10. Do NOT use any persona name (neither this persona's name nor any other persona's name) anywhere in the output. The report is automatically associated with the correct persona by the system.
-11. Write ALL output in English. If the raw reasoning contains another language, translate it to English.
-
-Follow these rules strictly. Findings describe observed behavior, not inferred psychology.`;
-    }
 
     async generateVisceralMonologue(
         persona: Persona,
         context: ArtifactIntake,
         researchQuestion: string,
-        options: { tokenLimit?: number; runId?: string } = {},
+        options: { tokenLimit?: number; runId?: string; artifactName?: string } = {},
     ): Promise<{ text: string }> {
         const log = options.runId ? AnalysisLogger.forRun(options.runId) : null;
         const tokenLimit = options.tokenLimit ?? 2000;
@@ -332,13 +207,14 @@ Follow these rules strictly. Findings describe observed behavior, not inferred p
 
         log?.info("VisionAnalysisAdapter", `generateVisceralMonologue START for "${persona.name}"`, { tokenLimit });
 
-        const system = buildVisceralMonologueSystemPrompt(persona, researchQuestion);
+        const system = buildVisceralMonologueSystemPrompt(persona, researchQuestion, options.artifactName);
         // Screenshot ONLY. Deliberately not context.summary/pageHtml: the
         // actor must react to visual salience, not DOM-structure facts it
         // could never see in a first glance — over-informed personas
         // rationalize instead of reacting.
         const streamStart = Date.now();
-        const prompt = `Experience this artifact. Think aloud as ${persona.name}.`;
+        const brand = options.artifactName ? `The site you're on is called "${options.artifactName}" — use that spelling.` : "";
+        const prompt = `Experience this artifact. Think aloud as ${persona.name}.${brand ? " " + brand : ""}`;
 
         let lastError: Error | null = null;
 
@@ -399,7 +275,7 @@ Follow these rules strictly. Findings describe observed behavior, not inferred p
         persona: Persona,
         monologueText: string,
         researchQuestion: string,
-        options: { tokenLimit?: number; runId?: string } = {},
+        options: { tokenLimit?: number; runId?: string; artifactName?: string } = {},
     ): Promise<PersonaResponse> {
         const log = options.runId ? AnalysisLogger.forRun(options.runId) : null;
         const tokenLimit = options.tokenLimit ?? 2000;
@@ -413,7 +289,7 @@ Follow these rules strictly. Findings describe observed behavior, not inferred p
 
         // Text model, no image: the anthropologist must ground every claim in
         // the transcript, not re-interpret the screenshot.
-        const system = buildPersonaExtractionSystemPrompt(persona, monologueText, researchQuestion);
+        const system = buildPersonaExtractionSystemPrompt(persona, monologueText, researchQuestion, options.artifactName);
         const prompt = `Analyze the think-aloud transcript above and return the structured PersonaResponse JSON.`;
 
         let responseObj: unknown = null;

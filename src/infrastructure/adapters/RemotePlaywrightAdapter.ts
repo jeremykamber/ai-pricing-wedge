@@ -160,6 +160,7 @@ export class RemotePlaywrightAdapter implements BrowserServicePort {
         if (!this.page) throw new Error("Browser not initialized. Call navigateTo first.");
         console.log(`[BrowserAdapter] Capturing viewport screenshot...`);
         const captureStart = Date.now();
+        await this.freezePageMotion(this.page);
         const buffer = await this.page.screenshot({
             fullPage: false,
             type: "jpeg",
@@ -315,6 +316,27 @@ export class RemotePlaywrightAdapter implements BrowserServicePort {
         await page.locator(loaderSelector).first().waitFor({ state: "hidden", timeout: 1500 }).catch(() => { });
 
         await page.waitForTimeout(250);
+        await this.freezePageMotion(page);
+    }
+
+    /**
+     * Freezes CSS animations/transitions before a screenshot: a capture taken
+     * mid-animation slices text containers, and the vision model then
+     * penalizes the site for "truncated copy" that is really a capture
+     * artifact. Idempotent — safe to call from both waitPageCompletely and
+     * captureViewport.
+     */
+    private async freezePageMotion(page: Page): Promise<void> {
+        await page.addStyleTag({ content: `
+            *, *::before, *::after {
+                animation-duration: 0.01ms !important;
+                animation-iteration-count: 1 !important;
+                transition-duration: 0.01ms !important;
+                scroll-behavior: auto !important;
+            }
+        ` }).catch(() => { });
+        await page.evaluate(() => new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())))).catch(() => { });
+        await page.waitForTimeout(150);
     }
 
     private async waitForDomStability(

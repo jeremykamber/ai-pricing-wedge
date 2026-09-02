@@ -79,13 +79,15 @@ describe('buildPersonaExtractionSystemPrompt (System 2 — Anthropologist)', () 
     expect(prompt).toContain('"""ugh this pricing table is a maze"""')
   })
 
-  it('enforces third person, no fabricated progress, and all five canonical stages', () => {
-    const prompt = buildPersonaExtractionSystemPrompt(makePersona(), 'monologue', 'rq')
+  it('enforces third person, the blocked-stage state machine, canonical stage order, complete-sentence quotes, and first-person user questions', () => {
+    const prompt = buildPersonaExtractionSystemPrompt(makePersona(), 'monologue', 'rq', 'Jobright')
     expect(prompt).toContain('Write strictly in the THIRD PERSON')
-    expect(prompt).toContain('DO NOT fabricate steps')
-    expect(prompt).toContain('"blocked" or "stopped"')
-    expect(prompt).toContain('Ground every statement entirely in the transcript')
+    expect(prompt).toContain('every LATER stage is "not reached"')
+    expect(prompt).toContain('"Not reached — abandoned at <earlier stage>."')
     expect(prompt).toContain('(interpretation, understanding, belief, motivation, action)')
+    expect(prompt).toContain('COMPLETE sentences copied from the transcript')
+    expect(prompt).toContain('questions THE USER was left asking')
+    expect(prompt).toContain('named "Jobright"')
   })
 })
 

@@ -21,6 +21,24 @@ export interface AnalysisProgress {
   title?: string;
 }
 
+/**
+ * Canonical artifact brand name for the models: the hostname with "www."
+ * stripped and the TLD dropped ("https://jobright.ai/x" -> "Jobright").
+ * Injected into prompts so personas and extraction never misspell the
+ * product they're evaluating ("Jobbright" hallucinations). Returns null for
+ * screenshot-only inputs — prompts simply omit the brand line then.
+ */
+export function artifactNameFrom(url: string | undefined): string | null {
+  if (!url) return null;
+  try {
+    const host = new URL(url).hostname.replace(/^www\./, "");
+    const base = host.split(".")[0];
+    return base ? base.charAt(0).toUpperCase() + base.slice(1) : null;
+  } catch {
+    return null;
+  }
+}
+
 export class AnalyzeArtifactUseCase {
   constructor(
     private readonly intakeAdapter: ArtifactIntakeAdapter,
@@ -144,7 +162,7 @@ export class AnalyzeArtifactUseCase {
               persona,
               intake,
               researchQuestion,
-              { tokenLimit, runId },
+              { tokenLimit, runId, artifactName: artifactNameFrom(intake.url) ?? undefined },
             );
             const streamDuration = Date.now() - streamStart;
             log.info("AnalyzeArtifactUseCase", `${personaLog} Visceral monologue completed`, {
@@ -158,7 +176,7 @@ export class AnalyzeArtifactUseCase {
               persona,
               monologue.text,
               researchQuestion,
-              { tokenLimit, runId },
+              { tokenLimit, runId, artifactName: artifactNameFrom(intake.url) ?? undefined },
             );
 
             const pipelineDuration = Date.now() - pipelineStart;
@@ -178,12 +196,6 @@ export class AnalyzeArtifactUseCase {
               durationMs: personaDuration,
             });
 
-            onProgress?.({
-              step: "ANALYZING",
-              personaName: persona.name,
-              totalCount,
-              completedCount: finishedCount,
-            });
 
             // Assemble full response with metadata
             const fullResponse: PersonaResponse = {
@@ -215,10 +227,11 @@ export class AnalyzeArtifactUseCase {
             };
 
             if (!validatePersonaResponse(fullResponse)) {
-              log.warn("AnalyzeArtifactUseCase", `${personaLog} Validation failed — response may have missing fields`, {
+              log.warn("AnalyzeArtifactUseCase", `${personaLog} Validation failed — normalizing journey outcomes`, {
                 hasOverview: !!fullResponse.overview,
                 stagesCount: fullResponse.customerJourney.length,
               });
+              fullResponse.customerJourney = normalizeJourneyOutcomes(fullResponse.customerJourney);
             }
 
             return fullResponse;
@@ -275,4 +288,29 @@ export class AnalyzeArtifactUseCase {
 
     return responses;
   }
+}
+
+/**
+ * Enforces the journey state machine in code: once a stage blocked or
+ * stopped the user, every later stage is "not reached" — outcome "stopped",
+ * neutral sentiment, and a description naming the abandonment point instead
+ * of the model re-describing what the stage would have been about. Stages
+ * before the first block are untouched, and a run that reached the end
+ * passes through unchanged.
+ */
+function normalizeJourneyOutcomes(
+  journey: PersonaResponse["customerJourney"],
+): PersonaResponse["customerJourney"] {
+  const blockedIndex = journey.findIndex((s) => s.outcome === "blocked" || s.outcome === "stopped");
+  if (blockedIndex === -1 || blockedIndex === journey.length - 1) return journey;
+  const abandonAt = journey[blockedIndex].stage;
+  return journey.map((stage, i) => {
+    if (i <= blockedIndex) return stage;
+    return {
+      ...stage,
+      outcome: "stopped" as const,
+      sentiment: "neutral" as const,
+      description: `Not reached — abandoned at ${abandonAt}.`,
+    };
+  });
 }
