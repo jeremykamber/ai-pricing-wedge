@@ -6,7 +6,7 @@ import { usePersonaStore } from '@/ui/stores/personaStore'
 import { useAnalysisFlow } from '@/ui/hooks/useAnalysisFlow'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { ClockIcon, GlobeIcon, UsersIcon, CheckCircleIcon, XCircleIcon, AlertCircleIcon, XIcon, PlusIcon, UploadIcon, ImageIcon, LinkIcon, TargetIcon, HelpCircleIcon } from 'lucide-react'
+import { ClockIcon, GlobeIcon, UsersIcon, CheckCircleIcon, XCircleIcon, AlertCircleIcon, XIcon, PlusIcon, UploadIcon, ImageIcon, LinkIcon, TargetIcon, HelpCircleIcon, FlaskConicalIcon } from 'lucide-react'
 import { Persona } from '@/domain/entities/Persona'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
@@ -126,12 +126,20 @@ function AnalysisCard({ analysis }: { analysis: import('@/domain/entities/Artifa
   )
 }
 
+/** One-click smoke-test preset: verified URL + coherent goal/question. */
+export const TEST_ANALYSIS_PRESET = {
+  url: 'https://jobright.ai',
+  businessGoal: 'Convince hiring managers and small business owners to sign up for the free AI recruiting assistant.',
+  researchQuestion: 'Why doesn\'t the user get the free version?',
+} as const
+
 function NewAnalysisForm({ onRun }: { onRun: (url: string, personas: Persona[], imageBase64?: string, businessGoal?: string, researchQuestion?: string, batchId?: string) => void }) {
   const batches = usePersonaStore((s) => s.batches)
   const [selectedBatchId, setSelectedBatchId] = useState<string>('')
   const [url, setUrl] = useState('')
   const [businessGoal, setBusinessGoal] = useState('')
   const [researchQuestion, setResearchQuestion] = useState('')
+  const [inputMode, setInputMode] = useState<'url' | 'screenshot'>('url')
 
   // Sync selected batch when batches hydrate or change
   useEffect(() => {
@@ -139,10 +147,23 @@ function NewAnalysisForm({ onRun }: { onRun: (url: string, personas: Persona[], 
       setSelectedBatchId(batches[0].id) // eslint-disable-line react-hooks/set-state-in-effect
     }
   }, [batches, selectedBatchId])
-
   const selectedBatch = batches.find((b) => b.id === selectedBatchId)
 
-  const [inputMode, setInputMode] = useState<'url' | 'screenshot'>('url')
+  // One-click smoke test: fill the form with the verified preset, then run
+  // immediately if a batch is already selected. Without a batch the prefill
+  // still lands and the user just picks one and presses Run.
+  const prefillTestAnalysis = () => {
+    setUrl(TEST_ANALYSIS_PRESET.url)
+    setBusinessGoal(TEST_ANALYSIS_PRESET.businessGoal)
+    setResearchQuestion(TEST_ANALYSIS_PRESET.researchQuestion)
+    setInputMode('url')
+    const batch = batches.find((b) => b.id === selectedBatchId) ?? batches[0]
+    if (batch) {
+      setSelectedBatchId(batch.id)
+      onRun(TEST_ANALYSIS_PRESET.url, batch.personas, undefined, TEST_ANALYSIS_PRESET.businessGoal, TEST_ANALYSIS_PRESET.researchQuestion, batch.id)
+    }
+  }
+
   const [screenshotFile, setScreenshotFile] = useState<File | null>(null)
   const [screenshotPreview, setScreenshotPreview] = useState<string | null>(null)
   const [imageBase64, setImageBase64] = useState<string | null>(null)
@@ -240,20 +261,33 @@ function NewAnalysisForm({ onRun }: { onRun: (url: string, personas: Persona[], 
   return (
     <Card>
       <CardContent className="flex flex-col gap-4">
-        <div className="flex flex-col gap-2">
-          <label htmlFor="batch-select" className="text-sm font-medium">Persona Batch</label>
-          <Select value={selectedBatchId} onValueChange={setSelectedBatchId}>
-            <SelectTrigger id="batch-select">
-              <SelectValue placeholder="Select a batch" />
-            </SelectTrigger>
-            <SelectContent>
-              {batches.map((batch) => (
-                <SelectItem key={batch.id} value={batch.id}>
-                  {batch.label} — {batch.personas.length} personas
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex flex-col gap-2 flex-1">
+            <label htmlFor="batch-select" className="text-sm font-medium">Persona Batch</label>
+            <Select value={selectedBatchId} onValueChange={setSelectedBatchId}>
+              <SelectTrigger id="batch-select">
+                <SelectValue placeholder="Select a batch" />
+              </SelectTrigger>
+              <SelectContent>
+                {batches.map((batch) => (
+                  <SelectItem key={batch.id} value={batch.id}>
+                    {batch.label} — {batch.personas.length} personas
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="mt-7 shrink-0"
+            onClick={prefillTestAnalysis}
+            title={`Prefills ${TEST_ANALYSIS_PRESET.url} with a matching goal and research question, then starts the run`}
+          >
+            <FlaskConicalIcon data-icon="inline-start" />
+            Run test analysis
+          </Button>
         </div>
         {/* ── Input mode toggle ──────────────────────────────────── */}
         <div className="flex flex-col gap-2">
