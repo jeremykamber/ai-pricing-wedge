@@ -9,14 +9,10 @@ class MockLlmService {
       { name: 'X', age: 25 },
       { name: 'Y', age: 30 },
       { name: 'Z', age: 35 },
+      { name: 'W', age: 40 },
+      { name: 'V', age: 45 },
     ];
-    return {
-      choices: [
-        {
-          message: { content: JSON.stringify(personas) },
-        },
-      ],
-    };
+    return JSON.stringify(personas);
   }
 }
 

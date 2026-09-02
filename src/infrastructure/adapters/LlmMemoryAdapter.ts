@@ -21,7 +21,7 @@ export class LlmMemoryAdapter implements IMemoryServicePort {
    */
   static createFromEnv(): LlmMemoryAdapter {
     const baseURL = process.env.OPENROUTER_BASE_URL || "https://openrouter.ai/api/v1";
-    const model = process.env.OPENROUTER_MODEL || "google/gemma-3-27b-it:free";
+    const model = process.env.OPENROUTER_MODEL || "deepseek/deepseek-v4-flash";
     const apiKey = process.env.OPENROUTER_API_KEY;
 
     if (!apiKey) {

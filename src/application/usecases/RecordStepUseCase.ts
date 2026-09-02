@@ -6,7 +6,7 @@ import { IMemoryServicePort } from "@/domain/ports/IMemoryServicePort";
  * RecordStepUseCase
  * 
  * Appends a step to the testing session and periodically updates the short-term memory
- * to prevent context overflow in long-running simulations.
+ * to prevent context overflow in long-running analyses.
  */
 export class RecordStepUseCase {
   constructor(private readonly memoryService: IMemoryServicePort) { }

@@ -1,0 +1,143 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-05-24T00:00:00.000Z",
+  "title": "Design System: Kynd — The Instrument Panel",
+  "extensions": {
+    "colorMeta": {
+      "background": { "role": "neutral", "displayName": "Instrument Charcoal", "canonical": "oklch(0.12 0.01 265)", "tonalRamp": ["oklch(0.08 0.01 265)", "oklch(0.10 0.01 265)", "oklch(0.12 0.01 265)", "oklch(0.14 0.01 265)", "oklch(0.16 0.01 265)", "oklch(0.18 0.01 265)", "oklch(0.20 0.01 265)", "oklch(0.25 0.01 265)"] },
+      "card": { "role": "neutral", "displayName": "Panel Surface", "canonical": "oklch(0.14 0.01 265)", "tonalRamp": ["oklch(0.10 0.01 265)", "oklch(0.12 0.01 265)", "oklch(0.14 0.01 265)", "oklch(0.16 0.01 265)", "oklch(0.18 0.01 265)", "oklch(0.20 0.01 265)", "oklch(0.22 0.01 265)", "oklch(0.25 0.01 265)"] },
+      "primary": { "role": "primary", "displayName": "Signal Indigo", "canonical": "oklch(0.55 0.18 270)", "tonalRamp": ["oklch(0.25 0.18 270)", "oklch(0.35 0.18 270)", "oklch(0.45 0.18 270)", "oklch(0.55 0.18 270)", "oklch(0.60 0.15 270)", "oklch(0.70 0.12 270)", "oklch(0.80 0.08 270)", "oklch(0.90 0.04 270)"] },
+      "border": { "role": "neutral", "displayName": "Panel Edge", "canonical": "oklch(0.2 0.01 265)", "tonalRamp": ["oklch(0.12 0.01 265)", "oklch(0.16 0.01 265)", "oklch(0.20 0.01 265)", "oklch(0.25 0.01 265)", "oklch(0.30 0.01 265)", "oklch(0.40 0.01 265)", "oklch(0.50 0.01 265)", "oklch(0.60 0.01 265)"] },
+      "muted-foreground": { "role": "neutral", "displayName": "Instrument Grey", "canonical": "oklch(0.52 0.01 265)", "tonalRamp": ["oklch(0.30 0.01 265)", "oklch(0.40 0.01 265)", "oklch(0.52 0.01 265)", "oklch(0.60 0.01 265)", "oklch(0.70 0.01 265)", "oklch(0.80 0 0)", "oklch(0.90 0 0)", "oklch(0.95 0 0)"] },
+      "destructive": { "role": "tertiary", "displayName": "Alert Red", "canonical": "oklch(0.58 0.2 28)", "tonalRamp": ["oklch(0.30 0.2 28)", "oklch(0.40 0.2 28)", "oklch(0.50 0.2 28)", "oklch(0.58 0.2 28)", "oklch(0.65 0.15 28)", "oklch(0.75 0.12 28)", "oklch(0.85 0.08 28)", "oklch(0.95 0.04 28)"] }
+    },
+    "typographyMeta": {
+      "display": { "displayName": "Display", "purpose": "Hero headlines and marketing landing titles only. Never used inside the app." },
+      "headline": { "displayName": "Headline", "purpose": "Section headers, page titles, modal headers." },
+      "title": { "displayName": "Title", "purpose": "Card titles, persona names, feature headings." },
+      "body": { "displayName": "Body", "purpose": "Primary reading text. Capped at 70ch." },
+      "label": { "displayName": "Label", "purpose": "Data labels, metric names, badge text. Always Geist Mono, uppercase." },
+      "mono": { "displayName": "Mono", "purpose": "Code snippets, numeric data, chat messages." }
+    },
+    "shadows": [
+      { "name": "focus-glow", "value": "0 0 0 2px oklch(0.55 0.18 270 / 0.2)", "purpose": "Focus indicator on interactive elements only." }
+    ],
+    "motion": [
+      { "name": "ease-snappy", "value": "cubic-bezier(0.16, 1, 0.3, 1)", "purpose": "Default easing for all state transitions. Snappy, no bounce, no drift." },
+      { "name": "duration-hover", "value": "150ms", "purpose": "Hover and focus state transitions." },
+      { "name": "duration-modal", "value": "200ms", "purpose": "Modal enter/exit transitions." }
+    ],
+    "breakpoints": [
+      { "name": "sm", "value": "640px" },
+      { "name": "md", "value": "768px" },
+      { "name": "lg", "value": "1024px" },
+      { "name": "xl", "value": "1280px" }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "Primary action button. Signal Indigo fill, used for the single most important action on screen.",
+      "html": "<button class=\"ds-btn-primary\">Generate Persona</button>",
+      "css": ".ds-btn-primary { background: oklch(0.55 0.18 270); color: oklch(0.98 0 0); font-family: Geist, system-ui, sans-serif; font-size: 0.9375rem; font-weight: 500; line-height: 1; padding: 12px 24px; border: none; border-radius: 6px; cursor: pointer; transition: background 150ms cubic-bezier(0.16, 1, 0.3, 1); } .ds-btn-primary:hover { background: oklch(0.5 0.18 270); } .ds-btn-primary:focus-visible { outline: none; box-shadow: 0 0 0 2px oklch(0.55 0.18 270 / 0.3); }"
+    },
+    {
+      "name": "Secondary Button",
+      "kind": "button",
+      "refersTo": "button-secondary",
+      "description": "Secondary action button. Outlined with Panel Edge border.",
+      "html": "<button class=\"ds-btn-secondary\">Cancel</button>",
+      "css": ".ds-btn-secondary { background: transparent; color: oklch(0.95 0 0); font-family: Geist, system-ui, sans-serif; font-size: 0.9375rem; font-weight: 500; line-height: 1; padding: 12px 24px; border: 1px solid oklch(0.2 0.01 265); border-radius: 6px; cursor: pointer; transition: background 150ms cubic-bezier(0.16, 1, 0.3, 1); } .ds-btn-secondary:hover { background: oklch(0.16 0.01 265); } .ds-btn-secondary:focus-visible { outline: none; border-color: oklch(0.55 0.18 270); box-shadow: 0 0 0 2px oklch(0.55 0.18 270 / 0.15); }"
+    },
+    {
+      "name": "Ghost Button",
+      "kind": "button",
+      "refersTo": "button-ghost",
+      "description": "Ghost button for low-importance actions within cards and panels.",
+      "html": "<button class=\"ds-btn-ghost\">Edit</button>",
+      "css": ".ds-btn-ghost { background: transparent; color: oklch(0.52 0.01 265); font-family: Geist, system-ui, sans-serif; font-size: 0.9375rem; font-weight: 500; line-height: 1; padding: 8px 16px; border: none; border-radius: 6px; cursor: pointer; transition: color 150ms cubic-bezier(0.16, 1, 0.3, 1), background 150ms cubic-bezier(0.16, 1, 0.3, 1); } .ds-btn-ghost:hover { color: oklch(0.95 0 0); background: oklch(0.14 0.01 265); } .ds-btn-ghost:focus-visible { outline: none; box-shadow: 0 0 0 2px oklch(0.55 0.18 270 / 0.2); }"
+    },
+    {
+      "name": "Card Container",
+      "kind": "card",
+      "refersTo": "card-default",
+      "description": "Standard data container. Flat surface with tonal separation and a thin border.",
+      "html": "<div class=\"ds-card\"><div class=\"ds-card-header\"><h3 class=\"ds-card-title\">Persona Analysis</h3><span class=\"ds-badge\">Complete</span></div><p class=\"ds-card-body\">Behavioral profile for target persona segment across 12 dimensions.</p></div>",
+      "css": ".ds-card { background: oklch(0.14 0.01 265); border: 1px solid oklch(0.2 0.01 265); border-radius: 8px; padding: 24px; display: flex; flex-direction: column; gap: 12px; } .ds-card-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; } .ds-card-title { font-family: Geist, system-ui, sans-serif; font-size: 1.125rem; font-weight: 500; line-height: 1.4; letter-spacing: -0.01em; color: oklch(0.95 0 0); margin: 0; } .ds-card-body { font-family: Geist, system-ui, sans-serif; font-size: 0.9375rem; font-weight: 400; line-height: 1.6; color: oklch(0.52 0.01 265); margin: 0; } .ds-badge { font-family: 'Geist Mono', ui-monospace, monospace; font-size: 0.6875rem; font-weight: 500; letter-spacing: 0.08em; text-transform: uppercase; line-height: 1; color: oklch(0.55 0.18 270); background: oklch(0.18 0.01 265); padding: 4px 10px; border-radius: 4px; }"
+    },
+    {
+      "name": "Text Input",
+      "kind": "input",
+      "refersTo": "input-default",
+      "description": "Default text input field. Transparent with thin border. Focus state uses Signal Indigo border and subtle glow.",
+      "html": "<input class=\"ds-input\" type=\"text\" placeholder=\"Enter target audience description...\" />",
+      "css": ".ds-input { background: transparent; color: oklch(0.95 0 0); font-family: Geist, system-ui, sans-serif; font-size: 0.9375rem; font-weight: 400; line-height: 1.5; padding: 10px 14px; border: 1px solid oklch(0.2 0.01 265); border-radius: 6px; outline: none; width: 320px; transition: border-color 150ms cubic-bezier(0.16, 1, 0.3, 1), box-shadow 150ms cubic-bezier(0.16, 1, 0.3, 1); } .ds-input::placeholder { color: oklch(0.40 0.01 265); } .ds-input:focus { border-color: oklch(0.55 0.18 270); box-shadow: 0 0 0 2px oklch(0.55 0.18 270 / 0.15); } .ds-input:disabled { opacity: 0.4; cursor: not-allowed; }"
+    },
+    {
+      "name": "Sidebar Navigation Item",
+      "kind": "nav",
+      "refersTo": "sidebar-item",
+      "description": "Navigation item in the sidebar. Ghost-style with active state.",
+      "html": "<nav class=\"ds-sidebar\"><a class=\"ds-nav-item ds-nav-item-active\" href=\"#\"><svg width=\"18\" height=\"18\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><rect x=\"3\" y=\"3\" width=\"7\" height=\"7\"/><rect x=\"14\" y=\"3\" width=\"7\" height=\"7\"/><rect x=\"3\" y=\"14\" width=\"7\" height=\"7\"/><rect x=\"14\" y=\"14\" width=\"7\" height=\"7\"/></svg><span>Dashboard</span></a><a class=\"ds-nav-item\" href=\"#\"><svg width=\"18\" height=\"18\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2\"/><circle cx=\"9\" cy=\"7\" r=\"4\"/><path d=\"M23 21v-2a4 4 0 0 0-3-3.87\"/><path d=\"M16 3.13a4 4 0 0 1 0 7.75\"/></svg><span>Personas</span></a></nav>",
+      "css": ".ds-sidebar { background: oklch(0.1 0.01 265); width: 240px; padding: 12px 8px; display: flex; flex-direction: column; gap: 2px; } .ds-nav-item { display: flex; align-items: center; gap: 10px; padding: 8px 12px; border-radius: 6px; color: oklch(0.52 0.01 265); font-family: Geist, system-ui, sans-serif; font-size: 0.9375rem; font-weight: 400; text-decoration: none; transition: color 150ms cubic-bezier(0.16, 1, 0.3, 1), background 150ms cubic-bezier(0.16, 1, 0.3, 1); } .ds-nav-item:hover { background: oklch(0.14 0.01 265); color: oklch(0.95 0 0); } .ds-nav-item-active { background: oklch(0.14 0.01 265); color: oklch(0.95 0 0); } .ds-nav-item svg { flex-shrink: 0; }"
+    },
+    {
+      "name": "Chip / Badge",
+      "kind": "chip",
+      "refersTo": "chip-default",
+      "description": "Status badge and metadata chip. Geist Mono, uppercase, compact.",
+      "html": "<div style=\"display: flex; gap: 8px; align-items: center;\"><span class=\"ds-chip\">Skeptical</span><span class=\"ds-chip ds-chip-active\">Analytical</span><span class=\"ds-chip ds-chip-danger\">Critical</span></div>",
+      "css": ".ds-chip { font-family: 'Geist Mono', ui-monospace, monospace; font-size: 0.6875rem; font-weight: 500; letter-spacing: 0.08em; text-transform: uppercase; line-height: 1; color: oklch(0.52 0.01 265); background: oklch(0.18 0.01 265); padding: 4px 10px; border-radius: 4px; display: inline-block; } .ds-chip-active { color: oklch(0.55 0.18 270); } .ds-chip-danger { color: oklch(0.58 0.2 28); }"
+    },
+    {
+      "name": "Psychometric Progress Bar",
+      "kind": "custom",
+      "refersTo": "progress-bar",
+      "description": "Friction Bar for psychometric scoring. Thin track with Signal Indigo fill and semantic labels.",
+      "html": "<div class=\"ds-progress-group\"><span class=\"ds-progress-label\">Intuitive</span><div class=\"ds-progress-track\"><div class=\"ds-progress-fill\" style=\"width: 68%;\"></div></div><span class=\"ds-progress-label\">Analytical</span></div>",
+      "css": ".ds-progress-group { display: flex; align-items: center; gap: 12px; width: 100%; } .ds-progress-label { font-family: 'Geist Mono', ui-monospace, monospace; font-size: 0.6875rem; font-weight: 500; letter-spacing: 0.08em; text-transform: uppercase; line-height: 1; color: oklch(0.52 0.01 265); white-space: nowrap; } .ds-progress-track { flex: 1; height: 6px; background: oklch(0.18 0.01 265); border-radius: 999px; overflow: hidden; } .ds-progress-fill { height: 100%; background: oklch(0.55 0.18 270); border-radius: 999px; transition: width 300ms cubic-bezier(0.16, 1, 0.3, 1); }"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Instrument Panel",
+    "overview": "Kynd is a precise research instrument, not a dashboard. Like the cockpit of a high-end microscope or the control surface of a recording console, every element exists because it serves a function. The interface is a clear lens between the user and the behavioral data — when it works well, the user forgets it's there. Personality: Sharp, confident, minimal. The visual system takes cues from Notion's editorial clarity, Arc's spatial conviction, and Raycast's keyboard-first precision. Warmth comes from craft, not from ornamentation. This system explicitly rejects the Generic AI SaaS aesthetic — no gradient heroes, no glass-morphism cards, no hero-metric template, no decorative blur as default surface treatment. Color is rare and purposeful. Surfaces are flat. Motion is mechanical, not playful.",
+    "keyCharacteristics": [
+      "Dark mode primary, light mode secondary — the instrument lives in dim rooms at late hours",
+      "One accent color (indigo-violet) used on ≤10% of any screen; its rarity is the point",
+      "Flat surfaces with crisp, thin borders — no shadows at rest",
+      "Snappy, mechanical motion — 150ms transitions, expo easing, zero bounce",
+      "Typographic hierarchy driven by weight and scale contrast, not color"
+    ],
+    "rules": [
+      { "name": "The Rarity Rule", "body": "The accent (Signal Indigo) occupies no more than 10% of any given screen. Its scarcity is what gives it power. If a screen feels colorful, the rule is broken.", "section": "colors" },
+      { "name": "The No-Black Rule", "body": "Never use #000 or rgb(0,0,0). Every dark surface has chromatic temperature. Charcoal carries a faint blue tilt because indigo is the brand hue, not because 'dark mode = desaturated black.'", "section": "colors" },
+      { "name": "The Flat-Edge Rule", "body": "Borders are thin (1px) and present. They separate surfaces so shadows don't have to. If a border is doing its job, a shadow isn't needed.", "section": "colors" },
+      { "name": "The Mono-Data Rule", "body": "All quantitative data — scores, metrics, timestamps, tokens — renders in Geist Mono with font-variant-numeric: tabular-nums. Numbers must align in tables and lists.", "section": "typography" },
+      { "name": "The Single-Family Rule", "body": "No mixing display fonts with body fonts. Geist Sans carries everything. Hierarchy comes from weight, size, and the Sans-vs-Mono switch, not from font changes.", "section": "typography" },
+      { "name": "The No-Shadow Rule", "body": "No box-shadow at rest. Shadows are prohibited as a layout tool. The only exception is interactive hover states on primary actions.", "section": "elevation" }
+    ],
+    "dos": [
+      "Do let surfaces separate by lightness alone — one OKLCH step between background, card, and raised surface is enough.",
+      "Do use Signal Indigo sparingly: one element per viewport at most.",
+      "Do render all numeric data in Geist Mono with font-variant-numeric: tabular-nums.",
+      "Do use borders (thin, 1px, Panel Edge) to define surface boundaries.",
+      "Do keep transitions at 150ms with cubic-bezier(0.16, 1, 0.3, 1).",
+      "Do use backdrop dim (rgba(0,0,0,0.4)) as the only elevation cue for modals."
+    ],
+    "donts": [
+      "Don't use box-shadows to convey depth.",
+      "Don't use gradient text (background-clip: text with a gradient) anywhere.",
+      "Don't use side-stripe borders (border-left >1px as an accent on cards or list items).",
+      "Don't use glassmorphism (backdrop blur + semi-transparency) as a default surface treatment.",
+      "Don't use pill-shaped buttons. Radius stays at 6px for interactive elements.",
+      "Don't use bounce easing or elastic transitions.",
+      "Don't use the hero-metric template (big number, small label, gradient, supporting stats).",
+      "Don't use identical card grids where every card has the same icon + heading + text structure.",
+      "Don't reach for a modal as the first interaction pattern.",
+      "Don't use color as the sole differentiator for any state or action.",
+      "Don't reference the old design system. This document supersedes all prior visual guidance."
+    ]
+  }
+}

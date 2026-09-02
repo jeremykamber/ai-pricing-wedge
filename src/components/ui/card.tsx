@@ -9,10 +9,10 @@ const cardVariants = cva(
   {
     variants: {
       variant: {
-        default: "bg-card text-card-foreground border-2 border-white/10 py-4 shadow-sm",
-        premium: "bg-card/10 text-card-foreground border-2 border-white/10 backdrop-blur-sm shadow-2xl rounded-xl py-8",
-        glass: "bg-white/[0.02] border-2 border-white/10 backdrop-blur-md rounded-xl py-6",
-        outline: "bg-transparent border-2 border-white/10 hover:bg-white/[0.02] transition-colors",
+        default: "bg-card text-card-foreground border border-border py-4",
+        premium: "bg-card/10 text-card-foreground border border-border rounded-lg py-8",
+        glass: "bg-muted/20 border border-border/60 backdrop-blur-md rounded-lg py-6",
+        outline: "bg-transparent border border-border/60 hover:bg-muted/20 transition-colors",
       },
     },
     defaultVariants: {

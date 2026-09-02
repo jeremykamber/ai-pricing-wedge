@@ -1,4 +1,4 @@
-import { GazePoint } from "../entities/PricingAnalysis";
+import { GazePoint } from "../entities/GazePoint";
 import { Persona } from "../entities/Persona";
 
 export interface IGazePredictionPort {

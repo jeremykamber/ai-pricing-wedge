@@ -1,6 +1,6 @@
 import OpenAI from "openai";
 import { Persona, stringifyPersona } from "@/domain/entities/Persona";
-import { GazePoint } from "@/domain/entities/PricingAnalysis";
+import { GazePoint } from "@/domain/entities/GazePoint";
 import { IGazePredictionPort } from "@/domain/ports/IGazePredictionPort";
 import { stripCodeFence } from "./llmUtils";
 
@@ -11,7 +11,7 @@ export class GazePredictionAdapter implements IGazePredictionPort {
   constructor() {
     const provider = "openrouter";
     const baseURL = process.env.OPENROUTER_BASE_URL || "https://openrouter.ai/api/v1";
-    const model = process.env.OPENROUTER_MODEL || "google/gemini-flash-1.5"; // Vision capable model
+    const model = process.env.OPENROUTER_MODEL || "deepseek/deepseek-v4-flash"; // Vision capable model
     const apiKey = process.env.OPENROUTER_API_KEY || process.env.OPENAI_API_KEY;
 
     if (!apiKey) {

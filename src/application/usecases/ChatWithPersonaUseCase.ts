@@ -1,5 +1,5 @@
 import { Persona } from "@/domain/entities/Persona";
-import { PricingAnalysis } from "@/domain/entities/PricingAnalysis";
+import { ChatAnalysisContext } from "@/domain/ports/LlmServicePort";
 import { LlmServicePort } from "@/domain/ports/LlmServicePort";
 
 export class ChatWithPersonaUseCase {
@@ -7,7 +7,7 @@ export class ChatWithPersonaUseCase {
 
   async execute(
     persona: Persona,
-    analysis: PricingAnalysis | null,
+    analysis: ChatAnalysisContext,
     message: string,
     history: { role: 'user' | 'assistant', content: string }[]
   ): Promise<string> {
@@ -16,7 +16,7 @@ export class ChatWithPersonaUseCase {
 
   executeStream(
     persona: Persona,
-    analysis: PricingAnalysis | null,
+    analysis: ChatAnalysisContext,
     message: string,
     history: { role: 'user' | 'assistant', content: string }[]
   ): AsyncIterable<string> {

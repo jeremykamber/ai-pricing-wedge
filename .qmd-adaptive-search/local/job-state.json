@@ -1,0 +1,350 @@
+{
+  "currentJob": null,
+  "pendingJobs": [],
+  "failedJobs": [],
+  "recentJobs": [
+    {
+      "id": "2aa3bfdb-d579-4d5a-81ae-83b65291f09d",
+      "type": "qmd-search",
+      "status": "completed",
+      "startedAt": "2026-08-16T09:52:39.038Z",
+      "input": {
+        "mode": "precision",
+        "maxResults": 10,
+        "scopeHints": []
+      },
+      "qmd": {
+        "available": true,
+        "command": [
+          "qmd"
+        ],
+        "method": "search"
+      },
+      "result": {
+        "ok": true,
+        "resultCount": 2,
+        "usedFallback": false
+      },
+      "error": null,
+      "recoveryHint": null,
+      "finishedAt": "2026-08-16T09:52:39.335Z"
+    },
+    {
+      "id": "89be0e57-ad3e-4365-ae1c-42a680800343",
+      "type": "qmd-search",
+      "status": "completed",
+      "startedAt": "2026-08-16T09:52:38.512Z",
+      "input": {
+        "mode": "precision",
+        "maxResults": 10,
+        "scopeHints": []
+      },
+      "qmd": {
+        "available": true,
+        "command": [
+          "qmd"
+        ],
+        "method": "search"
+      },
+      "result": {
+        "ok": true,
+        "resultCount": 0,
+        "usedFallback": false
+      },
+      "error": null,
+      "recoveryHint": null,
+      "finishedAt": "2026-08-16T09:52:38.784Z"
+    },
+    {
+      "id": "5a2ebf7a-f533-49a2-b5cc-32c8e495f1a8",
+      "type": "qmd-search",
+      "status": "completed",
+      "startedAt": "2026-08-16T09:52:37.968Z",
+      "input": {
+        "mode": "precision",
+        "maxResults": 10,
+        "scopeHints": []
+      },
+      "qmd": {
+        "available": true,
+        "command": [
+          "qmd"
+        ],
+        "method": "search"
+      },
+      "result": {
+        "ok": true,
+        "resultCount": 4,
+        "usedFallback": false
+      },
+      "error": null,
+      "recoveryHint": null,
+      "finishedAt": "2026-08-16T09:52:38.262Z"
+    },
+    {
+      "id": "3132ae1e-1975-482c-bc43-392c956ebb74",
+      "type": "qmd-search",
+      "status": "completed",
+      "startedAt": "2026-08-16T09:52:37.412Z",
+      "input": {
+        "mode": "precision",
+        "maxResults": 10,
+        "scopeHints": []
+      },
+      "qmd": {
+        "available": true,
+        "command": [
+          "qmd"
+        ],
+        "method": "search"
+      },
+      "result": {
+        "ok": true,
+        "resultCount": 3,
+        "usedFallback": false
+      },
+      "error": null,
+      "recoveryHint": null,
+      "finishedAt": "2026-08-16T09:52:37.710Z"
+    },
+    {
+      "id": "1d7304f7-2c8e-4054-b92e-d2d7179ef47e",
+      "type": "qmd-search",
+      "status": "completed",
+      "startedAt": "2026-08-16T09:48:14.844Z",
+      "input": {
+        "mode": "precision",
+        "maxResults": 10,
+        "scopeHints": []
+      },
+      "qmd": {
+        "available": true,
+        "command": [
+          "qmd"
+        ],
+        "method": "search"
+      },
+      "result": {
+        "ok": true,
+        "resultCount": 2,
+        "usedFallback": false
+      },
+      "error": null,
+      "recoveryHint": null,
+      "finishedAt": "2026-08-16T09:48:15.149Z"
+    },
+    {
+      "id": "997c523b-ca3f-46c4-a16f-e6a6427b5319",
+      "type": "qmd-search",
+      "status": "completed",
+      "startedAt": "2026-08-16T09:48:14.194Z",
+      "input": {
+        "mode": "precision",
+        "maxResults": 10,
+        "scopeHints": []
+      },
+      "qmd": {
+        "available": true,
+        "command": [
+          "qmd"
+        ],
+        "method": "search"
+      },
+      "result": {
+        "ok": true,
+        "resultCount": 0,
+        "usedFallback": false
+      },
+      "error": null,
+      "recoveryHint": null,
+      "finishedAt": "2026-08-16T09:48:14.472Z"
+    },
+    {
+      "id": "f72da48f-23c3-4c89-9eb3-635e2c33d5b3",
+      "type": "qmd-search",
+      "status": "completed",
+      "startedAt": "2026-08-16T09:48:13.546Z",
+      "input": {
+        "mode": "precision",
+        "maxResults": 10,
+        "scopeHints": []
+      },
+      "qmd": {
+        "available": true,
+        "command": [
+          "qmd"
+        ],
+        "method": "search"
+      },
+      "result": {
+        "ok": true,
+        "resultCount": 3,
+        "usedFallback": false
+      },
+      "error": null,
+      "recoveryHint": null,
+      "finishedAt": "2026-08-16T09:48:13.852Z"
+    },
+    {
+      "id": "70ab6a39-adb9-4a6b-b284-31a76a12b2d7",
+      "type": "qmd-search",
+      "status": "completed",
+      "startedAt": "2026-08-16T09:48:12.926Z",
+      "input": {
+        "mode": "precision",
+        "maxResults": 10,
+        "scopeHints": []
+      },
+      "qmd": {
+        "available": true,
+        "command": [
+          "qmd"
+        ],
+        "method": "search"
+      },
+      "result": {
+        "ok": true,
+        "resultCount": 1,
+        "usedFallback": false
+      },
+      "error": null,
+      "recoveryHint": null,
+      "finishedAt": "2026-08-16T09:48:13.218Z"
+    },
+    {
+      "id": "e7cb4c3e-b690-47b8-acd4-0fdaf736a7d7",
+      "type": "qmd-search",
+      "status": "completed",
+      "startedAt": "2026-08-16T09:48:12.228Z",
+      "input": {
+        "mode": "precision",
+        "maxResults": 10,
+        "scopeHints": []
+      },
+      "qmd": {
+        "available": true,
+        "command": [
+          "qmd"
+        ],
+        "method": "search"
+      },
+      "result": {
+        "ok": true,
+        "resultCount": 0,
+        "usedFallback": false
+      },
+      "error": null,
+      "recoveryHint": null,
+      "finishedAt": "2026-08-16T09:48:12.504Z"
+    },
+    {
+      "id": "c2c4ead6-fb26-42f2-9c5c-f8c4234b1151",
+      "type": "qmd-search",
+      "status": "completed",
+      "startedAt": "2026-08-16T09:39:52.908Z",
+      "input": {
+        "mode": "precision",
+        "maxResults": 10,
+        "scopeHints": []
+      },
+      "qmd": {
+        "available": true,
+        "command": [
+          "qmd"
+        ],
+        "method": "search"
+      },
+      "result": {
+        "ok": true,
+        "resultCount": 0,
+        "usedFallback": false
+      },
+      "error": null,
+      "recoveryHint": null,
+      "finishedAt": "2026-08-16T09:39:53.187Z"
+    }
+  ],
+  "lastJob": {
+    "id": "2aa3bfdb-d579-4d5a-81ae-83b65291f09d",
+    "type": "qmd-search",
+    "status": "completed",
+    "startedAt": "2026-08-16T09:52:39.038Z",
+    "input": {
+      "mode": "precision",
+      "maxResults": 10,
+      "scopeHints": []
+    },
+    "qmd": {
+      "available": true,
+      "command": [
+        "qmd"
+      ],
+      "method": "search"
+    },
+    "result": {
+      "ok": true,
+      "resultCount": 2,
+      "usedFallback": false
+    },
+    "error": null,
+    "recoveryHint": null,
+    "finishedAt": "2026-08-16T09:52:39.335Z"
+  },
+  "lastSetupJob": null,
+  "lastSearchJob": {
+    "id": "2aa3bfdb-d579-4d5a-81ae-83b65291f09d",
+    "type": "qmd-search",
+    "status": "completed",
+    "startedAt": "2026-08-16T09:52:39.038Z",
+    "input": {
+      "mode": "precision",
+      "maxResults": 10,
+      "scopeHints": []
+    },
+    "qmd": {
+      "available": true,
+      "command": [
+        "qmd"
+      ],
+      "method": "search"
+    },
+    "result": {
+      "ok": true,
+      "resultCount": 2,
+      "usedFallback": false
+    },
+    "error": null,
+    "recoveryHint": null,
+    "finishedAt": "2026-08-16T09:52:39.335Z"
+  },
+  "lastUpdateJob": {
+    "id": "99fb3d8b-1b7a-448b-8570-0fe182daf7fd",
+    "type": "qmd-update",
+    "status": "completed",
+    "startedAt": "2026-08-16T09:32:44.664Z",
+    "input": {
+      "operation": "update",
+      "command": [
+        "qmd",
+        "update"
+      ]
+    },
+    "qmd": {
+      "available": true,
+      "command": [
+        "qmd"
+      ],
+      "method": "update"
+    },
+    "result": {
+      "ok": true,
+      "status": 0
+    },
+    "error": null,
+    "recoveryHint": null,
+    "operation": "update",
+    "finishedAt": "2026-08-16T09:32:44.786Z"
+  },
+  "lastEmbedJob": null,
+  "suppressions": {}
+}

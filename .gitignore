@@ -8,6 +8,42 @@ node_modules
 .next
 out
 .env
+.env.local
 bun.lockb
 coverage
 deep_binding_of_llm_virtual_personas.*
+
+# OS
+.DS_Store
+
+# analysis logs
+logs/
+
+# Local Netlify folder
+.netlify
+
+# Sisyphus test artifacts
+.sisyphus/
+
+# Impeccable design artifacts
+.impeccable/
+
+# Temp files
+TEMP_*
+
+# Git worktrees (isolated dev workspaces, never committed)
+.worktrees/
+
+# Infra management (personal VPS scripts, never committed)
+infra/
+
+# Engineering notebook durability (workflow.md convention): decisions + notes are ADRs/worklog, committed
+!.ai/
+.ai/*
+!.ai/contexts/
+.ai/contexts/*
+!.ai/contexts/**/
+.ai/contexts/**/plans/
+.ai/contexts/**/designs/
+.ai/contexts/**/verification/
+.ai/contexts/**/understanding.md

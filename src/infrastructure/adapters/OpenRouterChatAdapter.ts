@@ -21,7 +21,7 @@ export class OpenRouterChatAdapter implements IChatServicePort {
   static createFromEnv(): OpenRouterChatAdapter {
     const baseURL = process.env.OPENROUTER_BASE_URL || "https://openrouter.ai/api/v1";
     // Default to a capable model that can handle the nuanced instructions
-    const model = process.env.OPENROUTER_CHAT_MODEL || process.env.OPENROUTER_MODEL || "google/gemini-pro-1.5";
+    const model = process.env.OPENROUTER_CHAT_MODEL || process.env.OPENROUTER_MODEL || "deepseek/deepseek-v4-flash";
     const apiKey = process.env.OPENROUTER_API_KEY;
 
     if (!apiKey) {

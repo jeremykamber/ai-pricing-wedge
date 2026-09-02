@@ -1,17 +1,49 @@
 import { Persona } from "../entities/Persona";
 import { PricingAnalysis } from "../entities/PricingAnalysis";
+import { PersonaResponse } from "../entities/PersonaResponse";
+import { ArtifactSynthesis } from "../entities/ArtifactSynthesis";
+import { ArtifactIntake } from "../entities/ArtifactIntake";
+import { StreamOfConsciousness } from "../entities/StreamOfConsciousness";
+import { ExtractedInterviewSignals } from "@/application/interviewPipeline/types";
+import type { ResearchPersonaConfig, StrategyPersonaConfig, ClusterPersonaConfig } from "../dtos/PersonaGenerationConfig";
 
 export type AgentAction =
     | { type: "CLICK"; selector: string; reasoning: string }
     | { type: "TYPE"; selector: string; text: string; reasoning: string }
     | { type: "FINISH"; report: string };
 
+/**
+ * Progress callback for phased persona generation.
+ *
+ * Phase 1 (`profiles`) is one batched call; phase 2 (`backstories`) is one
+ * call per persona. Progress carries completed/total counts; personaName is
+ * set during the backstories phase so callers can render per-persona ticks.
+ */
+export type PersonaPhase = "profiles" | "backstories";
+export interface PersonaPhaseProgress {
+    completed: number;
+    total: number;
+    personaName?: string;
+}
+export type PersonaPhaseCallback = (phase: PersonaPhase, progress?: PersonaPhaseProgress) => void;
+
+/** @deprecated Pricing-specific — use generic artifact intake instead. */
 export interface PricingLocation {
     found: boolean;
-    selector?: string;   // Likely ID or specific class
-    anchorText?: string; // Unique text like "Choose your plan"
+    selector?: string;
+    anchorText?: string;
     reasoning?: string;
 }
+
+/**
+ * Context a persona chat can be grounded in.
+ *
+ * `PricingAnalysis` is the legacy pricing-era type (kept for backward
+ * compatibility with the old results flow); `PersonaResponse` is the modern
+ * artifact-agnostic type produced by analyses — it is what "chat with a
+ * persona about what they saw" is grounded in.
+ */
+export type ChatAnalysisContext = PricingAnalysis | PersonaResponse | null;
 
 export interface LlmServicePort {
     /**
@@ -19,13 +51,13 @@ export interface LlmServicePort {
      * @param personaDescription - A textual description of the persona(s) to generate.
      * @returns A promise that resolves to an array of Persona objects.
      */
-    generateInitialPersonas(personaDescription: string): Promise<Persona[]>;
+    generateInitialPersonas(personaDescription: string, count?: number): Promise<Persona[]>;
 
     /**
      * Generates personas based on a description (streaming version).
      * Yields raw tokens of the JSON array.
      */
-    generateInitialPersonasStream(personaDescription: string): AsyncIterable<Partial<Persona>[]>;
+    generateInitialPersonasStream(personaDescription: string, count?: number): AsyncIterable<Partial<Persona>[]>;
 
     /**
      * Generates a deep narrative backstory for a persona.
@@ -73,46 +105,28 @@ export interface LlmServicePort {
         actionHistory: string[],
     ): Promise<AgentAction>;
 
-    /**
-     * Analyze a static view of the Pricing Page feature.
-     * @param persona The Persona object representing the agent.
-     * @param screenshotBase64 A base64-encoded screenshot of the pricing page.
-     * @returns A promise that resolves to a PricingAnalysis of the static page, including gut reactions.
-     */
+    /** @deprecated Use analyzeArtifactStream instead. */
     analyzeStaticPage(
         persona: Persona,
         screenshotBase64: string,
     ): Promise<PricingAnalysis>;
 
-    /**
-     * Analyze a static view of the Pricing Page feature (streaming version).
-     * @param persona The Persona object representing the agent.
-     * @param screenshotBase64 A base64-encoded screenshot of the pricing page.
-     * @returns An AsyncIterable extending string pieces of the JSON response.
-     */
+    /** @deprecated Use analyzeArtifactStream instead. */
     analyzeStaticPageStream(
         persona: Persona,
         screenshots: string[],
     ): AsyncIterable<string>;
 
-    /**
-     * Extracts structured insights (gut reaction, scores, risks) from raw thoughts.
-     * @param persona The persona who had the thoughts.
-     * @param rawThoughts The raw stream-of-consciousness text.
-     */
+    /** @deprecated Use formatStreamOfConsciousness → PersonaResponse instead. */
     extractInsights(
         persona: Persona,
         rawThoughts: string,
     ): Promise<Partial<PricingAnalysis>>;
 
-    /**
-     * Checks if pricing elements are visible in a screenshot.
-     */
+    /** @deprecated Pricing-specific scouting — use generic ArtifactIntakeAdapter instead. */
     isPricingVisible(screenshotBase64: string): Promise<boolean>;
 
-    /**
-     * Checks if pricing elements are visible in the provided HTML/text.
-     */
+    /** @deprecated Pricing-specific scouting — use generic ArtifactIntakeAdapter instead. */
     isPricingVisibleInHtml(html: string): Promise<PricingLocation>;
 
     /**
@@ -133,7 +147,7 @@ export interface LlmServicePort {
      */
     chatWithPersona(
         persona: Persona,
-        analysis: PricingAnalysis | null,
+        analysis: ChatAnalysisContext,
         message: string,
         history: { role: "user" | "assistant"; content: string }[],
     ): Promise<string>;
@@ -148,20 +162,180 @@ export interface LlmServicePort {
      */
     chatWithPersonaStream(
         persona: Persona,
-        analysis: PricingAnalysis | null,
+        analysis: ChatAnalysisContext,
         message: string,
         history: { role: "user" | "assistant"; content: string }[],
     ): AsyncIterable<string>;
 
     /**
-     * Consolidated Analysis: One-pass hybrid grounding (Screenshot + HTML).
-     * Returns a stream that can be parsed as a PricingAnalysis object.
+     * Chat with the whole cohort at once (panel synthesis). Grounds the
+     * answer in every persona's analysis response plus the cross-persona
+     * synthesis, so questions like "what would our users think of X?" get an
+     * evidence-backed synthesis rather than a single persona's take.
+     * @param responses All persona responses from the analysis.
+     * @param synthesis The cross-persona synthesis (may be null if unavailable).
+     * @param message The user's message.
+     * @param history The chat history.
+     * @returns An AsyncIterable extending string pieces.
      */
+    chatWithPanelStream(
+        responses: PersonaResponse[],
+        synthesis: ArtifactSynthesis | null,
+        message: string,
+        history: { role: "user" | "assistant"; content: string }[],
+    ): AsyncIterable<string>;
+
+    /** @deprecated Use analyzeArtifactStream instead. */
     analyzePricingPageStream(
         persona: Persona,
         screenshotBase64: string,
-        pageHtml?: string
-    ): Promise<any>; // Using any for the streamObject return type for now to avoid complex type issues in port
+        pageHtml?: string,
+        options?: { tokenLimit?: number; runId?: string }
+    ): Promise<any>;
+
+    /** @deprecated Use analyzeArtifactCompletion instead. */
+    analyzePricingPageCompletion(
+        persona: Persona,
+        screenshotBase64: string,
+        pageHtml?: string,
+        options?: { tokenLimit?: number; runId?: string }
+    ): Promise<any>;
+
+    /**
+     * Stage 1: Generate stream of consciousness (natural first-person thinking).
+     * No JSON constraints — just free-form text.
+     * The persona reasons through all five cognitive stages.
+     */
+    generateStreamOfConsciousness(
+        persona: Persona,
+        screenshotBase64: string,
+        pageHtml?: string,
+        options?: { tokenLimit?: number; runId?: string }
+    ): Promise<StreamOfConsciousness>;
+
+    /** @deprecated Use the new formatStreamOfConsciousness (PersonaResponse output) instead. */
+    formatStreamOfConsciousness(
+        persona: Persona,
+        stream: StreamOfConsciousness,
+        options?: { tokenLimit?: number; runId?: string }
+    ): Promise<PricingAnalysis>;
+
+    /** @deprecated Use the new summarizeStreamOfConsciousness instead. */
+    summarizeStreamOfConsciousness(
+        persona: Persona,
+        stream: StreamOfConsciousness,
+        options?: { runId?: string }
+    ): Promise<string[]>;
+
+    // --- New artifact-agnostic analysis pipeline ---
+
+    /**
+     * One-pass artifact analysis returning a structured PersonaResponse.
+     * The persona reasons through all five cognitive stages.
+     */
+    analyzeArtifactStream(
+        persona: Persona,
+        context: ArtifactIntake,
+        businessGoal: string,
+        researchQuestion: string,
+        options?: { tokenLimit?: number; runId?: string }
+    ): Promise<any>;
+
+    /**
+     * Non-streaming variant — awaits the full PersonaResponse result.
+     */
+    analyzeArtifactCompletion(
+        persona: Persona,
+        context: ArtifactIntake,
+        businessGoal: string,
+        researchQuestion: string,
+        options?: { tokenLimit?: number; runId?: string }
+    ): Promise<any>;
+
+    /**
+     * Stage 1: Generate stream of consciousness using the 5-stage cognitive model.
+     * No pricing-specific framing. Persona thinks through:
+     * 1. Interpretation — What is this? Who is it for?
+     * 2. Understanding — Do I get it? What am I supposed to do?
+     * 3. Belief — Do I trust it? Does it feel credible?
+     * 4. Motivation — Do I care? Is it worth my time?
+     * 5. Action — What would I do next?
+     */
+    generateCognitiveStream(
+        persona: Persona,
+        context: ArtifactIntake,
+        businessGoal: string,
+        researchQuestion: string,
+        options?: { tokenLimit?: number; runId?: string }
+    ): Promise<StreamOfConsciousness>;
+
+    /**
+     * Stage 2a: Format cognitive stream into structured PersonaResponse.
+     */
+    formatPersonaResponse(
+        persona: Persona,
+        stream: StreamOfConsciousness,
+        businessGoal: string,
+        researchQuestion: string,
+        options?: { tokenLimit?: number; runId?: string }
+    ): Promise<PersonaResponse>;
+
+    /**
+     * Stage 2b: Derive summary signals from the cognitive stream.
+     * Returns highest stage reached, final action, and key signals.
+     */
+    deriveResponseSignals(
+        persona: Persona,
+        stream: StreamOfConsciousness,
+        options?: { runId?: string }
+    ): Promise<{
+        highestStageReached: string;
+        finalAction: string;
+        keySignals: string[];
+    }>;
+
+    // --- Cross-persona synthesis (focused calls, run in phases) ---
+
+    /**
+     * Phase 1a: Identify top 3-5 patterns across all personas.
+     * Must use group language — no individual persona names.
+     */
+    generateTopFindings(
+        responses: PersonaResponse[],
+        businessGoal: string,
+        researchQuestion: string,
+        options?: { runId?: string }
+    ): Promise<import("../entities/ArtifactSynthesis").SynthesizedFinding[]>;
+
+    /**
+     * Phase 1b: Identify where personas had opposing reactions.
+     */
+    generateDisagreements(
+        responses: PersonaResponse[],
+        options?: { runId?: string }
+    ): Promise<import("../entities/ArtifactSynthesis").Disagreement[]>;
+
+    /**
+     * Phase 1c: Identify 2-3 biggest friction points that multiple personas experienced.
+     */
+    generateFrictions(
+        responses: PersonaResponse[],
+        options?: { runId?: string }
+    ): Promise<string[]>;
+
+    /**
+     * Phase 2: Generate overview and research question answer, informed by
+     * the top findings, disagreements, and frictions from Phase 1.
+     */
+    generateSynthesisOverview(
+        responses: PersonaResponse[],
+        businessGoal: string,
+        researchQuestion: string,
+        topFindings: import("../entities/ArtifactSynthesis").SynthesizedFinding[],
+        disagreements: import("../entities/ArtifactSynthesis").Disagreement[],
+        frictions: string[],
+        options?: { runId?: string }
+    ): Promise<{ overview: string; researchQuestionAnswer: string }>;
 
     /**
      * Validates if a user's prompt is within the persona's expected domain.
@@ -172,6 +346,143 @@ export interface LlmServicePort {
         prompt: string,
     ): Promise<{ isValid: boolean; reason?: string }>;
 
-    summarizeHtml(html: string): Promise<string>;
-}
+    /**
+     * Batch version - generates backstories for all personas in a single LLM call.
+     */
+    generateAbbreviatedBackstoriesBatch(personas: Persona[]): Promise<string[]>;
 
+    summarizeHtml(html: string): Promise<string>;
+
+    /**
+     * Extracts structured signals from an interview transcript.
+     * @param transcript - The raw interview transcript text.
+     * @param interviewId - Unique identifier for the interview.
+     */
+    extractInterviewSignals(transcript: string, interviewId: string): Promise<ExtractedInterviewSignals>;
+
+    /**
+     * Generic chat completion for ad-hoc LLM calls (e.g., coherence validation).
+     * @param messages - The chat messages.
+     * @param options - Optional parameters (temperature, response_format, etc.).
+     */
+    createChatCompletion(
+        messages: { role: string; content: string }[],
+        options?: {
+            temperature?: number;
+            response_format?: { type: "json_object" | "text" };
+            max_tokens?: number | null;
+            purpose?: string;
+        },
+    ): Promise<string>;
+
+    /**
+     * Generates a short, human-friendly title for a simulation from the research
+     * context and the captured artifact. Uses the cheap vision model so it can
+     * "see" the artifact (screenshot + page summary) the same way the analysis
+     * does. Nice-to-have: callers must tolerate failure and fall back to the
+     * heuristic name (generateSimulationName).
+     */
+    generateSimulationTitle(
+        context: {
+            businessGoal?: string;
+            researchQuestion?: string;
+            artifactUrl?: string;
+            pageSummary?: string;
+            screenshotBase64?: string;
+        },
+        options?: { runId?: string },
+    ): Promise<string>;
+
+    /**
+     * Generates a short label for a persona batch from the personas' basic info
+     * (name, occupation, backstory). Text-only and cheap — no vision needed.
+     * Nice-to-have: callers must tolerate failure and fall back to the default.
+     */
+    generateBatchTitle(
+        personas: Persona[],
+        context: {
+            source?: 'description' | 'interviews';
+            description?: string;
+            transcriptCount?: number;
+        },
+        options?: { runId?: string },
+    ): Promise<string>;
+
+    /**
+     * Rationalizes personas using psychological scaffolds (PB&J).
+     * Replaces enhancePersonasWithPbj — generates causal rationales
+     * connecting Big Five profiles to values, fears, and decision styles.
+     * @param personas - The personas to rationalize.
+     * @param contextNotes - Optional interview/source context to ground rationales in actual evidence.
+     */
+    rationalizePersonas(personas: Persona[], contextNotes?: string): Promise<Persona[]>;
+
+    /**
+     * Generates persona variations based on a reference persona and adjusted traits.
+     * The LLM receives the reference persona + adjusted Big Five + variation level,
+     * and produces N new personas with fresh backstories, values, fears, etc.
+     * @param referencePersona - The source persona to base variations on.
+     * @param adjustments - Adjusted Big Five traits + variation level.
+     * @param count - How many variations to generate (1, 3, or 5).
+     */
+    generateVariationPersonas(
+        referencePersona: Persona,
+        adjustments: { bigFive: { conscientiousness: number; neuroticism: number; openness: number; extraversion: number; agreeableness: number }; variationLevel: number },
+        count: number,
+    ): Promise<Persona[]>;
+
+    /**
+     * Infers Big Five traits and psychographic values from a persona's backstory.
+     * Used when the user edits the backstory — suggests updated trait values that
+     * are causally consistent with the new narrative.
+     * @param backstory - The new or edited backstory text.
+     * @returns Suggested trait values derived from the backstory.
+     */
+    inferTraitsFromBackstory(backstory: string): Promise<{
+        conscientiousness: number;
+        neuroticism: number;
+        openness: number;
+        extraversion: number;
+        agreeableness: number;
+        values: string[];
+        fears: string[];
+        communicationStyle: string;
+        decisionStyle: string;
+    }>;
+
+    // --- Dual-Mode Persona Generation (2025 Philosophy) ---
+
+    /**
+     * Research Mode: evidence-first persona generation from interview transcripts.
+     * Produces personas with provenance tracking, minimal invention, no fabricated memories.
+     * Phased: batched profiles, then per-persona parallel backstories.
+     * @param onPhase - Optional progress callback (profiles -> backstories).
+     * @param onRetry - Optional callback fired before a retry attempt of the
+     *                  profiles batch (attempt 2+), so the UI can surface
+     *                  that generation is retrying.
+     */
+    generateResearchPersonas(config: ResearchPersonaConfig, onPhase?: PersonaPhaseCallback, onRetry?: (attempt: number, attempts: number) => void): Promise<Persona[]>;
+
+    /**
+     * Strategy Mode: richer storytelling persona generation from ICP/market descriptions.
+     * Representative assumptions allowed for imagination and decision-making.
+     * Phased: batched profiles, then per-persona parallel backstories.
+     * @param onPhase - Optional progress callback (profiles -> backstories).
+     * @param onRetry - Optional callback fired before a retry attempt of the
+     *                  profiles batch (attempt 2+), so the UI can surface
+     *                  that generation is retrying.
+     */
+    generateStrategyPersonas(config: StrategyPersonaConfig, onPhase?: PersonaPhaseCallback, onRetry?: (attempt: number, attempts: number) => void): Promise<Persona[]>;
+
+    /**
+     * Cluster Mode: synthetic representative personas from multiple interview signals.
+     * Produces labeled cluster personas with source references.
+     */
+    generateClusterPersonas(config: ClusterPersonaConfig): Promise<Persona[]>;
+
+    /**
+     * Counterfactual test: checks whether synthetic persona details would change
+     * product decisions. Details that fail this test should not influence decisions.
+     */
+    applyCounterfactualTest(persona: Persona): Promise<{ detail: string; reason: string; attribute?: string }[]>;
+}

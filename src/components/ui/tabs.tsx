@@ -45,7 +45,7 @@ function TabsTrigger({
       className={cn(
         "group relative flex items-center justify-center gap-2.5 px-6 py-2 text-sm font-medium whitespace-nowrap outline-none transition-all duration-150 rounded-lg",
         "text-muted-foreground hover:text-foreground",
-        "data-[state=active]:text-foreground data-[state=active]:bg-white/[0.08]",
+        "data-[state=active]:text-foreground data-[state=active]:bg-muted/30",
         "disabled:pointer-events-none disabled:opacity-50",
         className
       )}
@@ -58,7 +58,7 @@ function TabsTrigger({
       {/* Background Hover Highlight */}
       <div
         className={cn(
-          "absolute inset-0 rounded-lg bg-white/[0.03]",
+          "absolute inset-0 rounded-lg bg-muted/20",
           "opacity-0 transition-opacity duration-150",
           "group-hover:opacity-100",
           "group-data-[state=active]:hidden"

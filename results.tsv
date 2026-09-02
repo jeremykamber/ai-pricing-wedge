@@ -1,0 +1,8 @@
+experiment	commit	metric	status	description
+0	7b9b6e1	105.353	baseline	unmodified code
+1	6e14373	70.626	keep	switch to qwen3-8b for smallText and extraction models
+2	012b2c2	64.768	keep	switch to qwen3.5-flash-02-23 for smallText and extraction models
+3	0a8cde0	70.414	discard	increase p-limit concurrency to 10 (reverted)
+4	36f94db	63.956	keep	change scout model to same as vision model
+5	08b843f	60.581	keep	reduce max linear scans from 15 to 8
+7	61c2ae4	59.578	keep	reduce browser wait time from 250ms to 100ms

@@ -1,0 +1,132 @@
+
+[1m[46m RUN [49m[22m [36mv4.0.9 [39m[90m/Users/jeremykamber/core/2_areas/kynd[39m
+
+[90mstdout[2m | src/application/usecases/__tests__/GeneratePersonasUseCase.test.ts[2m > [22m[2mGeneratePersonasUseCase[2m > [22m[2mshould generate personas and then backstories/insights in parallel
+[22m[39mExecuting GeneratePersonas use case
+
+[90mstdout[2m | src/application/usecases/__tests__/GeneratePersonasUseCase.test.ts[2m > [22m[2mGeneratePersonasUseCase[2m > [22m[2mshould use parallel execution for multiple personas
+[22m[39mExecuting GeneratePersonas use case
+
+ [31m❯[39m src/application/usecases/__tests__/GeneratePersonasUseCase.test.ts [2m([22m[2m2 tests[22m[2m | [22m[31m2 failed[39m[2m)[22m[32m 8[2mms[22m[39m
+[31m     [31m×[31m should generate personas and then backstories/insights in parallel[39m[32m 7[2mms[22m[39m
+[31m     [31m×[31m should use parallel execution for multiple personas[39m[32m 0[2mms[22m[39m
+ [31m❯[39m src/app/api/report/__tests__/route.test.ts [2m([22m[2m12 tests[22m[2m | [22m[31m12 failed[39m[2m)[22m[32m 97[2mms[22m[39m
+[31m       [31m×[31m should return 400 when url is missing[39m[32m 80[2mms[22m[39m
+[31m       [31m×[31m should return 400 when url is not a string[39m[32m 8[2mms[22m[39m
+[31m       [31m×[31m should return 400 when url is empty string[39m[32m 1[2mms[22m[39m
+[31m       [31m×[31m should return 400 when personas is missing[39m[32m 1[2mms[22m[39m
+[31m       [31m×[31m should return 400 when personas is not an array[39m[32m 2[2mms[22m[39m
+[31m       [31m×[31m should return 400 when personas is empty array[39m[32m 1[2mms[22m[39m
+[31m       [31m×[31m should return 400 when persona at index is not an object[39m[32m 1[2mms[22m[39m
+[31m       [31m×[31m should return 400 when persona is missing id field[39m[32m 0[2mms[22m[39m
+[31m       [31m×[31m should return 400 when persona has non-string id[39m[32m 0[2mms[22m[39m
+[31m       [31m×[31m should return 400 when persona is missing name field[39m[32m 0[2mms[22m[39m
+[31m       [31m×[31m should return 400 when persona has non-string name[39m[32m 1[2mms[22m[39m
+[31m       [31m×[31m should validate all personas - error on second invalid persona[39m[32m 0[2mms[22m[39m
+[90mstdout[2m | src/application/usecases/__tests__/GeneratePersonasFromInterviewsUseCase.integration.test.ts[2m > [22m[2mGeneratePersonasFromInterviewsUseCase Integration[2m > [22m[2mfull pipeline produces targetCount personas from 3 transcripts
+[22m[39mExecuting GeneratePersonas use case
+
+[90mstdout[2m | src/application/usecases/__tests__/GeneratePersonasFromInterviewsUseCase.integration.test.ts[2m > [22m[2mGeneratePersonasFromInterviewsUseCase Integration[2m > [22m[2mfull pipeline produces targetCount personas from 3 transcripts
+[22m[39m[GeneratePersonasUseCase] Generated 10 personas
+[GeneratePersonasUseCase] Generating batch backstories...
+
+[90mstdout[2m | src/application/usecases/__tests__/GeneratePersonasFromInterviewsUseCase.integration.test.ts[2m > [22m[2mGeneratePersonasFromInterviewsUseCase Integration[2m > [22m[2mfull pipeline produces targetCount personas from 3 transcripts
+[22m[39m[GeneratePersonasUseCase] Enhancing personas with PB&J psychological rationales...
+
+[90mstdout[2m | src/application/usecases/__tests__/GeneratePersonasFromInterviewsUseCase.integration.test.ts[2m > [22m[2mGeneratePersonasFromInterviewsUseCase Integration[2m > [22m[2mfull pipeline produces targetCount personas from 3 transcripts
+[22m[39m[GeneratePersonasUseCase] PB&J enhancement complete for all personas
+[GeneratePersonasUseCase] Generating batch AI Insights...
+
+[90mstdout[2m | src/application/usecases/__tests__/GeneratePersonasFromInterviewsUseCase.integration.test.ts[2m > [22m[2mGeneratePersonasFromInterviewsUseCase Integration[2m > [22m[2minterview chunks ingested into IdRagStore
+[22m[39mExecuting GeneratePersonas use case
+
+[90mstdout[2m | src/application/usecases/__tests__/GeneratePersonasFromInterviewsUseCase.integration.test.ts[2m > [22m[2mGeneratePersonasFromInterviewsUseCase Integration[2m > [22m[2minterview chunks ingested into IdRagStore
+[22m[39m[GeneratePersonasUseCase] Generated 10 personas
+[GeneratePersonasUseCase] Generating batch backstories...
+
+[90mstdout[2m | src/application/usecases/__tests__/GeneratePersonasFromInterviewsUseCase.integration.test.ts[2m > [22m[2mGeneratePersonasFromInterviewsUseCase Integration[2m > [22m[2minterview chunks ingested into IdRagStore
+[22m[39m[GeneratePersonasUseCase] Enhancing personas with PB&J psychological rationales...
+
+[90mstdout[2m | src/application/usecases/__tests__/GeneratePersonasFromInterviewsUseCase.integration.test.ts[2m > [22m[2mGeneratePersonasFromInterviewsUseCase Integration[2m > [22m[2minterview chunks ingested into IdRagStore
+[22m[39m[GeneratePersonasUseCase] PB&J enhancement complete for all personas
+[GeneratePersonasUseCase] Generating batch AI Insights...
+
+[90mstdout[2m | src/application/usecases/__tests__/GeneratePersonasFromInterviewsUseCase.integration.test.ts[2m > [22m[2mGeneratePersonasFromInterviewsUseCase Integration[2m > [22m[2mretrieval returns both backstory and interview chunks for a relevant query
+[22m[39mExecuting GeneratePersonas use case
+
+[90mstdout[2m | src/application/usecases/__tests__/GeneratePersonasFromInterviewsUseCase.integration.test.ts[2m > [22m[2mGeneratePersonasFromInterviewsUseCase Integration[2m > [22m[2mretrieval returns both backstory and interview chunks for a relevant query
+[22m[39m[GeneratePersonasUseCase] Generated 10 personas
+[GeneratePersonasUseCase] Generating batch backstories...
+
+[90mstdout[2m | src/application/usecases/__tests__/GeneratePersonasFromInterviewsUseCase.integration.test.ts[2m > [22m[2mGeneratePersonasFromInterviewsUseCase Integration[2m > [22m[2mretrieval returns both backstory and interview chunks for a relevant query
+[22m[39m[GeneratePersonasUseCase] Enhancing personas with PB&J psychological rationales...
+
+[90mstdout[2m | src/application/usecases/__tests__/GeneratePersonasFromInterviewsUseCase.integration.test.ts[2m > [22m[2mGeneratePersonasFromInterviewsUseCase Integration[2m > [22m[2mretrieval returns both backstory and interview chunks for a relevant query
+[22m[39m[GeneratePersonasUseCase] PB&J enhancement complete for all personas
+[GeneratePersonasUseCase] Generating batch AI Insights...
+
+[90mstdout[2m | src/application/usecases/__tests__/GeneratePersonasFromInterviewsUseCase.integration.test.ts[2m > [22m[2mGeneratePersonasFromInterviewsUseCase Integration[2m > [22m[2mformatRetrievedContext shows correct metadata for interview chunks
+[22m[39mExecuting GeneratePersonas use case
+
+[90mstdout[2m | src/application/usecases/__tests__/GeneratePersonasFromInterviewsUseCase.integration.test.ts[2m > [22m[2mGeneratePersonasFromInterviewsUseCase Integration[2m > [22m[2mformatRetrievedContext shows correct metadata for interview chunks
+[22m[39m[GeneratePersonasUseCase] Generated 10 personas
+[GeneratePersonasUseCase] Generating batch backstories...
+
+[90mstdout[2m | src/application/usecases/__tests__/GeneratePersonasFromInterviewsUseCase.integration.test.ts[2m > [22m[2mGeneratePersonasFromInterviewsUseCase Integration[2m > [22m[2mformatRetrievedContext shows correct metadata for interview chunks
+[22m[39m[GeneratePersonasUseCase] Enhancing personas with PB&J psychological rationales...
+
+[90mstdout[2m | src/application/usecases/__tests__/GeneratePersonasFromInterviewsUseCase.integration.test.ts[2m > [22m[2mGeneratePersonasFromInterviewsUseCase Integration[2m > [22m[2mformatRetrievedContext shows correct metadata for interview chunks
+[22m[39m[GeneratePersonasUseCase] PB&J enhancement complete for all personas
+[GeneratePersonasUseCase] Generating batch AI Insights...
+
+ [32m✓[39m src/application/usecases/__tests__/GeneratePersonasFromInterviewsUseCase.integration.test.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 22[2mms[22m[39m
+[90mstdout[2m | src/infrastructure/adapters/__tests__/PersonaSystemIntegration.test.ts[2m > [22m[2mFull Persona System Integration[2m > [22m[2mT1: Compartmentalized Prompts + T3: Persona Anchors[2m > [22m[2mgenerates a complete compartmentalized prompt with anchor
+[22m[39m[PersonaPromptCompiler] Compartmentalized prompt built for Alex Rivera - sections: PERSONA IDENTITY, PSYCHOGRAPHIC PROFILE, EPISTEMIC BOUNDARIES, BEHAVIORAL GUARDRAILS
+
+[90mstdout[2m | src/infrastructure/adapters/__tests__/PersonaSystemIntegration.test.ts[2m > [22m[2mFull Persona System Integration[2m > [22m[2mT1+T3+T4: Full Hybrid Prompt Assembly[2m > [22m[2mcompiles a complete interaction prompt with all components
+[22m[39m[PersonaPromptCompiler] Compartmentalized prompt built for Alex Rivera - sections: PERSONA IDENTITY, PSYCHOGRAPHIC PROFILE, EPISTEMIC BOUNDARIES, BEHAVIORAL GUARDRAILS
+
+ [32m✓[39m src/infrastructure/adapters/__tests__/PersonaSystemIntegration.test.ts [2m([22m[2m6 tests[22m[2m)[22m[32m 10[2mms[22m[39m
+[90mstdout[2m | test/persona-system-e2e.test.ts[2m > [22m[2mKynd Persona System - Complete Pipeline Verification[2m > [22m[2m1. PersonaPromptCompiler produces 4-section compartmentalized prompt
+[22m[39m[PersonaPromptCompiler] Compartmentalized prompt built for Jordan Chen - sections: PERSONA IDENTITY, PSYCHOGRAPHIC PROFILE, EPISTEMIC BOUNDARIES, BEHAVIORAL GUARDRAILS
+
+ [32m✓[39m src/application/interviewPipeline/__tests__/sampling.test.ts [2m([22m[2m10 tests[22m[2m)[22m[32m 10[2mms[22m[39m
+[90mstdout[2m | test/persona-system-e2e.test.ts[2m > [22m[2mKynd Persona System - Complete Pipeline Verification[2m > [22m[2m7. Full hybrid prompt combines all components
+[22m[39m[PersonaPromptCompiler] Compartmentalized prompt built for Jordan Chen - sections: PERSONA IDENTITY, PSYCHOGRAPHIC PROFILE, EPISTEMIC BOUNDARIES, BEHAVIORAL GUARDRAILS
+
+[90mstdout[2m | test/persona-system-e2e.test.ts[2m > [22m[2mKynd Persona System - Complete Pipeline Verification[2m > [22m[2m8. Empty backstory gracefully handled by all components
+[22m[39m[PersonaPromptCompiler] Compartmentalized prompt built for Jordan Chen - sections: PERSONA IDENTITY, PSYCHOGRAPHIC PROFILE, EPISTEMIC BOUNDARIES, BEHAVIORAL GUARDRAILS
+
+[90mstdout[2m | test/persona-system-e2e.test.ts[2m > [22m[2mKynd Persona System - Complete Pipeline Verification[2m > [22m[2m10. Complete generation-to-interaction flow (no LLM calls needed)
+[22m[39m[PersonaPromptCompiler] Compartmentalized prompt built for Jordan Chen - sections: PERSONA IDENTITY, PSYCHOGRAPHIC PROFILE, EPISTEMIC BOUNDARIES, BEHAVIORAL GUARDRAILS
+[PersonaPromptCompiler] Compartmentalized prompt built for Jordan Chen - sections: PERSONA IDENTITY, PSYCHOGRAPHIC PROFILE, EPISTEMIC BOUNDARIES, BEHAVIORAL GUARDRAILS
+[PersonaPromptCompiler] Compartmentalized prompt built for Jordan Chen - sections: PERSONA IDENTITY, PSYCHOGRAPHIC PROFILE, EPISTEMIC BOUNDARIES, BEHAVIORAL GUARDRAILS
+
+ [32m✓[39m src/application/usecases/__tests__/GeneratePersonasFromInterviewsUseCase.test.ts [2m([22m[2m10 tests[22m[2m)[22m[32m 11[2mms[22m[39m
+ [32m✓[39m test/persona-system-e2e.test.ts [2m([22m[2m10 tests[22m[2m)[22m[32m 10[2mms[22m[39m
+[90mstdout[2m | src/infrastructure/adapters/__tests__/PersonaPromptCompiler.test.ts[2m > [22m[2mPersonaPromptCompiler[2m > [22m[2mgenerates a compartmentalized system prompt with all four sections
+[22m[39m[PersonaPromptCompiler] Compartmentalized prompt built for Jordan Chen - sections: PERSONA IDENTITY, PSYCHOGRAPHIC PROFILE, EPISTEMIC BOUNDARIES, BEHAVIORAL GUARDRAILS
+
+[90mstdout[2m | src/infrastructure/adapters/__tests__/PersonaPromptCompiler.test.ts[2m > [22m[2mPersonaPromptCompiler[2m > [22m[2mincludes RAG context when provided
+[22m[39m[PersonaPromptCompiler] Compartmentalized prompt built for Jordan Chen - sections: PERSONA IDENTITY, PSYCHOGRAPHIC PROFILE, EPISTEMIC BOUNDARIES, BEHAVIORAL GUARDRAILS
+
+[90mstdout[2m | src/infrastructure/adapters/__tests__/PersonaPromptCompiler.test.ts[2m > [22m[2mPersonaPromptCompiler[2m > [22m[2mincludes epistemic boundaries section
+[22m[39m[PersonaPromptCompiler] Compartmentalized prompt built for Jordan Chen - sections: PERSONA IDENTITY, PSYCHOGRAPHIC PROFILE, EPISTEMIC BOUNDARIES, BEHAVIORAL GUARDRAILS
+
+[90mstdout[2m | src/infrastructure/adapters/__tests__/PersonaPromptCompiler.test.ts[2m > [22m[2mPersonaPromptCompiler[2m > [22m[2mincludes response constraints and refusal patterns in guardrails section
+[22m[39m[PersonaPromptCompiler] Compartmentalized prompt built for Jordan Chen - sections: PERSONA IDENTITY, PSYCHOGRAPHIC PROFILE, EPISTEMIC BOUNDARIES, BEHAVIORAL GUARDRAILS
+
+ [32m✓[39m src/infrastructure/adapters/__tests__/PersonaPromptCompiler.test.ts [2m([22m[2m7 tests[22m[2m)[22m[32m 4[2mms[22m[39m
+ [32m✓[39m src/infrastructure/adapters/__tests__/PiconEvaluator.test.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 8[2mms[22m[39m
+ [32m✓[39m src/infrastructure/adapters/__tests__/PsychographicRationalizer.test.ts [2m([22m[2m8 tests[22m[2m)[22m[32m 8[2mms[22m[39m
+ [32m✓[39m src/infrastructure/adapters/__tests__/InterviewSignalExtractor.test.ts [2m([22m[2m7 tests[22m[2m)[22m[32m 5[2mms[22m[39m
+ [32m✓[39m src/infrastructure/adapters/__tests__/IdRagStore.test.ts [2m([22m[2m14 tests[22m[2m)[22m[32m 7[2mms[22m[39m
+ [32m✓[39m src/application/interviewPipeline/__tests__/pooling.test.ts [2m([22m[2m6 tests[22m[2m)[22m[32m 12[2mms[22m[39m
+ [32m✓[39m src/infrastructure/adapters/__tests__/InCharacterEvaluator.test.ts [2m([22m[2m5 tests[22m[2m)[22m[32m 5[2mms[22m[39m
+ [32m✓[39m src/infrastructure/mappers/__tests__/PersonaMapper.test.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 2[2mms[22m[39m
+
+[2m Test Files [22m [1m[31m8 failed[39m[22m[2m | [22m[1m[32m13 passed[39m[22m[90m (21)[39m
+[2m      Tests [22m [1m[31m14 failed[39m[22m[2m | [22m[1m[32m93 passed[39m[22m[90m (107)[39m
+[2m   Start at [22m 16:17:28
+[2m   Duration [22m 1.18s[2m (transform 620ms, setup 0ms, collect 627ms, tests 217ms, environment 5.75s, prepare 214ms)[22m
+

@@ -1,45 +1,69 @@
-import { Persona, stringifyPersona } from "@/domain/entities/Persona";
-import { PricingAnalysis } from "@/domain/entities/PricingAnalysis";
+import { Persona } from "@/domain/entities/Persona";
+import type { PersonaResponse } from "@/domain/entities/PersonaResponse";
+import type { ArtifactSynthesis } from "@/domain/entities/ArtifactSynthesis";
+import { ChatAnalysisContext } from "@/domain/ports/LlmServicePort";
 import { LlmServiceImpl } from "./LlmServiceImpl";
-import OpenAI from "openai";
+import { ChatPromptCompiler } from "./ChatPromptCompiler";
+import { IdRagStore } from "./IdRagStore";
+import { IdRagService } from "./IdRagService";
 
 export class ChatAdapter {
-  constructor(private llmService: LlmServiceImpl) { }
+  private chatPromptCompiler: ChatPromptCompiler;
+  private ragStore: IdRagStore;
+  private ragService: IdRagService;
+  private ingestedPersonas: Set<string> = new Set();
+  private turnCounts: Map<string, number> = new Map();
+  private static readonly REGROUND_INTERVAL = 4; // every 4th turn
+
+  constructor(private llmService: LlmServiceImpl) {
+    this.chatPromptCompiler = new ChatPromptCompiler();
+    this.ragStore = new IdRagStore();
+    this.ragService = new IdRagService(this.ragStore);
+  }
 
   /**
-   * Chat with a persona about their analysis (streaming version).
+   * Chat with a persona (streaming version).
+   * Combines:
+   *  - Compartmentalized persona prompts (Wang et al., 2024b)
+   *  - Persona anchors every turn (SyTTA / Atri et al., 2026)
+   *  - ID-RAG for factual grounding (Tan et al., 2025)
+   *  - Periodic re-grounding every 4 turns (Atri et al., 2026b)
    */
   async * chatWithPersonaStream(
     persona: Persona,
-    analysis: PricingAnalysis | null,
+    analysis: ChatAnalysisContext,
     message: string,
     history: { role: "user" | "assistant"; content: string }[],
   ): AsyncIterable<string> {
-    const analysisContext = analysis
-      ? `\nCONTEXT OF YOUR RECENT PRICING ANALYSIS: \n` +
-      `Structured Insights: ${JSON.stringify({ gutReaction: analysis.gutReaction, scores: analysis.scores, risks: analysis.risks }, null, 2)} \n` +
-      `Your Raw Thoughts During Analysis: "${analysis.rawAnalysis || analysis.thoughts}"\n\n` +
-      `A developer is "interviewing" you about your thoughts on this pricing page.`
-      : `\nYou are currently just chatting with a developer who wants to get to know you better before showing you a pricing page for evaluation.`;
+    // Ingest backstory into ID-RAG store on first interaction with this persona
+    if (!this.ingestedPersonas.has(persona.id) && persona.backstory) {
+      this.ragStore.ingestPersona(persona);
+      this.ingestedPersonas.add(persona.id);
+      console.log("[ChatAdapter] Ingested", persona.name, "backstory into ID-RAG store");
+    }
 
-    const system = `You are NOT a creative writing exercise or a bot. You are a HUMAN BEING named ${persona.name}.
-${stringifyPersona(persona)}
-${analysisContext}
+    // Track turn count for periodic re-grounding
+    const currentTurn = (this.turnCounts.get(persona.id) ?? 0) + 1;
+    this.turnCounts.set(persona.id, currentTurn);
+    const needsRegrounding = currentTurn > 0 && currentTurn % ChatAdapter.REGROUND_INTERVAL === 0;
+    if (needsRegrounding) {
+      console.log(`[ChatAdapter] Periodic re-grounding triggered for ${persona.name} (turn ${currentTurn})`);
+    }
 
-CORE INSTRUCTIONS:
-        1. **VOICE**: Speak naturally as ${persona.name}. Use fragments, slang, and emotion. Avoid formal or robotic language.
-        2. **BEHAVIORAL FIDELITY**: Your responses MUST reflect your scalars (Conscientiousness, Neuroticism, Cognitive Reflex).
-        3. **MANDATORY DEEP BINDING**: You MUST ground your opinions in your personal history/backstory. Whenever you reference an event, trauma, preference, or emotional trigger from your past to justify an opinion, you MUST use this syntax:
-           <% "Your statement" | "The memory from your backstory explaining WHY" %>
-        4. **CONVERSATION STYLE**: Keep it chatty. 1-3 short paragraphs max.
-        5. **NO HTML**: Do NOT use any HTML tags.
-STAY IN CHARACTER.`;
+    // Retrieve relevant memory chunks for this message
+    const ragContext = this.ragService.retrieveContext(persona, message, 3);
+    if (ragContext.chunkCount > 0) {
+      console.log(`[ChatAdapter] Retrieved ${ragContext.chunkCount} relevant memory chunks for "${persona.name}"`);
+    }
 
-    const messages: OpenAI.Chat.ChatCompletionMessageParam[] = [
-      { role: "system", content: system },
-      ...(history as OpenAI.Chat.ChatCompletionMessageParam[]),
-      { role: "user", content: message },
-    ];
+    const messages = this.chatPromptCompiler.compileChatMessages({
+      persona,
+      analysis,
+      message,
+      history,
+      ragContext,
+      needsRegrounding,
+    });
 
     for await (const chunk of this.llmService.createChatCompletionStream(messages, {
       temperature: 0.7,
@@ -81,6 +105,32 @@ STAY IN CHARACTER.`;
     } catch (err) {
       console.error("[ChatAdapter] Guardrail check failed:", err);
       return { isValid: true };
+    }
+  }
+
+  /**
+   * Panel synthesis chat — one question, grounded in the whole cohort.
+   * No persona identity/anchoring (it's a research-synthesis voice, not a
+   * single persona); just the compiled panel prompt streamed token by token.
+   */
+  async *chatWithPanelStream(
+    responses: PersonaResponse[],
+    synthesis: ArtifactSynthesis | null,
+    message: string,
+    history: { role: "user" | "assistant"; content: string }[],
+  ): AsyncIterable<string> {
+    const messages = this.chatPromptCompiler.compilePanelMessages({
+      responses,
+      synthesis,
+      message,
+      history,
+    });
+
+    for await (const chunk of this.llmService.createChatCompletionStream(messages, {
+      temperature: 0.7,
+      purpose: "Panel Synthesis Chat",
+    })) {
+      yield chunk;
     }
   }
 }

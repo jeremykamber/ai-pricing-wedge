@@ -5,7 +5,6 @@ import { BrowserServicePort } from "@/domain/ports/BrowserServicePort";
 import StealthPlugin from "puppeteer-extra-plugin-stealth";
 
 const chromium = addExtra(baseChromium);
-// chromium.use(StealthPlugin());
 
 export class RemotePlaywrightAdapter implements BrowserServicePort {
     private readonly wsEndpoint: string;
@@ -13,7 +12,6 @@ export class RemotePlaywrightAdapter implements BrowserServicePort {
     private context: BrowserContext | null = null;
     private page: Page | null = null;
 
-    // Config defaults
     private readonly VIEWPORT = { width: 1280, height: 800 };
     private readonly TIMEOUT_MS = 30000;
 
@@ -21,9 +19,6 @@ export class RemotePlaywrightAdapter implements BrowserServicePort {
         this.wsEndpoint = wsEndpoint;
     }
 
-    /**
-     * Factory method to ensure env vars are checked at runtime, not import time.
-     */
     static createFromEnv(): RemotePlaywrightAdapter {
         const endpoint = process.env.PLAYWRIGHT_WS_ENDPOINT;
 
@@ -37,10 +32,6 @@ export class RemotePlaywrightAdapter implements BrowserServicePort {
         return new RemotePlaywrightAdapter(endpoint);
     }
 
-    /**
-     * Connects to the remote browser and navigates.
-     * Captures live screenshots every 500ms during navigation for live feed.
-     */
     async navigateTo(
         url: string,
         onProgress?: (status: "SETTING_UP" | "LOADING_WEBSITE") => void,
@@ -54,7 +45,6 @@ export class RemotePlaywrightAdapter implements BrowserServicePort {
             this.context = await this.browser.newContext({
                 viewport: this.VIEWPORT,
                 deviceScaleFactor: 1,
-                // Modern, non-bot-looking User Agent
                 userAgent:
                     "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36",
                 locale: "en-US",
@@ -76,7 +66,6 @@ export class RemotePlaywrightAdapter implements BrowserServicePort {
 
             onProgress?.("LOADING_WEBSITE");
 
-            // Start live screenshot feed during navigation
             let isNavigating = true;
             const screenshotInterval = setInterval(async () => {
                 if (!isNavigating || !this.page) {
@@ -92,9 +81,7 @@ export class RemotePlaywrightAdapter implements BrowserServicePort {
                     const base64 = buffer.toString("base64");
                     await onLiveScreenshot?.(base64);
                 } catch (err) {
-                    console.log(
-                        "[BrowserAdapter] Live screenshot capture failed (page may be closing)",
-                    );
+                    console.log("[BrowserAdapter] Live screenshot capture failed (page may be closing)");
                 }
             }, 500);
 
@@ -104,9 +91,7 @@ export class RemotePlaywrightAdapter implements BrowserServicePort {
                 });
                 await this.waitPageCompletely(this.page);
             } catch (err) {
-                console.log(
-                    "[BrowserAdapter] Navigation timeout, proceeding...",
-                );
+                console.log("[BrowserAdapter] Navigation timeout, proceeding...");
             } finally {
                 isNavigating = false;
                 clearInterval(screenshotInterval);
@@ -117,52 +102,43 @@ export class RemotePlaywrightAdapter implements BrowserServicePort {
         }
     }
 
-    /**
-     * Scrolls down by a specified number of pixels.
-     */
     async scrollDown(pixels: number): Promise<void> {
-        if (!this.page)
-            throw new Error("Browser not initialized. Call navigateTo first.");
+        if (!this.page) throw new Error("Browser not initialized. Call navigateTo first.");
         console.log(`[BrowserAdapter] Scrolling down by ${pixels}px...`);
+        const scrollStart = Date.now();
         await this.page.evaluate((px) => {
             window.scrollBy(0, px);
         }, pixels);
-        // Brief wait for any lazy content
-        await this.page.waitForTimeout(1000);
+        await this.page.waitForTimeout(100);
+        console.log(`[BrowserAdapter] Scroll down completed in ${Date.now() - scrollStart}ms`);
     }
 
-    /**
-     * Scrolls the window to a specific Y-coordinate.
-     */
     async scrollTo(y: number): Promise<void> {
         if (!this.page) throw new Error("Browser not initialized. Call navigateTo first.");
         console.log(`[BrowserAdapter] Scrolling to Y=${y}...`);
+        const scrollStart = Date.now();
         await this.page.evaluate((targetY) => {
             window.scrollTo({ top: targetY, behavior: 'smooth' });
         }, y);
-        // Wait for smooth scroll to settle
-        await this.page.waitForTimeout(1000);
+        await this.page.waitForTimeout(100);
+        console.log(`[BrowserAdapter] ScrollTo completed in ${Date.now() - scrollStart}ms`);
     }
 
-    /**
-     * Gets the vertical Y-offset of an element on the page.
-     */
     async getElementLocation(selector?: string, anchorText?: string): Promise<number | null> {
         if (!this.page) throw new Error("Browser not initialized. Call navigateTo first.");
 
-        return await this.page.evaluate(({ sel, txt }) => {
+        console.log(`[BrowserAdapter] getElementLocation: selector="${selector || 'none'}" anchorText="${anchorText || 'none'}"`);
+
+        const result = await this.page.evaluate(({ sel, txt }) => {
             let element: Element | null = null;
 
-            // 1. Try Selector
             if (sel) {
                 try {
                     element = document.querySelector(sel);
                 } catch (e) { }
             }
 
-            // 2. Try Anchor Text (XPath)
             if (!element && txt) {
-                // Case-insensitive contains text
                 const xpath = `//*[contains(translate(text(), 'ABCDEFGHIJKLMNOPQRSTUVWXYZ', 'abcdefghijklmnopqrstuvwxyz'), '${txt.toLowerCase()}')]`;
                 const result = document.evaluate(xpath, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null);
                 element = result.singleNodeValue as Element;
@@ -170,136 +146,132 @@ export class RemotePlaywrightAdapter implements BrowserServicePort {
 
             if (element) {
                 const rect = element.getBoundingClientRect();
-                return window.scrollY + rect.top;
+                const y = window.scrollY + rect.top;
+                return y;
             }
             return null;
         }, { sel: selector, txt: anchorText });
+
+        console.log(`[BrowserAdapter] getElementLocation result: Y=${result}`);
+        return result;
     }
 
-    /**
-     * Captures only the current viewport.
-     */
     async captureViewport(): Promise<string> {
-        if (!this.page)
-            throw new Error("Browser not initialized. Call navigateTo first.");
+        if (!this.page) throw new Error("Browser not initialized. Call navigateTo first.");
+        console.log(`[BrowserAdapter] Capturing viewport screenshot...`);
+        const captureStart = Date.now();
         const buffer = await this.page.screenshot({
             fullPage: false,
             type: "jpeg",
-            quality: 40, // Lower quality for scout checks
+            quality: 40,
         });
-        return buffer.toString("base64");
+        const duration = Date.now() - captureStart;
+        const base64 = buffer.toString("base64");
+        console.log(`[BrowserAdapter] Viewport captured (${buffer.length} bytes, ${base64.length} base64 chars) in ${duration}ms`);
+        return base64;
     }
 
-    /**
-     * Captures a high-quality full-page screenshot.
-     */
     async captureFullPage(): Promise<string> {
         if (!this.page) throw new Error("Browser not initialized.");
 
         console.log(`[BrowserAdapter] Capturing full-page screenshot...`);
+        const captureStart = Date.now();
 
-        // Wait for stability one last time
         await this.waitPageCompletely(this.page);
 
         const buffer = await this.page.screenshot({
             fullPage: true,
             type: "jpeg",
-            quality: 70 // Higher quality for the final analysis
+            quality: 70
         });
+
+        const duration = Date.now() - captureStart;
+        console.log(`[BrowserAdapter] Full-page capture completed (${buffer.length} bytes) in ${duration}ms`);
 
         return buffer.toString("base64");
     }
 
-    /**
-     * Gets a cleaned, textual representation of the full page.
-     */
     async getCleanedHtml(): Promise<string> {
-        if (!this.page)
-            throw new Error("Browser not initialized. Call navigateTo first.");
+        if (!this.page) throw new Error("Browser not initialized. Call navigateTo first.");
 
-        // Clean the DOM to only include meaningful text and basic structure
-        return await this.page.evaluate(() => {
-            // Helper to check if an element is likely visible
-            const isVisible = (el: HTMLElement) => {
-                const style = window.getComputedStyle(el);
-                return (
-                    style.display !== "none" &&
-                    style.visibility !== "hidden" &&
-                    style.opacity !== "0" &&
-                    el.offsetWidth > 0 &&
-                    el.offsetHeight > 0
-                );
-            };
+        console.log(`[BrowserAdapter] Getting cleaned HTML...`);
 
-            // Recursive cleaner
-            const cleanNode = (node: Node): string => {
-                if (node.nodeType === Node.TEXT_NODE) {
-                    return node.textContent?.trim() || "";
-                }
+        try {
+            const jsHandle = await this.page.evaluateHandle(function() {
+                var isVisible = function(el: HTMLElement) {
+                    var style = window.getComputedStyle(el);
+                    return (
+                        style.display !== "none" &&
+                        style.visibility !== "hidden" &&
+                        style.opacity !== "0" &&
+                        el.offsetWidth > 0 &&
+                        el.offsetHeight > 0
+                    );
+                };
 
-                if (node.nodeType !== Node.ELEMENT_NODE) return "";
-
-                const el = node as HTMLElement;
-                const tag = el.tagName.toLowerCase();
-
-                // Skip noisy/invisible tags
-                if (
-                    [
-                        "script",
-                        "style",
-                        "noscript",
-                        "svg",
-                        "path",
-                        "canvas",
-                        "img",
-                        "iframe",
-                    ].includes(tag)
-                ) {
-                    return "";
-                }
-
-                if (!isVisible(el)) return "";
-
-                // For pricing, we care about headers, divs, spans, buttons, etc.
-                let childrenContent = "";
-                el.childNodes.forEach((child) => {
-                    const content = cleanNode(child);
-                    if (content) {
-                        childrenContent += content + " ";
+                function cleanNode(node: Node) {
+                    if (node.nodeType === Node.TEXT_NODE) {
+                        return node.textContent ? node.textContent.trim() : "";
                     }
-                });
 
-                childrenContent = childrenContent.trim();
-                if (!childrenContent) return "";
+                    if (node.nodeType !== Node.ELEMENT_NODE) return "";
 
-                // Wrap in tag for some structure if it's a "meaningful" container
-                if (["h1", "h2", "h3", "h4", "h5", "h6", "button", "a"].includes(tag)) {
-                    return `<${tag}>${childrenContent}</${tag}>`;
+                    var el = node as HTMLElement;
+                    var tag = el.tagName.toLowerCase();
+
+                    var skipTags = ["script", "style", "noscript", "svg", "path", "canvas", "img", "iframe"];
+                    if (skipTags.indexOf(tag) !== -1) return "";
+
+                    if (!isVisible(el)) return "";
+
+                    var childrenContent = "";
+                    var childNodes = el.childNodes;
+                    for (var i = 0; i < childNodes.length; i++) {
+                        var content = cleanNode(childNodes[i]);
+                        if (content) {
+                            childrenContent += content + " ";
+                        }
+                    }
+
+                    childrenContent = childrenContent.trim();
+                    if (!childrenContent) return "";
+
+                    var meaningfulTags = ["h1", "h2", "h3", "h4", "h5", "h6", "button", "a"];
+                    if (meaningfulTags.indexOf(tag) !== -1) {
+                        return "<" + tag + ">" + childrenContent + "</" + tag + ">";
+                    }
+
+                    return childrenContent;
                 }
 
-                return childrenContent;
-            };
-
-            return cleanNode(document.body);
-        });
+                return cleanNode(document.body);
+            });
+            const html = await jsHandle.jsonValue();
+            console.log(`[BrowserAdapter] Cleaned HTML obtained: ${html.length} chars`);
+            return html;
+        } catch (error) {
+            console.warn("[RemotePlaywrightAdapter] getCleanedHtml failed, returning empty string:", (error as Error).message);
+            return "";
+        }
     }
 
-    /**
-     * Closes the browser session.
-     */
     async close(): Promise<void> {
         console.log(`[BrowserAdapter] Closing browser session...`);
         if (this.page) await this.page.close().catch(() => { });
         if (this.context) await this.context.close().catch(() => { });
-        if (this.browser) await this.browser.close().catch(() => { });
+        // disconnect() closes only the client-side WebSocket. The server-side
+        // browser process keeps running. Without this, every request leaks a
+        // WebSocket connection that accumulates until the browser server degrades.
+        // disconnect() closes only the client-side WebSocket. The server-side
+        // browser process keeps running. Use optional chaining since older
+        // Playwright versions (pre-1.49) don't expose this method on Browser.
+        (this.browser as any)?.disconnect?.();
+        this.browser = null;
         this.page = null;
         this.context = null;
-        this.browser = null;
+        console.log(`[BrowserAdapter] Browser session closed.`);
     }
 
-    /**
-     * Legacy method: Connects, navigates, screenshots, and cleans up.
-     */
     async captureScreenshot(
         url: string,
         onProgress?: (
@@ -313,10 +285,6 @@ export class RemotePlaywrightAdapter implements BrowserServicePort {
             onProgress?.("PROCESSING");
             await this.page.mouse.move(100, 100);
             await this.waitPageCompletely(this.page);
-            // await this.waitForLoadersToDisappear(this.page);
-            // await this.waitForImages(this.page);
-            // await this.waitForDomStability(this.page, 10000);
-            // await this.waitForFrameworkRendering(this.page);
 
             const buffer = await this.page.screenshot({
                 fullPage: true,
@@ -331,42 +299,29 @@ export class RemotePlaywrightAdapter implements BrowserServicePort {
     }
 
     async waitPageCompletely(page: Page): Promise<void> {
-        // 1. Wait for the basic load
         await page.waitForLoadState("load");
 
-        // 2. Wait for the network to settle (with a shorter timeout so it doesn't hang)
         await page
             .waitForLoadState("networkidle")
-            .catch(() => console.log("Network didn't settle, continuing..."));
+            .catch(() => console.log("[BrowserAdapter] Network didn't settle, continuing..."));
 
-        // 3. Custom: Wait for no 'loading' text/spinners/skeletons to exist
-        const loaders = [
+        const loaderSelector = [
             ':text-matches("loading", "i")',
             '[class*="skeleton"]',
             '[class*="shimmer"]',
             '[class*="loading-indicator"]'
-        ];
+        ].join(', ');
 
-        for (const selector of loaders) {
-            await page.locator(selector).first().waitFor({ state: "hidden", timeout: 2000 }).catch(() => { });
-        }
+        await page.locator(loaderSelector).first().waitFor({ state: "hidden", timeout: 1500 }).catch(() => { });
 
-        // 4. Final "Settling" pause (the 1000ms breather)
-        // Essential for animations/transitions to finish before a screenshot
-        await page.waitForTimeout(1000);
+        await page.waitForTimeout(250);
     }
 
-    /**
-     * Polls the DOM for visual/structural stability.
-     * If the node count and text length don't change for 1.5 seconds, we consider it stable.
-     */
     private async waitForDomStability(
         page: Page,
         timeoutMs: number,
     ): Promise<void> {
-        console.log(
-            `[BrowserAdapter] Waiting for DOM stability (max ${timeoutMs}ms)...`,
-        );
+        console.log(`[BrowserAdapter] Waiting for DOM stability (max ${timeoutMs}ms)...`);
         try {
             await page.evaluate((timeout) => {
                 return new Promise<void>((resolve) => {
@@ -377,7 +332,6 @@ export class RemotePlaywrightAdapter implements BrowserServicePort {
                     const startTime = Date.now();
 
                     const check = () => {
-                        // Create a "signature" of the DOM: node count + innerText length
                         const currentState = `${document.querySelectorAll("*").length}-${document.body.innerText.length}`;
 
                         if (currentState === lastState) {
@@ -390,9 +344,7 @@ export class RemotePlaywrightAdapter implements BrowserServicePort {
                         if (stabilityCount >= stabilityThreshold) {
                             resolve();
                         } else if (Date.now() - startTime > timeout) {
-                            console.log(
-                                "[Stability Check] Reached timeout, continuing...",
-                            );
+                            console.log("[Stability Check] Reached timeout, continuing...");
                             resolve();
                         } else {
                             setTimeout(check, checkInterval);
@@ -404,38 +356,28 @@ export class RemotePlaywrightAdapter implements BrowserServicePort {
             }, timeoutMs);
             console.log(`[BrowserAdapter] DOM stabilized.`);
         } catch (error) {
-            console.log(
-                `[BrowserAdapter] Stability check failed, continuing...`,
-            );
+            console.log(`[BrowserAdapter] Stability check failed, continuing...`);
         }
     }
 
-    /**
-     * Wait for all loading indicators to disappear
-     */
     private async waitForLoadersToDisappear(page: Page): Promise<void> {
         try {
             const loaderSelectors = [
                 '[role="progressbar"]',
                 ".loader",
                 ".loading",
-                ".skeleton", // Common skeleton class
+                ".skeleton",
                 ".shimmer",
-                '[data-testid*="skeleton"]', // Udemy specific often
+                '[data-testid*="skeleton"]',
                 '[class*="skeleton"]',
-                '[class*="place-holder"]', // Common placeholder
-                ".ud-skeleton", // Udemy specific check
+                '[class*="place-holder"]',
+                ".ud-skeleton",
             ];
 
-            // Wait specifically for skeletons to be gone
             for (const selector of loaderSelectors) {
-                // Determine if any such element exists and is visible
                 const count = await page.locator(selector).count();
                 if (count > 0) {
-                    console.log(
-                        `[BrowserAdapter] Waiting for ${selector} to disappear...`,
-                    );
-                    // Wait up to 5s for it to detach or hide
+                    console.log(`[BrowserAdapter] Waiting for ${selector} to disappear...`);
                     await page
                         .locator(selector)
                         .first()
@@ -446,18 +388,12 @@ export class RemotePlaywrightAdapter implements BrowserServicePort {
 
             console.log(`[BrowserAdapter] Loaders/Skeletons cleared.`);
         } catch (error) {
-            console.log(
-                `[BrowserAdapter] Loader wait timed out, continuing...`,
-            );
+            console.log(`[BrowserAdapter] Loader wait timed out, continuing...`);
         }
     }
 
-    /**
-     * Wait for JavaScript frameworks to finish rendering
-     */
     private async waitForFrameworkRendering(page: Page): Promise<void> {
         try {
-            // Wait for all framework-specific markers
             await page
                 .evaluate(() => {
                     return new Promise<void>((resolve) => {
@@ -466,7 +402,6 @@ export class RemotePlaywrightAdapter implements BrowserServicePort {
                         const checkInterval = 200;
 
                         const checkReady = () => {
-                            // Check document ready state
                             if (document.readyState !== "complete") {
                                 if (attempts < maxAttempts) {
                                     attempts++;
@@ -477,17 +412,13 @@ export class RemotePlaywrightAdapter implements BrowserServicePort {
                                 return;
                             }
 
-                            // Check for React/Angular/Vue markers
                             const hasReact =
-                                !!(window as any)
-                                    .__REACT_DEVTOOLS_GLOBAL_HOOK__ ||
+                                !!(window as any).__REACT_DEVTOOLS_GLOBAL_HOOK__ ||
                                 !!(window as any).__NEXT_DATA__;
                             const hasAngular = !!(window as any).ng;
                             const hasVue = !!(window as any).__VUE__;
 
-                            // If any framework is detected, wait for stability
                             if (hasReact || hasAngular || hasVue) {
-                                // Wait for no pending layout/paint operations
                                 requestAnimationFrame(() => {
                                     requestAnimationFrame(() => {
                                         setTimeout(resolve, 1500);
@@ -505,27 +436,19 @@ export class RemotePlaywrightAdapter implements BrowserServicePort {
 
             console.log(`[BrowserAdapter] Framework rendering complete.`);
         } catch (error) {
-            console.log(
-                `[BrowserAdapter] Framework wait timed out, continuing...`,
-            );
+            console.log(`[BrowserAdapter] Framework wait timed out, continuing...`);
         }
     }
 
-    /**
-     * Wait for images and lazy-loaded content.
-     * Scrolls the page to the bottom SLOWLY to trigger lazy loading, then back up.
-     */
     private async waitForImages(page: Page): Promise<void> {
         try {
-            console.log(
-                `[BrowserAdapter] Triggering lazy load via slow scroll...`,
-            );
+            console.log(`[BrowserAdapter] Triggering lazy load via slow scroll...`);
 
             await page.evaluate(async () => {
                 await new Promise<void>((resolve) => {
                     let totalHeight = 0;
-                    const distance = 100; // Smaller chunks
-                    const scrollDelay = 150; // Slower scroll
+                    const distance = 100;
+                    const scrollDelay = 150;
 
                     const timer = setInterval(() => {
                         const scrollHeight = document.body.scrollHeight;
@@ -541,7 +464,6 @@ export class RemotePlaywrightAdapter implements BrowserServicePort {
                 });
             });
 
-            // Wait for stabilization
             await page.waitForTimeout(2000);
 
             console.log(`[BrowserAdapter] Scroll & Image wait complete.`);

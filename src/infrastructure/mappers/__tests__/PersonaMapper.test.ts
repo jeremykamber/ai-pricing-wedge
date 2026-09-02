@@ -10,7 +10,15 @@ describe('PersonaMapper', () => {
     educationLevel: 'Bachelors',
     interests: ['coding'],
     goals: ['learning'],
-    personalityTraits: ['logical'],
+    conscientiousness: 50,
+    neuroticism: 50,
+    openness: 50,
+    extraversion: 50,
+    agreeableness: 50,
+    values: ['Efficiency'],
+    fears: ['Wasted effort'],
+    communicationStyle: 'Direct',
+    decisionStyle: 'Data-driven',
     backstory: 'A test backstory'
   }
 
