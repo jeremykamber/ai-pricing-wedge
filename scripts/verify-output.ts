@@ -363,20 +363,43 @@ async function runArtifactMode(args: Record<string, unknown>): Promise<void> {
   );
 
   const completed = responses.filter((r) => r.overview && r.customerJourney.length > 0 && !r.overview.startsWith("Analysis could not be completed."));
+  // Persist the raw run BEFORE synthesis: the synthesis call is the longest
+  // single LLM request in the run, and losing three monologues to a timeout
+  // in it wastes the whole pipeline. Synthesis failures are reported via the
+  // checks below, not by discarding everything.
+  const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+  const outPath = path.resolve(args.out as string ?? path.join(OUT_DIR, `${timestamp}-artifact.json`));
+  await fs.promises.mkdir(path.dirname(outPath), { recursive: true });
+  await fs.promises.writeFile(
+    outPath,
+    JSON.stringify({
+      mode: 'artifact',
+      createdAt: new Date().toISOString(),
+      runId,
+      input: { type: input.type, url: input.url },
+      businessGoal,
+      researchQuestion,
+      personas: { count: personas.length, names: personas.map((p) => p.name) },
+      responses,
+      synthesis: null,
+    }, null, 2)
+  );
+  console.log(`\nsaved (pre-synthesis): ${outPath}`);
+
   const synthesis = completed.length > 0 ? await new SynthesizeArtifactResultsUseCase(llm).execute(
     completed,
     researchQuestion,
     { runId, failedCount: responses.length - completed.length, totalPersonaCount: responses.length },
-  ) : null;
+  ).catch((err) => {
+    console.error(`[verify-output] synthesis failed (monologues already saved): ${err.message}`);
+    return null;
+  }) : null;
 
   report('artifact', checkResponses(responses));
   report('monologues', checkMonologues(responses));
   report('synthesis', checkSynthesis(synthesis, responses.length));
   report('citations', checkCitations(synthesis, responses));
 
-  const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-  const outPath = path.resolve(args.out as string ?? path.join(OUT_DIR, `${timestamp}-artifact.json`));
-  await fs.promises.mkdir(path.dirname(outPath), { recursive: true });
   await fs.promises.writeFile(
     outPath,
     JSON.stringify({
@@ -392,6 +415,7 @@ async function runArtifactMode(args: Record<string, unknown>): Promise<void> {
     }, null, 2)
   );
   console.log(`\nsaved: ${outPath}`);
+
 }
 
 // ── Entry ───────────────────────────────────────────────────────────────────
