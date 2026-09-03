@@ -89,7 +89,7 @@ export class AnalyzeArtifactUseCase {
     log.info("AnalyzeArtifactUseCase", "Intake complete", {
       screenshotLength: intake.screenshotBase64.length,
       hasHtml: !!intake.pageHtml,
-      hasSummary: !!intake.summary,
+      hasSummaryPending: !!intake.summaryPromise,
       url: intake.url,
     });
 
@@ -101,29 +101,30 @@ export class AnalyzeArtifactUseCase {
     onProgress?.({ step: 'ANALYZING' });
     log.info("AnalyzeArtifactUseCase", `Starting persona analysis for ${personas.length} personas...`);
 
-    // Nice-to-have: an AI-generated title for the simulation, from the research
-    // context plus the captured artifact. Generated before analysis so the UI
-    // can update the name early; failure is non-fatal (the client keeps the
-    // heuristic name and the run proceeds).
-    try {
-      const title = await this.llmService.generateSimulationTitle(
-        {
-          businessGoal,
-          researchQuestion,
-          artifactUrl: intake.url,
-          pageSummary: intake.summary,
-          screenshotBase64: intake.screenshotBase64,
-        },
-        { runId },
-      );
-      if (title) onProgress?.({ step: 'ANALYZING', title });
-      log.info("AnalyzeArtifactUseCase", "Generated simulation title", { title });
-    } catch (err) {
-      log.warn("AnalyzeArtifactUseCase", "Simulation title generation failed — falling back", {
-        error: String(err),
-      });
-    }
-
+    // Nice-to-have: an AI-generated title for the simulation. Runs CONCURRENTLY
+    // with persona analysis — it only needs the intake capture, it is cosmetic
+    // (failure falls back to the heuristic name), and inlining it before the
+    // persona phase added a serial LLM round-trip (2-20s) to every run.
+    void (async () => {
+      try {
+        const title = await this.llmService.generateSimulationTitle(
+          {
+            businessGoal,
+            researchQuestion,
+            artifactUrl: intake.url,
+            pageSummary: intake.summaryPromise ? await intake.summaryPromise : undefined,
+            screenshotBase64: intake.screenshotBase64,
+          },
+          { runId },
+        );
+        if (title) onProgress?.({ step: 'ANALYZING', title });
+        log.info("AnalyzeArtifactUseCase", "Generated simulation title", { title });
+      } catch (err) {
+        log.warn("AnalyzeArtifactUseCase", "Simulation title generation failed — falling back", {
+          error: String(err),
+        });
+      }
+    })();
     const pLimit = (await import("p-limit")).default;
     const limit = pLimit(5);
 

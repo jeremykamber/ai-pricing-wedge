@@ -221,7 +221,7 @@ export interface LlmServicePort {
      */
     generateAbbreviatedBackstoriesBatch(personas: Persona[]): Promise<string[]>;
 
-    summarizeHtml(html: string): Promise<string>;
+    summarizeHtml(html: string, runId?: string): Promise<string>;
 
     /**
      * Extracts structured signals from an interview transcript.

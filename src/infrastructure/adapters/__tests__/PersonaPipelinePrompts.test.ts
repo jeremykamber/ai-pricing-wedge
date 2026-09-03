@@ -120,7 +120,7 @@ describe('VisionAnalysisAdapter Observer-Actor pipeline wiring', () => {
     adapter = new VisionAnalysisAdapter({
       visionModel: 'qwen-vl-test',
       textModel: 'deepseek-test',
-      provider: vi.fn().mockReturnValue({}),
+      provider: { chat: vi.fn().mockReturnValue({}) },
       createChatCompletion,
     } as unknown as LlmServiceImpl)
   })
@@ -129,7 +129,7 @@ describe('VisionAnalysisAdapter Observer-Actor pipeline wiring', () => {
     const persona = makePersona()
     const monologue = await adapter.generateVisceralMonologue(
       persona,
-      { screenshotBase64: 'IMG64', summary: 'SECRET_DOM_SUMMARY', pageHtml: '<html>SECRET_HTML</html>' },
+      { screenshotBase64: 'IMG64', summaryPromise: Promise.resolve('SECRET_DOM_SUMMARY'), pageHtml: '<html>SECRET_HTML</html>' },
       'Why do founders hesitate?',
       { runId: 'run1' },
     )

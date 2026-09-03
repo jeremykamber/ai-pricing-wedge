@@ -299,10 +299,17 @@ export class VisionAnalysisAdapter {
                 log?.info("VisionAnalysisAdapter", `extractPersonaResponse retry ${attempt}/${MAX_RETRIES} for "${persona.name}"`);
                 await new Promise((resolve) => setTimeout(resolve, RETRY_DELAY_MS));
             }
-
             try {
+                // provider.chat() → Chat Completions endpoint. The default
+                // provider() factory routes to OpenRouter's /responses
+                // endpoint, where deepseek runs with chain-of-thought (the
+                // reasoning-disable fetch hook below only intercepts
+                // /chat/completions): 90-240s+ extractions and 240s timeouts
+                // under load. provider.chat + the hook's reasoning off is
+                // ~10x faster on identical prompts and schemas.
+                const controller = new AbortController();
                 const streamResult = streamObject({
-                    model: this.llmService.provider(this.llmService.textModel),
+                    model: this.llmService.provider.chat(this.llmService.textModel),
                     schema: PersonaResponseSchema,
                     schemaName: "PersonaResponse",
                     schemaDescription: "A third-person qualitative analysis of a persona's think-aloud session across five cognitive stages.",
@@ -310,21 +317,36 @@ export class VisionAnalysisAdapter {
                     messages: [{ role: "user", content: prompt }],
                     temperature: 0.1,
                     maxTokens: tokenLimit,
-                } as any);
+                    abortSignal: controller.signal,
+                } as unknown as Parameters<typeof streamObject>[0]);
 
+                let timeoutId: NodeJS.Timeout | undefined;
                 const drainAndResolve = (async () => {
                     for await (const _ of streamResult.partialObjectStream) {
                         // discard
                     }
                     return streamResult.object;
-                })().catch(() => null);
+                })().catch((streamErr: unknown) => {
+                    // Surface the real cause (NoObjectGeneratedError on
+                    // truncation, 429/5xx mid-stream, schema drift) — a
+                    // silent null here cost a full diagnosis session.
+                    log?.warn("VisionAnalysisAdapter", `extractPersonaResponse stream failed for "${persona.name}"`, {
+                        error: String(streamErr),
+                    });
+                    return null;
+                });
 
                 responseObj = await Promise.race([
                     drainAndResolve,
-                    new Promise<never>((_, reject) =>
-                        setTimeout(() => reject(new Error(`Extraction timed out after ${TIMEOUT_MS}ms`)), TIMEOUT_MS)
-                    ),
-                ]);
+                    new Promise<never>((_, reject) => {
+                        timeoutId = setTimeout(() => reject(new Error(`Extraction timed out after ${TIMEOUT_MS}ms`)), TIMEOUT_MS);
+                    }),
+                ]).finally(() => {
+                    // A stalled/hung stream must not keep running into the
+                    // retry: cancel it and stop its timeout timer.
+                    clearTimeout(timeoutId);
+                    controller.abort();
+                });
 
                 if (responseObj) break;
             } catch (e) {
@@ -448,21 +470,38 @@ CRITICAL RULES:
 ${personaSections}
 
 Return ONLY the JSON object.`;
-
-        const content = await this.callLLM(
-            "", // callLLM sends a single user message; instructions live in the prompt
-            prompt,
-            "Cohort Synthesis",
-            420_000, // reasoning models emit a long CoT before the JSON; 240s timed out under concurrent load
-            options,
-        );
-
-        const parsed = CohortSynthesisSchema.parse(JSON.parse(content));
-        log?.info("generateCohortSynthesis", "Cohort synthesis parsed", {
-            findings: parsed.topFindings.length,
-            disagreements: parsed.disagreements.length,
-            frictions: parsed.biggestFrictions.length,
-        });
-        return parsed;
+        // A run-away completion (100k+ chars of repeated content instead of
+        // the ~6k JSON object) or a schema miss must not kill the cohort
+        // report: one retry gives the model a fresh chance. Parse success is
+        // logged once; both attempts fail → throw, caller degrades.
+        let lastParseError: unknown = null;
+        for (let attempt = 0; attempt < 2; attempt++) {
+            const content = await this.callLLM(
+                "", // callLLM sends a single user message; instructions live in the prompt
+                prompt,
+                "Cohort Synthesis",
+                420_000, // reasoning models emit a long CoT before the JSON; 240s timed out under concurrent load
+                options,
+            );
+            try {
+                const parsed = CohortSynthesisSchema.parse(JSON.parse(content));
+                log?.info("generateCohortSynthesis", "Cohort synthesis parsed", {
+                    findings: parsed.topFindings.length,
+                    disagreements: parsed.disagreements.length,
+                    frictions: parsed.biggestFrictions.length,
+                    attempt: attempt + 1,
+                });
+                return parsed;
+            } catch (parseErr) {
+                lastParseError = parseErr;
+                log?.warn("generateCohortSynthesis", `Cohort synthesis parse failed (attempt ${attempt + 1}/2)`, {
+                    contentLength: content.length,
+                    error: String(parseErr).slice(0, 300),
+                });
+            }
+        }
+        throw lastParseError instanceof Error
+            ? lastParseError
+            : new Error(`Cohort synthesis failed to parse twice: ${String(lastParseError)}`);
     }
 }

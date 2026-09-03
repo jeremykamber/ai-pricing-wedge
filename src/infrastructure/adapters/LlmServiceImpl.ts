@@ -259,7 +259,12 @@ export class LlmServiceImpl implements LlmServicePort {
                 response_format: options.response_format,
             };
 
-            if (this.shouldDisableThinking(model) || options.disableReasoning) {
+            // qwen always; deepseek auto-engages chain-of-thought on
+            // structured/hard prompts (60k+ reasoning chars, 60-420s observed
+            // on cohort synthesis) — never wanted on this method, whose
+            // reasoning-off callers (persona profile, PB&J scaffolds) and
+            // synthesis/compaction callers all want direct answers.
+            if (this.shouldDisableThinking(model) || options.disableReasoning || model.includes("deepseek")) {
                 requestParams.reasoning = { enabled: false };
             }
 
