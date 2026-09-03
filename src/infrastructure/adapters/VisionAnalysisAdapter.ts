@@ -279,7 +279,8 @@ export class VisionAnalysisAdapter {
     ): Promise<PersonaResponse> {
         const log = options.runId ? AnalysisLogger.forRun(options.runId) : null;
         const tokenLimit = options.tokenLimit ?? 2000;
-        const TIMEOUT_MS = 240_000; // reasoning CoT under load regularly exceeds 90s
+        const TIMEOUT_MS = 240_000; // generous hard cap — legitimate big extractions reached 153s
+        const STALL_TIMEOUT_MS = 45_000; // no chunk for 45s = provider stall; abort and retry
         const MAX_RETRIES = 2;
         const RETRY_DELAY_MS = 2_000;
 
@@ -321,15 +322,25 @@ export class VisionAnalysisAdapter {
                 } as unknown as Parameters<typeof streamObject>[0]);
 
                 let timeoutId: NodeJS.Timeout | undefined;
+                let watchdogId: NodeJS.Timeout | undefined;
+                // Inter-chunk watchdog: a healthy structured-output stream
+                // emits chunks continuously; a provider stall emits nothing
+                // for minutes while the hard timeout (sized for legitimate
+                // 150s+ completions) burns the whole budget. Detect silence
+                // in seconds, abort, and let the retry recover the persona.
+                const resetWatchdog = (): void => {
+                    clearTimeout(watchdogId);
+                    watchdogId = setTimeout(() => controller.abort(), STALL_TIMEOUT_MS);
+                };
                 const drainAndResolve = (async () => {
                     for await (const _ of streamResult.partialObjectStream) {
-                        // discard
+                        resetWatchdog();
                     }
                     return streamResult.object;
                 })().catch((streamErr: unknown) => {
                     // Surface the real cause (NoObjectGeneratedError on
-                    // truncation, 429/5xx mid-stream, schema drift) — a
-                    // silent null here cost a full diagnosis session.
+                    // truncation, 429/5xx mid-stream, schema drift, stall
+                    // abort) — a silent null here cost a full diagnosis.
                     log?.warn("VisionAnalysisAdapter", `extractPersonaResponse stream failed for "${persona.name}"`, {
                         error: String(streamErr),
                     });
@@ -345,6 +356,7 @@ export class VisionAnalysisAdapter {
                     // A stalled/hung stream must not keep running into the
                     // retry: cancel it and stop its timeout timer.
                     clearTimeout(timeoutId);
+                    clearTimeout(watchdogId);
                     controller.abort();
                 });
 
