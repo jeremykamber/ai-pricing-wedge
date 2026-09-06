@@ -34,6 +34,7 @@ export function DashboardClient() {
     const [selectedPersonaId, setSelectedPersonaId] = useState<string | null>(null)
     const [isDetailSheetOpen, setIsDetailSheetOpen] = useState(false)
     const [sheetDefaultTab, setSheetDefaultTab] = useState<"profile" | "chat" | "variant">("profile")
+    const [sheetStartEditing, setSheetStartEditing] = useState(false)
     const [pendingPersonaIds, setPendingPersonaIds] = useState<Set<string>>(new Set())
     const [showSetup, setShowSetup] = useState(false)
     const [showExpandedFlow, setShowExpandedFlow] = useState(false)
@@ -89,6 +90,13 @@ export function DashboardClient() {
         setIsDetailSheetOpen(true)
     }
 
+    const handleOpenEdit = (persona: Persona) => {
+        setSelectedPersonaId(persona.id)
+        setSheetDefaultTab("profile")
+        setSheetStartEditing(true)
+        setIsDetailSheetOpen(true)
+    }
+
     const handleOpenVariant = (persona: Persona) => {
         setSelectedPersonaId(persona.id)
         setSheetDefaultTab("variant")
@@ -104,6 +112,7 @@ export function DashboardClient() {
     const handleCloseSheet = () => {
         setIsDetailSheetOpen(false)
         setSelectedPersonaId(null)
+        setSheetStartEditing(false)
     }
 
     const handleGenerateVariation = useCallback(
@@ -432,6 +441,7 @@ export function DashboardClient() {
                                             onClick={() => handleOpenDetail(persona.id)}
                                             onChatClick={() => handleOpenChat(persona)}
                                             onCreateVariant={() => handleOpenVariant(persona)}
+                                            onEdit={() => handleOpenEdit(persona)}
                                             onDelete={handleDeletePersona}
                                         />
                                     )
@@ -601,6 +611,7 @@ export function DashboardClient() {
                 isOpen={isDetailSheetOpen}
                 onClose={handleCloseSheet}
                 defaultTab={sheetDefaultTab}
+                startEditing={sheetStartEditing}
                 onCreateVariant={selectedPersona ? () => handleOpenVariant(selectedPersona) : undefined}
                 onGenerateVariation={handleGenerateVariation}
                 onEdit={activeBatchId ? (personaId, updates) => updatePersona(activeBatchId, personaId, updates) : undefined}

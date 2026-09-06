@@ -26,6 +26,7 @@ interface PersonaDetailSheetProps {
     isOpen: boolean
     onClose: () => void
     defaultTab?: "profile" | "chat" | "variant"
+    startEditing?: boolean
     onCreateVariant?: () => void
     onGenerateVariation?: (referencePersona: Persona, formData: VariationFormData) => void
     onEdit?: (personaId: string, updates: Partial<Persona>) => void
@@ -38,6 +39,7 @@ export function PersonaDetailSheet({
     isOpen,
     onClose,
     defaultTab = "profile",
+    startEditing = false,
     onCreateVariant,
     onGenerateVariation,
     onEdit,
@@ -77,8 +79,11 @@ export function PersonaDetailSheet({
     React.useEffect(() => {
         if (isOpen) {
             setActiveTab(defaultTab)
+            if (startEditing && defaultTab === "profile" && onEdit) {
+                handleStartEdit()
+            }
         }
-    }, [isOpen, defaultTab])
+    }, [isOpen, defaultTab, startEditing])
 
     React.useEffect(() => {
         if (persona) {
@@ -293,7 +298,7 @@ export function PersonaDetailSheet({
                                         <span className="hidden sm:inline">Variant</span>
                                     </button>
                                 )}
-                                {onEdit && (
+                                {onEdit && activeTab === "profile" && (
                                     <button
                                         onClick={isEditing ? handleCancelEdit : handleStartEdit}
                                         className={cn(
@@ -318,12 +323,22 @@ export function PersonaDetailSheet({
                         <ScrollArea className="flex-1 min-h-0">
                             <div className="p-5 flex flex-col gap-6">
 
-
-
+                                {/* Inline edit trigger */}
+                                {onEdit && (
+                                    <div className="flex justify-end">
+                                        <button
+                                            onClick={handleStartEdit}
+                                            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-muted-foreground rounded-md border border-border/60 hover:bg-muted/30 hover:text-foreground transition-colors"
+                                        >
+                                            <PenIcon className="w-3.5 h-3.5" />
+                                            Edit Profile
+                                        </button>
+                                    </div>
+                                )}
 
                                 <div className="flex flex-col gap-3">
                                     <div className="flex items-center gap-3">
-                                        <h4 className="text-xs font-bold text-muted-foreground uppercase tracking-widest">BEHAVIOR PATTERNS</h4>
+                                        <h4 className="text-sm font-semibold text-foreground uppercase tracking-wide">BEHAVIOR PATTERNS</h4>
                                     </div>
                                     {persona.behavioralDimensions && persona.behavioralDimensions.length > 0 ? (
                                         <div className="flex flex-col">
@@ -352,7 +367,7 @@ export function PersonaDetailSheet({
 
                                 <div className="flex flex-col gap-5">
                                     <div className="flex items-center gap-3">
-                                        <h4 className="text-xs font-bold text-muted-foreground uppercase tracking-widest">DECISION MODEL</h4>
+                                        <h4 className="text-sm font-semibold text-foreground uppercase tracking-wide">DECISION MODEL</h4>
                                     </div>
                                     <div className="flex flex-col gap-6">
                                         {persona.decisionStyle && <p className="text-sm text-foreground/80"><span className="text-muted-foreground">Style:</span> {persona.decisionStyle}</p>}
@@ -376,24 +391,29 @@ export function PersonaDetailSheet({
 
 
                                 {(persona.bestFor?.length || persona.lessReliableFor?.length) ? (
-                                    <div className="flex flex-col gap-6">
-                                        <h4 className="text-xs font-bold text-muted-foreground uppercase tracking-widest">PREDICTION SCOPE</h4>
+                                    <div className="flex flex-col gap-4">
+                                        <div className="flex flex-col gap-1">
+                                            <h4 className="text-sm font-semibold text-foreground uppercase tracking-wide">HOW TO USE THIS PERSONA</h4>
+                                            <p className="text-xs text-muted-foreground/70 leading-relaxed">
+                                                This persona models a specific type of user. The lists below tell you what product decisions this persona can reliably inform, and where its perspective may be less trustworthy.
+                                            </p>
+                                        </div>
                                         {persona.bestFor && persona.bestFor.length > 0 && (
-                                            <div className="flex flex-col gap-2">
-                                                <span className="text-xs font-medium text-primary/70">Good for</span>
-                                                <div className="flex flex-wrap gap-x-4 gap-y-1">
+                                            <div className="flex flex-col gap-2.5">
+                                                <span className="text-sm font-semibold text-primary">Good for</span>
+                                                <div className="flex flex-col gap-1.5">
                                                     {persona.bestFor.map((item, i) => (
-                                                        <span key={i} className="text-sm text-foreground/80">{item}</span>
+                                                        <span key={i} className="text-sm text-foreground/80 leading-relaxed">{item}</span>
                                                     ))}
                                                 </div>
                                             </div>
                                         )}
                                         {persona.lessReliableFor && persona.lessReliableFor.length > 0 && (
-                                            <div className="flex flex-col gap-2">
-                                                <span className="text-xs font-medium text-warning-foreground">Less reliable for</span>
-                                                <div className="flex flex-wrap gap-x-4 gap-y-1">
+                                            <div className="flex flex-col gap-2.5">
+                                                <span className="text-sm font-semibold text-muted-foreground">Less reliable for</span>
+                                                <div className="flex flex-col gap-1.5">
                                                     {persona.lessReliableFor.map((item, i) => (
-                                                        <span key={i} className="text-sm text-foreground/80">{item}</span>
+                                                        <span key={i} className="text-sm text-foreground/80 leading-relaxed">{item}</span>
                                                     ))}
                                                 </div>
                                             </div>
@@ -407,7 +427,7 @@ export function PersonaDetailSheet({
                                     {persona.values && persona.values.length > 0 && (
                                         <div className="flex flex-col gap-4">
                                             <div className="flex items-center gap-3">
-                                                <h4 className="text-xs font-bold text-muted-foreground uppercase tracking-widest">MOTIVATIONS</h4>
+                                                <h4 className="text-sm font-semibold text-foreground uppercase tracking-wide">MOTIVATIONS</h4>
                                             </div>
                                             <div className="flex flex-col gap-5">
                                                 {persona.values.map((v, i) => {
@@ -427,7 +447,7 @@ export function PersonaDetailSheet({
                                     {persona.fears && persona.fears.length > 0 && (
                                         <div className="flex flex-col gap-3">
                                             <div className="flex items-center gap-3">
-                                                <h4 className="text-xs font-bold text-muted-foreground uppercase tracking-widest">FRICTIONS</h4>
+                                                <h4 className="text-sm font-semibold text-foreground uppercase tracking-wide">FRICTIONS</h4>
                                             </div>
                                             <ul className="space-y-5">
                                                 {persona.fears.map((f, i) => {
@@ -452,7 +472,7 @@ export function PersonaDetailSheet({
                                 <div className="flex flex-col gap-5 mt-6 border-t border-border/10 pt-6">
 
                                     <div className="flex flex-col gap-4">
-                                        <h4 className="text-xs font-bold text-muted-foreground uppercase tracking-widest">EVIDENCE &amp; CONFIDENCE</h4>
+                                        <h4 className="text-sm font-semibold text-foreground uppercase tracking-wide">EVIDENCE &amp; CONFIDENCE</h4>
                                         {persona.provenance ? (
                                             <>
                                                 {persona.provenance.attributes.length > 0 && (
@@ -487,7 +507,7 @@ export function PersonaDetailSheet({
 
                                     {persona.evidenceLinks && persona.evidenceLinks.length > 0 && (
                                         <div className="flex flex-col gap-4">
-                                            <h4 className="text-xs font-bold text-muted-foreground uppercase tracking-widest">SOURCES</h4>
+                                            <h4 className="text-sm font-semibold text-foreground uppercase tracking-wide">SOURCES</h4>
                                             <div className="flex flex-col gap-5">
                                                 {persona.evidenceLinks.map((link, i) => {
                                                     const question = persona.evidenceQuestions?.[link.excerpt];
@@ -509,7 +529,7 @@ export function PersonaDetailSheet({
                                 <div className="flex flex-col gap-3 mt-6 border-t border-border/10 pt-6">
 
                                     <details className="group">
-                                        <summary className="text-xs font-bold text-muted-foreground uppercase tracking-widest cursor-pointer hover:text-foreground transition-colors list-none flex items-center gap-2 py-1">
+                                        <summary className="text-sm font-semibold text-foreground uppercase tracking-wide cursor-pointer hover:text-foreground transition-colors list-none flex items-center gap-2 py-1">
                                             <span className="text-[10px] text-muted-foreground/30 group-open:rotate-90 transition-transform duration-150">{'▶'}</span>
                                             ADDITIONAL CONTEXT
                                         </summary>
@@ -521,7 +541,7 @@ export function PersonaDetailSheet({
                                             </div>
                                             {persona.backstory && (
                                                 <div className="flex flex-col gap-2">
-                                                    <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">BACKSTORY</h4>
+                                                    <h4 className="text-xs font-semibold text-foreground/80 uppercase tracking-wider">BACKSTORY</h4>
                                                     <div className="relative">
                                                         <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3 h-3 text-muted-foreground/70" />
                                                         <Input placeholder="Search..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="h-8 text-xs pl-8 rounded-md bg-muted/30 border-none" />
@@ -551,7 +571,7 @@ export function PersonaDetailSheet({
                                     </details>
 
                                     <details className="group">
-                                        <summary className="text-xs font-bold text-muted-foreground uppercase tracking-widest cursor-pointer hover:text-foreground transition-colors list-none flex items-center gap-2 py-1">
+                                        <summary className="text-sm font-semibold text-foreground uppercase tracking-wide cursor-pointer hover:text-foreground transition-colors list-none flex items-center gap-2 py-1">
                                             <span className="text-[10px] text-muted-foreground/30 group-open:rotate-90 transition-transform duration-150">{'▶'}</span>
                                             ADVANCED MODEL DETAILS
                                         </summary>
@@ -573,7 +593,7 @@ export function PersonaDetailSheet({
                                             )}
                                             {persona.pbjRationales && (
                                                 <div className="flex flex-col gap-2 pt-2 border-t border-border/10">
-                                                    <h4 className="text-xs font-bold text-muted-foreground uppercase tracking-widest">PSYCHOLOGICAL RATIONALES (PB&amp;J)</h4>
+                                                    <h4 className="text-xs font-semibold text-foreground/80 uppercase tracking-wider">PSYCHOLOGICAL RATIONALES (PB&amp;J)</h4>
                                                     <div className="text-xs text-foreground/70 leading-relaxed whitespace-pre-wrap max-h-[300px] overflow-y-auto custom-scrollbar">{persona.pbjRationales}</div>
                                                 </div>
                                             )}

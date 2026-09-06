@@ -3,7 +3,7 @@ import { cn } from "@/lib/utils"
 import { MinimalCard } from "./MinimalCard"
 import { PersonaAvatar } from "./PersonaAvatar"
 import { StatusBadge } from "./StatusBadge"
-import { CopyIcon, GitForkIcon, XIcon, AlertTriangleIcon } from "lucide-react"
+import { CopyIcon, GitForkIcon, XIcon, AlertTriangleIcon, PenIcon } from "lucide-react"
 import {
   Dialog,
   DialogContent,
@@ -21,9 +21,10 @@ export interface PersonaProfilePanelProps extends React.HTMLAttributes<HTMLDivEl
   onChatClick?: () => void
   onCreateVariant?: () => void
   onDelete?: (personaId: string) => void
+  onEdit?: () => void
 }
 
-export function PersonaProfilePanel({ persona, onChatClick, onCreateVariant, onDelete, className, ...props }: PersonaProfilePanelProps) {
+export function PersonaProfilePanel({ persona, onChatClick, onCreateVariant, onDelete, onEdit, className, ...props }: PersonaProfilePanelProps) {
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = React.useState(false)
 
   const analyses = useAnalysisStore((s) => s.analyses)
@@ -125,6 +126,19 @@ export function PersonaProfilePanel({ persona, onChatClick, onCreateVariant, onD
         </div>
 
         <div className="mt-auto flex flex-wrap gap-2">
+          {onEdit && (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation()
+                onEdit()
+              }}
+              className="flex-1 inline-flex h-10 items-center justify-center gap-1.5 rounded-md border border-border/60 bg-card px-4 text-xs font-medium text-foreground transition-colors hover:bg-muted/30 focus-visible:outline-none"
+            >
+              <PenIcon className="w-3.5 h-3.5" />
+              Edit
+            </button>
+          )}
           {onCreateVariant && (
             <button
               type="button"
