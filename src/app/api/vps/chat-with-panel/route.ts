@@ -7,15 +7,13 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { NextRequest } from "next/server";
-import { ChatWithPanelUseCase } from "@/application/usecases/ChatWithPanelUseCase";
 import { LlmServiceImpl } from "@/infrastructure/adapters/LlmServiceImpl";
 
 export async function POST(req: NextRequest) {
   const { responses, synthesis, message, history } = await req.json();
 
   const llmService = LlmServiceImpl.createFromEnv("openrouter");
-  const useCase = new ChatWithPanelUseCase(llmService);
-  const responseStream = useCase.executeStream(
+  const responseStream = llmService.chatWithPanelStream(
     responses ?? [],
     synthesis || null,
     message,

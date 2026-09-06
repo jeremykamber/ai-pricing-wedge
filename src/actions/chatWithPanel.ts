@@ -1,6 +1,5 @@
 "use server"
 
-import { ChatWithPanelUseCase } from "@/application/usecases/ChatWithPanelUseCase";
 import { LlmServiceImpl } from "@/infrastructure/adapters/LlmServiceImpl";
 import type { PersonaResponse } from "@/domain/entities/PersonaResponse";
 import type { ArtifactSynthesis } from "@/domain/entities/ArtifactSynthesis";
@@ -26,9 +25,8 @@ async function runLocally(
   (async () => {
     try {
       const llmService = LlmServiceImpl.createFromEnv("openrouter");
-      const useCase = new ChatWithPanelUseCase(llmService);
 
-      const responseStream = useCase.executeStream(responses, synthesis, message, history);
+      const responseStream = llmService.chatWithPanelStream(responses, synthesis, message, history);
 
       let fullText = "";
       for await (const chunk of responseStream) {

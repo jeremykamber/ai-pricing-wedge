@@ -1,6 +1,5 @@
 "use server"
 
-import { ChatWithPersonaUseCase } from "@/application/usecases/ChatWithPersonaUseCase";
 import { LlmServiceImpl } from "@/infrastructure/adapters/LlmServiceImpl";
 import type { Persona } from "@/domain/entities/Persona";
 import type { ChatAnalysisContext } from "@/domain/ports/LlmServicePort";
@@ -21,9 +20,8 @@ async function runLocally(
   (async () => {
     try {
       const llmService = LlmServiceImpl.createFromEnv("openrouter");
-      const useCase = new ChatWithPersonaUseCase(llmService);
 
-      const responseStream = useCase.executeStream(persona, analysis, message, history);
+      const responseStream = llmService.chatWithPersonaStream(persona, analysis, message, history);
 
       let fullText = "";
       for await (const chunk of responseStream) {
