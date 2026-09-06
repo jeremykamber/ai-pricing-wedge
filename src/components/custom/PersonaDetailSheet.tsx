@@ -249,7 +249,7 @@ export function PersonaDetailSheet({
                             <PersonaAvatar name={persona.name} size="md" className="w-10 h-10 shrink-0" />
                             <div className="flex flex-col min-w-0 flex-1">
                                 <h2 className="text-base font-semibold tracking-tight truncate">{persona.name}</h2>
-                                <p className="text-xs text-muted-foreground truncate">{persona.occupation}</p>
+                                <p className="text-xs text-muted-foreground leading-tight">{persona.occupation}</p>
                                 {persona.generationMode && (
                                     <span className="inline-flex mt-1.5 self-start text-[10px] font-medium text-primary/70 bg-primary/5 rounded px-1.5 py-0.5 whitespace-nowrap">
                                         {persona.generationMode === 'research' ? 'Transcript-based' : persona.generationMode === 'cluster' ? 'Synthesized from interviews' : 'Description-based'}
@@ -298,19 +298,14 @@ export function PersonaDetailSheet({
                                         <span className="hidden sm:inline">Variant</span>
                                     </button>
                                 )}
-                                {onEdit && activeTab === "profile" && (
+                                {isEditing && onEdit && (
                                     <button
-                                        onClick={isEditing ? handleCancelEdit : handleStartEdit}
-                                        className={cn(
-                                            "inline-flex items-center gap-1.5 px-2 sm:px-3 py-1.5 text-xs font-medium rounded-md transition-colors",
-                                            isEditing
-                                                ? "bg-primary/10 text-primary"
-                                                : "text-muted-foreground hover:text-foreground"
-                                        )}
-                                        aria-label={isEditing ? "Cancel editing" : "Edit persona"}
+                                        onClick={handleCancelEdit}
+                                        className="inline-flex items-center gap-1.5 px-2 sm:px-3 py-1.5 text-xs font-medium rounded-md transition-colors bg-primary/10 text-primary"
+                                        aria-label="Cancel editing"
                                     >
-                                        {isEditing ? <XIcon className="w-3.5 h-3.5" /> : <PenIcon className="w-3.5 h-3.5" />}
-                                        <span className="hidden sm:inline">{isEditing ? "Cancel" : "Edit"}</span>
+                                        <XIcon className="w-3.5 h-3.5" />
+                                        <span className="hidden sm:inline">Cancel</span>
                                     </button>
                                 )}
 

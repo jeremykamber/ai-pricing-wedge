@@ -2,7 +2,6 @@ import * as React from "react"
 import { cn } from "@/lib/utils"
 import { MinimalCard } from "./MinimalCard"
 import { PersonaAvatar } from "./PersonaAvatar"
-import { StatusBadge } from "./StatusBadge"
 import { CopyIcon, GitForkIcon, XIcon, AlertTriangleIcon, PenIcon } from "lucide-react"
 import {
   Dialog,
@@ -75,54 +74,31 @@ export function PersonaProfilePanel({ persona, onChatClick, onCreateVariant, onD
           </div>
         </div>
 
-        <div className="flex flex-col gap-4">
+        <div className="flex flex-col gap-3">
           <div className="h-px w-full bg-border/40" />
 
-          <div className="flex flex-col gap-3">
-            {/* Big Five: show the two most distinctive traits */}
-            <div className="flex flex-col gap-1.5">
-              <div className="flex items-baseline gap-2">
-                <span className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">Conscientiousness</span>
-                <span className="text-[11px] font-bold font-variant-numeric tabular-nums text-muted-foreground/80">{persona.conscientiousness}%</span>
-              </div>
-              <div className="h-1.5 w-full bg-muted rounded-sm overflow-hidden">
-                <div className="h-full bg-primary rounded-sm" style={{ width: `${persona.conscientiousness}%` }} />
-              </div>
-              <div className="flex justify-between text-[10px] text-muted-foreground/60 font-medium uppercase">
-                <span>Chaotic</span>
-                <span>Meticulous</span>
-              </div>
-            </div>
+          {/* Quick stats — age, education */}
+          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+            {persona.age && <span>{persona.age} yrs</span>}
+            {persona.age && persona.educationLevel && <span className="w-1 h-1 rounded-full bg-border" />}
+            {persona.educationLevel && <span>{persona.educationLevel}</span>}
+          </div>
 
-            <div className="flex flex-col gap-1.5">
-              <div className="flex items-baseline gap-2">
-                <span className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">Neuroticism</span>
-                <span className="text-[11px] font-bold font-variant-numeric tabular-nums text-muted-foreground/80">{persona.neuroticism}%</span>
-              </div>
-              <div className="h-1.5 w-full bg-muted rounded-sm overflow-hidden">
-                <div className="h-full bg-primary rounded-sm" style={{ width: `${persona.neuroticism}%` }} />
-              </div>
-              <div className="flex justify-between text-[10px] text-muted-foreground/60 font-medium uppercase">
-                <span>Stable</span>
-                <span>Anxious</span>
-              </div>
-            </div>
-
-            {/* Psychographic snapshot */}
-            <div className="flex flex-wrap gap-1.5 mt-2">
-              {persona.values?.slice(0, 2).map((v, i) => (
+          {/* Values */}
+          {persona.values && persona.values.length > 0 && (
+            <div className="flex flex-wrap gap-1.5">
+              {persona.values.slice(0, 3).map((v, i) => (
                 <span key={i} className="text-[11px] font-medium text-primary/80 bg-primary/10 px-2 py-0.5 rounded-sm">
                   {v}
                 </span>
               ))}
             </div>
-            {persona.decisionStyle && (
-              <div className="flex flex-wrap items-baseline gap-x-1.5 gap-y-0.5">
-                <span className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider shrink-0">Decides:</span>
-                <span className="text-xs font-semibold text-foreground/80">{persona.decisionStyle}</span>
-              </div>
-            )}
-          </div>
+          )}
+
+          {/* Decision style */}
+          {persona.decisionStyle && (
+            <p className="text-xs text-muted-foreground/80 leading-relaxed">{persona.decisionStyle}</p>
+          )}
         </div>
 
         <div className="mt-auto flex flex-wrap gap-2">
