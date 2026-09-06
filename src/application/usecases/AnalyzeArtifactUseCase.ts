@@ -8,9 +8,6 @@ import type { LlmServicePort } from "@/domain/ports/LlmServicePort";
 import { ArtifactIntakeAdapter, type ArtifactInput, type IntakeProgress } from "@/infrastructure/adapters/ArtifactIntakeAdapter";
 import { AnalysisLogger } from "@/infrastructure/AnalysisLogger";
 
-/** @deprecated Use AnalysisProgressStep from @/domain/entities/ArtifactAnalysis instead. */
-export type PricingAnalysisProgressStep = AnalysisProgressStep;
-
 export interface AnalysisProgress {
   step: AnalysisProgressStep;
   personaName?: string;
