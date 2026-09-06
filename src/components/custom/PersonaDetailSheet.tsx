@@ -609,7 +609,7 @@ export function PersonaDetailSheet({
                             <div className="p-5 flex flex-col gap-5">
                                 {/* Identity */}
                                 <div className="flex flex-col gap-3">
-                                    <h4 className="text-xs font-bold text-muted-foreground uppercase tracking-widest">IDENTITY</h4>
+                                    <h4 className="text-sm font-semibold text-foreground uppercase tracking-wide">IDENTITY</h4>
                                     <div className="grid grid-cols-2 gap-3">
                                         <div className="flex flex-col gap-1.5">
                                             <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Name</span>
@@ -649,7 +649,7 @@ export function PersonaDetailSheet({
 
                                 {/* Backstory */}
                                 <div className="flex flex-col gap-3">
-                                    <h4 className="text-xs font-bold text-muted-foreground uppercase tracking-widest">BACKSTORY</h4>
+                                    <h4 className="text-sm font-semibold text-foreground uppercase tracking-wide">BACKSTORY</h4>
                                     <Textarea
                                         value={draftPersona.backstory ?? ""}
                                         onChange={(e) => updateDraft({ backstory: e.target.value })}
@@ -659,7 +659,7 @@ export function PersonaDetailSheet({
 
                                 {/* Goals */}
                                 <div className="flex flex-col gap-3">
-                                    <h4 className="text-xs font-bold text-muted-foreground uppercase tracking-widest">GOALS</h4>
+                                    <h4 className="text-sm font-semibold text-foreground uppercase tracking-wide">GOALS</h4>
                                     <Textarea
                                         value={draftPersona.goals.join("\n")}
                                         onChange={(e) => updateDraft({ goals: e.target.value.split("\n").filter(Boolean) })}
@@ -670,7 +670,7 @@ export function PersonaDetailSheet({
 
                                 {/* Interests */}
                                 <div className="flex flex-col gap-3">
-                                    <h4 className="text-xs font-bold text-muted-foreground uppercase tracking-widest">INTERESTS</h4>
+                                    <h4 className="text-sm font-semibold text-foreground uppercase tracking-wide">INTERESTS</h4>
                                     <Textarea
                                         value={draftPersona.interests.join("\n")}
                                         onChange={(e) => updateDraft({ interests: e.target.value.split("\n").filter(Boolean) })}
@@ -681,7 +681,7 @@ export function PersonaDetailSheet({
 
                                 {/* Psychographic */}
                                 <div className="flex flex-col gap-4">
-                                    <h4 className="text-xs font-bold text-muted-foreground uppercase tracking-widest">PSYCHOGRAPHIC SPECIFICATION</h4>
+                                    <h4 className="text-sm font-semibold text-foreground uppercase tracking-wide">PSYCHOGRAPHIC SPECIFICATION</h4>
                                     <div className="flex flex-col gap-3">
                                         <div className="flex flex-col gap-1.5">
                                             <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Values</span>
@@ -724,7 +724,7 @@ export function PersonaDetailSheet({
 
                                 {/* Pricing */}
                                 <div className="flex flex-col gap-3">
-                                    <h4 className="text-xs font-bold text-muted-foreground uppercase tracking-widest">PRICING</h4>
+                                    <h4 className="text-sm font-semibold text-foreground uppercase tracking-wide">PRICING</h4>
                                     <div className="grid grid-cols-2 gap-3">
                                         <div className="flex flex-col gap-1.5">
                                             <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Sensitivity (1-100)</span>
@@ -752,7 +752,7 @@ export function PersonaDetailSheet({
                                 {/* Big Five — read only */}
                                 <div className="flex flex-col gap-4">
                                     <div className="flex items-center gap-2">
-                                        <h4 className="text-xs font-bold text-muted-foreground uppercase tracking-widest">BIG FIVE TRAITS</h4>
+                                        <h4 className="text-sm font-semibold text-foreground uppercase tracking-wide">BIG FIVE TRAITS</h4>
                                         <span className="text-[11px] font-medium text-primary/60 bg-primary/10 px-1.5 py-0.5 rounded-sm">Inferred from backstory</span>
                                     </div>
                                     <div className="space-y-4">
@@ -794,7 +794,7 @@ export function PersonaDetailSheet({
                                 <div className="flex flex-col gap-4">
                                     <div className="flex items-center justify-between">
                                         <div className="flex items-center gap-2">
-                                            <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-widest">
+                                            <h3 className="text-sm font-semibold text-foreground uppercase tracking-wide">
                                                 Big Five Personality Traits
                                             </h3>
                                             <button
@@ -846,7 +846,7 @@ export function PersonaDetailSheet({
 
                                 <div className="flex flex-col gap-3">
                                     <div className="flex items-center justify-between">
-                                        <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-widest">
+                                        <h3 className="text-sm font-semibold text-foreground uppercase tracking-wide">
                                             How Many?
                                         </h3>
                                         <span className="text-xs text-muted-foreground/80">

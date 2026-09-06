@@ -61,9 +61,9 @@ export function PersonaProfilePanel({ persona, onChatClick, onCreateVariant, onD
           />
           <div className="flex flex-col gap-1.5 flex-1 min-w-0">
             <div className="flex items-center justify-between gap-4">
-              <h3 className="font-semibold text-xl tracking-tight text-foreground truncate">{persona.name}</h3>
+              <h3 className="font-semibold text-xl tracking-tight text-foreground leading-tight">{persona.name}</h3>
             </div>
-            <p className="text-sm font-medium text-muted-foreground uppercase tracking-widest truncate">{persona.occupation}</p>
+            <p className="text-sm font-medium text-muted-foreground uppercase tracking-widest leading-tight">{persona.occupation}</p>
             {persona.variantOf && (
               <div className="flex items-center gap-1.5 mt-1">
                 <GitForkIcon className="w-3 h-3 text-muted-foreground/80 shrink-0" />
@@ -81,28 +81,28 @@ export function PersonaProfilePanel({ persona, onChatClick, onCreateVariant, onD
           <div className="flex flex-col gap-3">
             {/* Big Five: show the two most distinctive traits */}
             <div className="flex flex-col gap-1.5">
-              <div className="flex justify-between items-end gap-3">
-                <span className="text-xs font-bold text-muted-foreground uppercase tracking-widest min-w-0 truncate">Conscientiousness</span>
-                <span className="text-xs font-bold font-variant-numeric tabular-nums shrink-0">{persona.conscientiousness}%</span>
+              <div className="flex items-baseline gap-2">
+                <span className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">Conscientiousness</span>
+                <span className="text-[11px] font-bold font-variant-numeric tabular-nums text-muted-foreground/80">{persona.conscientiousness}%</span>
               </div>
               <div className="h-1.5 w-full bg-muted rounded-sm overflow-hidden">
                 <div className="h-full bg-primary rounded-sm" style={{ width: `${persona.conscientiousness}%` }} />
               </div>
-              <div className="flex justify-between text-[11px] text-muted-foreground/80 font-medium uppercase">
+              <div className="flex justify-between text-[10px] text-muted-foreground/60 font-medium uppercase">
                 <span>Chaotic</span>
                 <span>Meticulous</span>
               </div>
             </div>
 
             <div className="flex flex-col gap-1.5">
-              <div className="flex justify-between items-end gap-3">
-                <span className="text-xs font-bold text-muted-foreground uppercase tracking-widest min-w-0 truncate">Neuroticism</span>
-                <span className="text-xs font-bold font-variant-numeric tabular-nums shrink-0">{persona.neuroticism}%</span>
+              <div className="flex items-baseline gap-2">
+                <span className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">Neuroticism</span>
+                <span className="text-[11px] font-bold font-variant-numeric tabular-nums text-muted-foreground/80">{persona.neuroticism}%</span>
               </div>
               <div className="h-1.5 w-full bg-muted rounded-sm overflow-hidden">
                 <div className="h-full bg-primary rounded-sm" style={{ width: `${persona.neuroticism}%` }} />
               </div>
-              <div className="flex justify-between text-[11px] text-muted-foreground/80 font-medium uppercase">
+              <div className="flex justify-between text-[10px] text-muted-foreground/60 font-medium uppercase">
                 <span>Stable</span>
                 <span>Anxious</span>
               </div>
@@ -111,15 +111,15 @@ export function PersonaProfilePanel({ persona, onChatClick, onCreateVariant, onD
             {/* Psychographic snapshot */}
             <div className="flex flex-wrap gap-1.5 mt-2">
               {persona.values?.slice(0, 2).map((v, i) => (
-                <span key={i} className="text-[11px] font-medium text-primary/80 bg-primary/10 px-2 py-0.5 rounded-sm truncate max-w-[100px]">
+                <span key={i} className="text-[11px] font-medium text-primary/80 bg-primary/10 px-2 py-0.5 rounded-sm">
                   {v}
                 </span>
               ))}
             </div>
             {persona.decisionStyle && (
-              <div className="flex items-center gap-1.5">
-                <span className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">Decides:</span>
-                <span className="text-xs font-semibold text-foreground/80 truncate">{persona.decisionStyle}</span>
+              <div className="flex flex-wrap items-baseline gap-x-1.5 gap-y-0.5">
+                <span className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider shrink-0">Decides:</span>
+                <span className="text-xs font-semibold text-foreground/80">{persona.decisionStyle}</span>
               </div>
             )}
           </div>
