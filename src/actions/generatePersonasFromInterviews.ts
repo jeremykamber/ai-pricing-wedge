@@ -6,21 +6,13 @@ import { LlmServiceImpl } from "@/infrastructure/adapters/LlmServiceImpl";
 import { IdRagStore } from "@/infrastructure/adapters/IdRagStore";
 
 import { createStreamableValue } from "@ai-sdk/rsc";
-import { headers } from 'next/headers';
-import { RateLimiterMemory } from 'rate-limiter-flexible';
-
-const AUDIT_RATE_LIMIT_MAX = parseInt(process.env.AUDIT_RATE_LIMIT_MAX || '5');
-const AUDIT_RATE_LIMIT_WINDOW_MS = parseInt(process.env.AUDIT_RATE_LIMIT_WINDOW_MS || '60000');
-
-const pipelineRateLimiter = new RateLimiterMemory({
-    keyPrefix: 'pipeline',
-    points: AUDIT_RATE_LIMIT_MAX,
-    duration: Math.floor(AUDIT_RATE_LIMIT_WINDOW_MS / 1000),
-});
 
 import { shouldRunLocally, VPS_BACKEND_URL, getVpsAuthToken } from "@/infrastructure/config";
 import { storeProgress, storeCompleted } from "@/actions/getProgress";
 import { personaGenerationStore } from "@/infrastructure/PersonaGenerationStore";
+import { createRateLimiter, checkRateLimit } from "./rateLimiter";
+
+const pipelineRateLimiter = createRateLimiter('pipeline');
 
 function generateRunId(): string {
   return `pipeline-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
@@ -31,18 +23,9 @@ async function runLocally(formData: FormData) {
     console.log(`generatePersonasFromInterviewsAction called [runId=${runId}]...`);
     const stream = createStreamableValue<any>({ step: "UPLOADING" });
 
-    let clientIP = 'unknown';
-    try {
-        const headersList = await headers();
-        clientIP = headersList.get('x-forwarded-for')?.split(',')[0] || headersList.get('x-real-ip') || 'unknown';
-    } catch { }
-
-    try {
-        await pipelineRateLimiter.consume(clientIP);
-    } catch (rejRes: any) {
-        const msBeforeNext = rejRes.msBeforeNext;
-        const retryAfter = Math.round(msBeforeNext / 1000);
-        stream.done({ step: "ERROR", error: `Rate limit exceeded. Try again in ${retryAfter} seconds.` });
+    const rateLimit = await checkRateLimit(pipelineRateLimiter);
+    if (!rateLimit.allowed) {
+        stream.done({ step: "ERROR", error: `Rate limit exceeded. Try again in ${rateLimit.retryAfterSeconds} seconds.` });
         return { streamData: stream.value, runId };
     }
 
@@ -105,6 +88,7 @@ async function runLocally(formData: FormData) {
     return { streamData: stream.value, runId };
 }
 
+// FormData can't go through vpsPost (JSON-only); uses raw fetch with auth headers.
 async function runRemote(formData: FormData) {
     const res = await fetch(`${VPS_BACKEND_URL}/api/vps/generate-personas-from-interviews`, {
         method: "POST",

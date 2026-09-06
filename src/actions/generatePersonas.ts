@@ -4,22 +4,15 @@ import { GeneratePersonasUseCase } from "@/application/usecases/GeneratePersonas
 import { LlmServiceImpl } from "@/infrastructure/adapters/LlmServiceImpl";
 
 import { createStreamableValue } from "@ai-sdk/rsc";
-import { headers } from 'next/headers';
-import { RateLimiterMemory } from 'rate-limiter-flexible';
 
-const AUDIT_RATE_LIMIT_MAX = parseInt(process.env.AUDIT_RATE_LIMIT_MAX || '5');
-const AUDIT_RATE_LIMIT_WINDOW_MS = parseInt(process.env.AUDIT_RATE_LIMIT_WINDOW_MS || '60000');
-
-const personasRateLimiter = new RateLimiterMemory({
-  keyPrefix: 'personas',
-  points: AUDIT_RATE_LIMIT_MAX,
-  duration: Math.floor(AUDIT_RATE_LIMIT_WINDOW_MS / 1000),
-});
-
-import { shouldRunLocally, VPS_BACKEND_URL, getVpsAuthToken } from "@/infrastructure/config";
+import { shouldRunLocally } from "@/infrastructure/config";
 import { storeProgress, storeCompleted } from "@/actions/getProgress";
 import { personaGenerationStore } from "@/infrastructure/PersonaGenerationStore";
 import type { PersonaGenerationMode } from "@/domain/entities/PersonaProvenance";
+import { createRateLimiter, checkRateLimit } from "./rateLimiter";
+import { vpsPost } from "./vpsClient";
+
+const personasRateLimiter = createRateLimiter('personas');
 
 function generateRunId(): string {
   return `persona-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
@@ -30,18 +23,9 @@ async function runLocally(personaDescription: string, count: number, mode?: Pers
     console.log(`generatePersonasAction called [runId=${runId}] mode=${mode ?? "default"}...`);
     const stream = createStreamableValue<any>({ step: "BRAINSTORMING_PERSONAS" });
 
-    let clientIP = 'unknown';
-    try {
-        const headersList = await headers();
-        clientIP = headersList.get('x-forwarded-for')?.split(',')[0] || headersList.get('x-real-ip') || 'unknown';
-    } catch { }
-
-    try {
-        await personasRateLimiter.consume(clientIP);
-    } catch (rejRes: any) {
-        const msBeforeNext = rejRes.msBeforeNext;
-        const retryAfter = Math.round(msBeforeNext / 1000);
-        stream.done({ step: "ERROR", error: `Rate limit exceeded. Try again in ${retryAfter} seconds.` });
+    const rateLimit = await checkRateLimit(personasRateLimiter);
+    if (!rateLimit.allowed) {
+        stream.done({ step: "ERROR", error: `Rate limit exceeded. Try again in ${rateLimit.retryAfterSeconds} seconds.` });
         return { streamData: stream.value, runId };
     }
 
@@ -83,22 +67,8 @@ async function runLocally(personaDescription: string, count: number, mode?: Pers
 }
 
 async function runRemote(personaDescription: string, count: number, mode?: PersonaGenerationMode) {
-    const res = await fetch(`${VPS_BACKEND_URL}/api/vps/generate-personas`, {
-        method: "POST",
-        headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${getVpsAuthToken()}`,
-        },
-        body: JSON.stringify({ personaDescription, count, mode }),
-    });
-
-    if (!res.ok) {
-        const errBody = await res.text().catch(() => res.statusText);
-        throw new Error(`VPS persona generation failed (${res.status}): ${errBody}`);
-    }
-
-    const data = await res.json();
-    return { streamData: undefined as unknown as ReturnType<typeof createStreamableValue>['value'], runId: data.runId as string };
+    const data = await vpsPost<{ runId: string }>("generate-personas", { personaDescription, count, mode });
+    return { streamData: undefined as unknown as ReturnType<typeof createStreamableValue>['value'], runId: data.runId };
 }
 
 export async function generatePersonasAction(

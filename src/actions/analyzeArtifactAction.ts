@@ -1,8 +1,5 @@
 "use server";
 import { createStreamableValue } from "@ai-sdk/rsc";
-import { headers } from 'next/headers';
-import { RateLimiterMemory } from 'rate-limiter-flexible';
-
 import { AnalyzeArtifactUseCase } from "@/application/usecases/AnalyzeArtifactUseCase";
 import { ArtifactIntakeAdapter, type ArtifactInput } from "@/infrastructure/adapters/ArtifactIntakeAdapter";
 import { RemotePlaywrightAdapter } from "@/infrastructure/adapters/RemotePlaywrightAdapter";
@@ -17,15 +14,9 @@ import { storeProgress, storeCompleted } from "./getProgress";
 import { shouldRunLocally } from "@/infrastructure/config";
 import { vpsFetchRaw } from "./vpsClient";
 import { SynthesizeArtifactResultsUseCase } from "@/application/usecases/synthesizeArtifactResults";
+import { createRateLimiter, checkRateLimit } from "./rateLimiter";
 
-const AUDIT_RATE_LIMIT_MAX = parseInt(process.env.AUDIT_RATE_LIMIT_MAX || '5');
-const AUDIT_RATE_LIMIT_WINDOW_MS = parseInt(process.env.AUDIT_RATE_LIMIT_WINDOW_MS || '60000');
-
-const auditRateLimiter = new RateLimiterMemory({
-    keyPrefix: 'audit',
-    points: AUDIT_RATE_LIMIT_MAX,
-    duration: Math.floor(AUDIT_RATE_LIMIT_WINDOW_MS / 1000),
-});
+const auditRateLimiter = createRateLimiter('audit');
 
 const rawPersonaTokenLimit = parseInt(process.env.PERSONA_TOKEN_LIMIT || '2000', 10);
 const PERSONA_TOKEN_LIMIT = Number.isFinite(rawPersonaTokenLimit) && rawPersonaTokenLimit > 0
@@ -77,18 +68,10 @@ async function runLocally(
     });
 
     // Rate limiting
-    let clientIP = 'unknown';
-    try {
-        const headersList = await headers();
-        clientIP = headersList.get('x-forwarded-for')?.split(',')[0] || headersList.get('x-real-ip') || 'unknown';
-    } catch { /* non-critical */ }
-
-    try {
-        await auditRateLimiter.consume(clientIP);
-    } catch (rejRes: any) {
-        const retryAfter = Math.round((rejRes.msBeforeNext || 60000) / 1000);
-        log.warn("analyzeArtifactAction", "Rate limit exceeded", { clientIP, retryAfter });
-        stream.done({ step: "ERROR", error: `Rate limit exceeded. Try again in ${retryAfter} seconds.`, requestId: id });
+    const rateLimit = await checkRateLimit(auditRateLimiter);
+    if (!rateLimit.allowed) {
+        log.warn("analyzeArtifactAction", "Rate limit exceeded", { retryAfter: rateLimit.retryAfterSeconds });
+        stream.done({ step: "ERROR", error: `Rate limit exceeded. Try again in ${rateLimit.retryAfterSeconds} seconds.`, requestId: id });
         await log.close();
         AnalysisLogger.removeRun(id);
         return { streamData: stream.value, requestId: id };
