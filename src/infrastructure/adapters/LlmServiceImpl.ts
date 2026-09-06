@@ -259,7 +259,12 @@ export class LlmServiceImpl implements LlmServicePort {
                 response_format: options.response_format,
             };
 
-            if (this.shouldDisableThinking(model) || options.disableReasoning) {
+            // qwen always; deepseek auto-engages chain-of-thought on
+            // structured/hard prompts (60k+ reasoning chars, 60-420s observed
+            // on cohort synthesis) — never wanted on this method, whose
+            // reasoning-off callers (persona profile, PB&J scaffolds) and
+            // synthesis/compaction callers all want direct answers.
+            if (this.shouldDisableThinking(model) || options.disableReasoning || model.includes("deepseek")) {
                 requestParams.reasoning = { enabled: false };
             }
 
@@ -507,197 +512,45 @@ export class LlmServiceImpl implements LlmServicePort {
         });
     }
 
-    async isPricingVisible(screenshot: string, runId?: string): Promise<boolean> {
-        return this.visionAdapter.isPricingVisible(screenshot, runId);
-    }
-
-    async isPricingVisibleInHtml(html: string, runId?: string): Promise<PricingLocation> {
-        return this.visionAdapter.isPricingVisibleInHtml(html, runId);
-    }
-
-    async analyzePricingPageStream(
-        persona: Persona,
-        screenshot: string,
-        html?: string,
-        options?: { tokenLimit?: number; runId?: string }
-    ): Promise<any> {
-        return this.visionAdapter.analyzePricingPageStream(
-            persona,
-            screenshot,
-            html,
-            options,
-        );
-    }
-
-    async analyzePricingPageCompletion(
-        persona: Persona,
-        screenshot: string,
-        html?: string,
-        options?: { tokenLimit?: number; runId?: string }
-    ): Promise<any> {
-        return this.visionAdapter.analyzePricingPageCompletion(
-            persona,
-            screenshot,
-            html,
-            options,
-        );
-    }
-
-    async generateStreamOfConsciousness(
-        persona: Persona,
-        screenshot: string,
-        html?: string,
-        options?: { tokenLimit?: number; runId?: string }
-    ): Promise<StreamOfConsciousness> {
-        return this.visionAdapter.generateStreamOfConsciousness(
-            persona,
-            screenshot,
-            html,
-            options,
-        );
-    }
-
-    async formatStreamOfConsciousness(
-        persona: Persona,
-        stream: StreamOfConsciousness,
-        options?: { tokenLimit?: number; runId?: string }
-    ): Promise<PricingAnalysis> {
-        return this.visionAdapter.formatStreamOfConsciousness(
-            persona,
-            stream,
-            options,
-        ) as Promise<PricingAnalysis>;
-    }
-
-    async summarizeStreamOfConsciousness(
-        persona: Persona,
-        stream: StreamOfConsciousness,
-        options?: { runId?: string }
-    ): Promise<string[]> {
-        return this.visionAdapter.summarizeStreamOfConsciousness(
-            persona,
-            stream,
-            options,
-        );
-    }
-
     async summarizeHtml(html: string, runId?: string): Promise<string> {
         return this.htmlSummarizer.summarizeHtml(html, runId);
     }
 
     // ─── New artifact-agnostic analysis pipeline ──────────────────
 
-    async analyzeArtifactStream(
+    async generateVisceralMonologue(
         persona: Persona,
         context: ArtifactIntake,
-        businessGoal: string,
         researchQuestion: string,
-        options?: { tokenLimit?: number; runId?: string }
-    ): Promise<any> {
-        return this.visionAdapter.analyzeArtifactStream(
+        options?: { tokenLimit?: number; runId?: string; artifactName?: string }
+    ): Promise<{ text: string }> {
+        return this.visionAdapter.generateVisceralMonologue(
             persona,
             context,
-            businessGoal,
             researchQuestion,
             options,
         );
     }
 
-    async analyzeArtifactCompletion(
+    async extractPersonaResponse(
         persona: Persona,
-        context: ArtifactIntake,
-        businessGoal: string,
+        monologueText: string,
         researchQuestion: string,
-        options?: { tokenLimit?: number; runId?: string }
-    ): Promise<any> {
-        return this.visionAdapter.analyzeArtifactCompletion(
-            persona,
-            context,
-            businessGoal,
-            researchQuestion,
-            options,
-        );
-    }
-
-    async generateCognitiveStream(
-        persona: Persona,
-        context: ArtifactIntake,
-        businessGoal: string,
-        researchQuestion: string,
-        options?: { tokenLimit?: number; runId?: string }
-    ): Promise<StreamOfConsciousness> {
-        return this.visionAdapter.generateCognitiveStream(
-            persona,
-            context,
-            businessGoal,
-            researchQuestion,
-            options,
-        );
-    }
-
-    async formatPersonaResponse(
-        persona: Persona,
-        stream: StreamOfConsciousness,
-        businessGoal: string,
-        researchQuestion: string,
-        options?: { tokenLimit?: number; runId?: string }
+        options?: { tokenLimit?: number; runId?: string; artifactName?: string }
     ): Promise<PersonaResponse> {
-        return this.visionAdapter.formatPersonaResponse(
+        return this.visionAdapter.extractPersonaResponse(
             persona,
-            stream,
-            businessGoal,
+            monologueText,
             researchQuestion,
             options,
         );
     }
-
-    async deriveResponseSignals(
-        persona: Persona,
-        stream: StreamOfConsciousness,
-        options?: { runId?: string }
-    ): Promise<{ highestStageReached: string; finalAction: string; keySignals: string[] }> {
-        return this.visionAdapter.deriveResponseSignals(
-            persona,
-            stream,
-            options,
-        );
-    }
-
-    async generateTopFindings(
-        responses: import("@/domain/entities/PersonaResponse").PersonaResponse[],
-        businessGoal: string,
+    async generateCohortSynthesis(
         researchQuestion: string,
+        transcripts: Array<{ personaId: string; personaName: string; transcript: string }>,
         options?: { runId?: string }
-    ): Promise<import("@/domain/entities/ArtifactSynthesis").SynthesizedFinding[]> {
-        return this.visionAdapter.generateTopFindings(responses, businessGoal, researchQuestion, options);
-    }
-
-    async generateDisagreements(
-        responses: import("@/domain/entities/PersonaResponse").PersonaResponse[],
-        options?: { runId?: string }
-    ): Promise<import("@/domain/entities/ArtifactSynthesis").Disagreement[]> {
-        return this.visionAdapter.generateDisagreements(responses, options);
-    }
-
-    async generateFrictions(
-        responses: import("@/domain/entities/PersonaResponse").PersonaResponse[],
-        options?: { runId?: string }
-    ): Promise<string[]> {
-        return this.visionAdapter.generateFrictions(responses, options);
-    }
-
-    async generateSynthesisOverview(
-        responses: import("@/domain/entities/PersonaResponse").PersonaResponse[],
-        businessGoal: string,
-        researchQuestion: string,
-        topFindings: import("@/domain/entities/ArtifactSynthesis").SynthesizedFinding[],
-        disagreements: import("@/domain/entities/ArtifactSynthesis").Disagreement[],
-        frictions: string[],
-        options?: { runId?: string }
-    ): Promise<{ overview: string; researchQuestionAnswer: string }> {
-        return this.visionAdapter.generateSynthesisOverview(
-            responses, businessGoal, researchQuestion, topFindings, disagreements, frictions, options,
-        );
+    ): Promise<import("@/domain/entities/ArtifactSynthesis").CohortSynthesisContent> {
+        return this.visionAdapter.generateCohortSynthesis(researchQuestion, transcripts, options);
     }
 
     // --- Domain Gateways (Delegating to Adapters) ---
@@ -821,30 +674,6 @@ export class LlmServiceImpl implements LlmServicePort {
     }
 
     // --- Legacy / Compatibility ---
-
-    async analyzeStaticPage(
-        persona: Persona,
-        screenshot: string,
-    ): Promise<PricingAnalysis> {
-        throw new Error("analyzeStaticPage is deprecated. Use analyzePricingPageStream instead.");
-    }
-
-    async *analyzeStaticPageStream(
-        persona: Persona,
-        screenshots: string[],
-    ): AsyncIterable<string> {
-        const result = await this.analyzePricingPageStream(persona, screenshots[0]);
-        for await (const partial of result.partialObjectStream) {
-            if (partial.thoughts) yield partial.thoughts;
-        }
-    }
-
-    async extractInsights(
-        persona: Persona,
-        rawThoughts: string,
-    ): Promise<Partial<PricingAnalysis>> {
-        throw new Error("extractInsights is deprecated. Use analyzePricingPageStream for consolidated results.");
-    }
 
     async chatWithPersona(
         persona: Persona,

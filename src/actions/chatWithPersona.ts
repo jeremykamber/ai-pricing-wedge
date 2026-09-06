@@ -1,13 +1,13 @@
 "use server"
 
-import { ChatWithPersonaUseCase } from "@/application/usecases/ChatWithPersonaUseCase";
 import { LlmServiceImpl } from "@/infrastructure/adapters/LlmServiceImpl";
-import { Persona } from "@/domain/entities/Persona";
-import { ChatAnalysisContext } from "@/domain/ports/LlmServicePort";
+import type { Persona } from "@/domain/entities/Persona";
+import type { ChatAnalysisContext } from "@/domain/ports/LlmServicePort";
 
 import { createStreamableValue } from "@ai-sdk/rsc";
 
-import { shouldRunLocally, VPS_BACKEND_URL, getVpsAuthToken } from "@/infrastructure/config";
+import { shouldRunLocally } from "@/infrastructure/config";
+import { vpsFetchRaw } from "./vpsClient";
 
 async function runLocally(
   persona: Persona,
@@ -20,9 +20,8 @@ async function runLocally(
   (async () => {
     try {
       const llmService = LlmServiceImpl.createFromEnv("openrouter");
-      const useCase = new ChatWithPersonaUseCase(llmService);
 
-      const responseStream = useCase.executeStream(persona, analysis, message, history);
+      const responseStream = llmService.chatWithPersonaStream(persona, analysis, message, history);
 
       let fullText = "";
       for await (const chunk of responseStream) {
@@ -50,14 +49,7 @@ async function runRemote(
 
   (async () => {
     try {
-      const res = await fetch(`${VPS_BACKEND_URL}/api/vps/chat-with-persona`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${getVpsAuthToken()}`,
-        },
-        body: JSON.stringify({ persona, analysis, message, history }),
-      });
+      const res = await vpsFetchRaw("chat-with-persona", { persona, analysis, message, history });
 
       if (!res.ok) {
         const err = await res.json().catch(() => ({ error: `HTTP ${res.status}` }));

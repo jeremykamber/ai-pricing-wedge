@@ -1,3 +1,5 @@
+import { createHash } from 'crypto';
+
 export class User {
   constructor(
     public readonly id: string,
@@ -12,8 +14,7 @@ export class User {
   }
 
   static hashPassword(password: string): string {
-    // Simple hash for demo
-    return password.split('').reverse().join('')
+    return createHash('sha256').update(password).digest('hex');
   }
 
   validate(): boolean {

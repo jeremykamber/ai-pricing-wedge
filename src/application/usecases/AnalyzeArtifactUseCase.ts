@@ -8,9 +8,6 @@ import type { LlmServicePort } from "@/domain/ports/LlmServicePort";
 import { ArtifactIntakeAdapter, type ArtifactInput, type IntakeProgress } from "@/infrastructure/adapters/ArtifactIntakeAdapter";
 import { AnalysisLogger } from "@/infrastructure/AnalysisLogger";
 
-/** @deprecated Use AnalysisProgressStep from @/domain/entities/ArtifactAnalysis instead. */
-export type PricingAnalysisProgressStep = AnalysisProgressStep;
-
 export interface AnalysisProgress {
   step: AnalysisProgressStep;
   personaName?: string;
@@ -19,6 +16,24 @@ export interface AnalysisProgress {
   error?: string;
   /** AI-generated simulation title (nice-to-have; may be absent). */
   title?: string;
+}
+
+/**
+ * Canonical artifact brand name for the models: the hostname with "www."
+ * stripped and the TLD dropped ("https://jobright.ai/x" -> "Jobright").
+ * Injected into prompts so personas and extraction never misspell the
+ * product they're evaluating ("Jobbright" hallucinations). Returns null for
+ * screenshot-only inputs — prompts simply omit the brand line then.
+ */
+export function artifactNameFrom(url: string | undefined): string | null {
+  if (!url) return null;
+  try {
+    const host = new URL(url).hostname.replace(/^www\./, "");
+    const base = host.split(".")[0];
+    return base ? base.charAt(0).toUpperCase() + base.slice(1) : null;
+  } catch {
+    return null;
+  }
 }
 
 export class AnalyzeArtifactUseCase {
@@ -71,7 +86,7 @@ export class AnalyzeArtifactUseCase {
     log.info("AnalyzeArtifactUseCase", "Intake complete", {
       screenshotLength: intake.screenshotBase64.length,
       hasHtml: !!intake.pageHtml,
-      hasSummary: !!intake.summary,
+      hasSummaryPending: !!intake.summaryPromise,
       url: intake.url,
     });
 
@@ -83,29 +98,30 @@ export class AnalyzeArtifactUseCase {
     onProgress?.({ step: 'ANALYZING' });
     log.info("AnalyzeArtifactUseCase", `Starting persona analysis for ${personas.length} personas...`);
 
-    // Nice-to-have: an AI-generated title for the simulation, from the research
-    // context plus the captured artifact. Generated before analysis so the UI
-    // can update the name early; failure is non-fatal (the client keeps the
-    // heuristic name and the run proceeds).
-    try {
-      const title = await this.llmService.generateSimulationTitle(
-        {
-          businessGoal,
-          researchQuestion,
-          artifactUrl: intake.url,
-          pageSummary: intake.summary,
-          screenshotBase64: intake.screenshotBase64,
-        },
-        { runId },
-      );
-      if (title) onProgress?.({ step: 'ANALYZING', title });
-      log.info("AnalyzeArtifactUseCase", "Generated simulation title", { title });
-    } catch (err) {
-      log.warn("AnalyzeArtifactUseCase", "Simulation title generation failed — falling back", {
-        error: String(err),
-      });
-    }
-
+    // Nice-to-have: an AI-generated title for the simulation. Runs CONCURRENTLY
+    // with persona analysis — it only needs the intake capture, it is cosmetic
+    // (failure falls back to the heuristic name), and inlining it before the
+    // persona phase added a serial LLM round-trip (2-20s) to every run.
+    void (async () => {
+      try {
+        const title = await this.llmService.generateSimulationTitle(
+          {
+            businessGoal,
+            researchQuestion,
+            artifactUrl: intake.url,
+            pageSummary: intake.summaryPromise ? await intake.summaryPromise : undefined,
+            screenshotBase64: intake.screenshotBase64,
+          },
+          { runId },
+        );
+        if (title) onProgress?.({ step: 'ANALYZING', title });
+        log.info("AnalyzeArtifactUseCase", "Generated simulation title", { title });
+      } catch (err) {
+        log.warn("AnalyzeArtifactUseCase", "Simulation title generation failed — falling back", {
+          error: String(err),
+        });
+      }
+    })();
     const pLimit = (await import("p-limit")).default;
     const limit = pLimit(5);
 
@@ -135,29 +151,30 @@ export class AnalyzeArtifactUseCase {
           try {
             const pipelineStart = Date.now();
 
-            // Stage 1: Generate cognitive stream through 5 stages
+            // Stage 1: visceral first-person monologue (screenshot only — no
+            // page summary reaches the actor), then Stage 2: third-person
+            // extraction from that monologue. businessGoal intentionally does
+            // not enter the persona pipeline; identity lives in the persona.
             const streamStart = Date.now();
-            const stream = await this.llmService.generateCognitiveStream(
+            const monologue = await this.llmService.generateVisceralMonologue(
               persona,
               intake,
-              businessGoal,
               researchQuestion,
-              { tokenLimit, runId },
+              { tokenLimit, runId, artifactName: artifactNameFrom(intake.url) ?? undefined },
             );
             const streamDuration = Date.now() - streamStart;
-            log.info("AnalyzeArtifactUseCase", `${personaLog} Cognitive stream completed`, {
-              textLength: stream.text.length,
+            log.info("AnalyzeArtifactUseCase", `${personaLog} Visceral monologue completed`, {
+              textLength: monologue.text.length,
               durationMs: streamDuration,
             });
 
             if (abortSignal?.aborted) throw new Error("Request cancelled during formatting");
 
-            const response = await this.llmService.formatPersonaResponse(
+            const response = await this.llmService.extractPersonaResponse(
               persona,
-              stream,
-              businessGoal,
+              monologue.text,
               researchQuestion,
-              { tokenLimit, runId },
+              { tokenLimit, runId, artifactName: artifactNameFrom(intake.url) ?? undefined },
             );
 
             const pipelineDuration = Date.now() - pipelineStart;
@@ -177,18 +194,12 @@ export class AnalyzeArtifactUseCase {
               durationMs: personaDuration,
             });
 
-            onProgress?.({
-              step: "ANALYZING",
-              personaName: persona.name,
-              totalCount,
-              completedCount: finishedCount,
-            });
 
             // Assemble full response with metadata
             const fullResponse: PersonaResponse = {
               id: `${persona.name.replace(/[\s-]+/g, "_")}-${Date.now()}`,
               screenshotBase64: intake.screenshotBase64,
-              rawAnalysis: stream.text,
+              rawAnalysis: monologue.text,
               overview: response.overview,
               customerJourney: response.customerJourney,
               researchQuestionAnswer: response.researchQuestionAnswer,
@@ -214,10 +225,11 @@ export class AnalyzeArtifactUseCase {
             };
 
             if (!validatePersonaResponse(fullResponse)) {
-              log.warn("AnalyzeArtifactUseCase", `${personaLog} Validation failed — response may have missing fields`, {
+              log.warn("AnalyzeArtifactUseCase", `${personaLog} Validation failed — normalizing journey outcomes`, {
                 hasOverview: !!fullResponse.overview,
                 stagesCount: fullResponse.customerJourney.length,
               });
+              fullResponse.customerJourney = normalizeJourneyOutcomes(fullResponse.customerJourney);
             }
 
             return fullResponse;
@@ -274,4 +286,29 @@ export class AnalyzeArtifactUseCase {
 
     return responses;
   }
+}
+
+/**
+ * Enforces the journey state machine in code: once a stage blocked or
+ * stopped the user, every later stage is "not reached" — outcome "stopped",
+ * neutral sentiment, and a description naming the abandonment point instead
+ * of the model re-describing what the stage would have been about. Stages
+ * before the first block are untouched, and a run that reached the end
+ * passes through unchanged.
+ */
+function normalizeJourneyOutcomes(
+  journey: PersonaResponse["customerJourney"],
+): PersonaResponse["customerJourney"] {
+  const blockedIndex = journey.findIndex((s) => s.outcome === "blocked" || s.outcome === "stopped");
+  if (blockedIndex === -1 || blockedIndex === journey.length - 1) return journey;
+  const abandonAt = journey[blockedIndex].stage;
+  return journey.map((stage, i) => {
+    if (i <= blockedIndex) return stage;
+    return {
+      ...stage,
+      outcome: "stopped" as const,
+      sentiment: "neutral" as const,
+      description: `Not reached — abandoned at ${abandonAt}.`,
+    };
+  });
 }

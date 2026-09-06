@@ -2,8 +2,8 @@
 
 import type { Persona } from "@/domain/entities/Persona";
 import { personaGenerationStore } from "@/infrastructure/PersonaGenerationStore";
-
-import { shouldRunLocally, VPS_BACKEND_URL, getVpsAuthToken } from "@/infrastructure/config";
+import { shouldRunLocally } from "@/infrastructure/config";
+import { vpsGet } from "./vpsClient";
 
 export interface PersonaGenerationResult {
   found: boolean;
@@ -28,12 +28,10 @@ export async function getPersonaGenerationResultAction(runId: string): Promise<P
     };
   }
 
-  const res = await fetch(`${VPS_BACKEND_URL}/api/vps/persona-result?runId=${runId}`, {
-    headers: { Authorization: `Bearer ${getVpsAuthToken()}` },
-  });
-  if (!res.ok) {
-    console.error(`[PERSONA_RESULT_POLL] VPS returned ${res.status} for ${runId}`);
+  try {
+    return await vpsGet("persona-result", { runId });
+  } catch {
+    console.error(`[PERSONA_RESULT_POLL] VPS returned error for ${runId}`);
     return { found: false };
   }
-  return res.json();
 }

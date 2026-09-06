@@ -1,13 +1,13 @@
 "use server"
 
-import { ChatWithPanelUseCase } from "@/application/usecases/ChatWithPanelUseCase";
 import { LlmServiceImpl } from "@/infrastructure/adapters/LlmServiceImpl";
 import type { PersonaResponse } from "@/domain/entities/PersonaResponse";
 import type { ArtifactSynthesis } from "@/domain/entities/ArtifactSynthesis";
 
 import { createStreamableValue } from "@ai-sdk/rsc";
 
-import { shouldRunLocally, VPS_BACKEND_URL, getVpsAuthToken } from "@/infrastructure/config";
+import { shouldRunLocally } from "@/infrastructure/config";
+import { vpsFetchRaw } from "./vpsClient";
 
 interface ChatHistoryEntry {
   role: 'user' | 'assistant'
@@ -25,9 +25,8 @@ async function runLocally(
   (async () => {
     try {
       const llmService = LlmServiceImpl.createFromEnv("openrouter");
-      const useCase = new ChatWithPanelUseCase(llmService);
 
-      const responseStream = useCase.executeStream(responses, synthesis, message, history);
+      const responseStream = llmService.chatWithPanelStream(responses, synthesis, message, history);
 
       let fullText = "";
       for await (const chunk of responseStream) {
@@ -55,14 +54,7 @@ async function runRemote(
 
   (async () => {
     try {
-      const res = await fetch(`${VPS_BACKEND_URL}/api/vps/chat-with-panel`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${getVpsAuthToken()}`,
-        },
-        body: JSON.stringify({ responses, synthesis, message, history }),
-      });
+      const res = await vpsFetchRaw("chat-with-panel", { responses, synthesis, message, history });
 
       if (!res.ok) {
         const err = await res.json().catch(() => ({ error: `HTTP ${res.status}` }));
@@ -78,13 +70,6 @@ async function runRemote(
         const { done, value } = await reader.read();
         if (done) break;
         const chunk = decoder.decode(value, { stream: true });
-        // The endpoint's wire format varies by deployment: raw delta tokens,
-        // or `<<REASONING>>…<</REASONING>>` + accumulated content repeated
-        // per token (reads may coalesce several of these payloads). When a
-        // reasoning marker is present, the payload after the LAST marker is
-        // the newest accumulated state, so replace with it; otherwise append
-        // the delta token. This reconstructs the complete reply exactly
-        // once for either format.
         const lastMarker = chunk.lastIndexOf("<<REASONING>>");
         fullText = lastMarker === -1 ? fullText + chunk : chunk.slice(lastMarker);
         stream.update(fullText);

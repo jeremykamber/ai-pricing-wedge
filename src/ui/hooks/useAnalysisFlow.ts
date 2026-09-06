@@ -23,7 +23,7 @@ export interface AnalysisProgress {
   synthesis?: ArtifactSynthesis
 }
 
-export function useAnalysisFlow(onSuccess?: (analyses: PersonaResponse[]) => void) {
+export function useAnalysisFlow(onSuccess?: (analyses: PersonaResponse[], synthesis?: ArtifactSynthesis | null) => void) {
   const [artifactUrl, setArtifactUrl] = useState('')
   const [artifactImageBase64, setArtifactImageBase64] = useState<string | null>(null)
   const [businessGoal, setBusinessGoal] = useState('')
@@ -170,7 +170,7 @@ export function useAnalysisFlow(onSuccess?: (analyses: PersonaResponse[]) => voi
               clearScreenshotPoll()
               const results = update.analyses as PersonaResponse[] | undefined
               const synth = (update as any).synthesis as ArtifactSynthesis | undefined
-              useAnalysisStore.getState().markComplete(analysisId, results ?? [])
+              useAnalysisStore.getState().markComplete(analysisId, results ?? [], synth)
               if (mountedRef.current) {
                 setAnalyses(results ?? null)
                 setSynthesis(synth ?? null)
@@ -230,13 +230,13 @@ export function useAnalysisFlow(onSuccess?: (analyses: PersonaResponse[]) => voi
             }
 
             const responses = result.analyses ?? []
-            useAnalysisStore.getState().markComplete(analysisId, responses)
+            useAnalysisStore.getState().markComplete(analysisId, responses, result.synthesis)
             if (mountedRef.current) {
               setAnalyses(responses)
               setAnalysisProgress(null)
               setCurrentRequestId(null)
             }
-            if (responses.length > 0 && onSuccess) onSuccess(responses)
+            if (responses.length > 0 && onSuccess) onSuccess(responses, result.synthesis)
             return
           } catch { /* retry */ }
         }

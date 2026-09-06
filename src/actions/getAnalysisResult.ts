@@ -1,14 +1,17 @@
 "use server";
 
+import type { PersonaResponse } from "@/domain/entities/PersonaResponse";
+import type { ArtifactSynthesis } from "@/domain/entities/ArtifactSynthesis";
 import { analysisResultStore } from "@/infrastructure/AnalysisResultStore";
-
-import { shouldRunLocally, VPS_BACKEND_URL, getVpsAuthToken } from "@/infrastructure/config";
+import { shouldRunLocally } from "@/infrastructure/config";
+import { vpsGet } from "./vpsClient";
 
 export async function getAnalysisResultAction(runId: string): Promise<{
   found: boolean;
-  analyses?: import('@/domain/entities/PersonaResponse').PersonaResponse[];
+  analyses?: PersonaResponse[];
   error?: string;
   completedAt?: string;
+  synthesis?: ArtifactSynthesis | null;
 }> {
   if (shouldRunLocally()) {
     const result = analysisResultStore.get(runId);
@@ -22,15 +25,14 @@ export async function getAnalysisResultAction(runId: string): Promise<{
       analyses: result.analyses,
       error: result.error,
       completedAt: result.completedAt,
+      synthesis: result.synthesis ?? null,
     };
   }
 
-  const res = await fetch(`${VPS_BACKEND_URL}/api/vps/analyze-result?runId=${runId}`, {
-    headers: { Authorization: `Bearer ${getVpsAuthToken()}` },
-  });
-  if (!res.ok) {
-    console.error(`[RESULT_POLL] VPS returned ${res.status} for ${runId}`);
+  try {
+    return await vpsGet("analyze-result", { runId });
+  } catch {
+    console.error(`[RESULT_POLL] VPS returned error for ${runId}`);
     return { found: false };
   }
-  return res.json();
 }

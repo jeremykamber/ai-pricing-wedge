@@ -17,6 +17,14 @@ export class ArtifactIntakeAdapter {
     private readonly llmService: LlmServicePort,
   ) {}
 
+  /**
+   * Summarization is NOT on the critical path: the persona pipeline needs
+   * only the screenshot (VisionAnalysisAdapter deliberately ignores summary/
+   * pageHtml), and the summary's sole consumer is the nice-to-have title.
+   * Summarizing inline added a serial 5-70s LLM round-trip to every URL run
+   * before the first monologue could start. Capture returns immediately;
+   * the summary rides along as a promise the title task awaits.
+   */
   async intake(
     input: ArtifactInput,
     onProgress?: IntakeProgressCallback,
@@ -27,10 +35,12 @@ export class ArtifactIntakeAdapter {
     log?.info("ArtifactIntakeAdapter", "Starting intake", { inputType: input.type });
 
     if (input.type === "url") {
-      if (!input.url.trim()) {
-        throw new Error("Cannot intake: URL is empty");
-      }
-      return this.urlIntake(input.url, onProgress, runId);
+      const { screenshotBase64, pageHtml, url } = await this.captureUrl(input.url, onProgress, runId);
+      const summaryPromise = pageHtml
+        ? this.llmService.summarizeHtml(pageHtml, runId)
+        : Promise.resolve("");
+      onProgress?.("COMPLETE");
+      return { screenshotBase64, pageHtml, url, summaryPromise };
     }
 
     if (!input.imageBase64) {
@@ -51,11 +61,11 @@ export class ArtifactIntakeAdapter {
     };
   }
 
-  private async urlIntake(
+  private async captureUrl(
     url: string,
     onProgress?: IntakeProgressCallback,
     runId?: string,
-  ): Promise<ArtifactIntake> {
+  ): Promise<{ screenshotBase64: string; pageHtml?: string; url: string }> {
     const log = runId ? AnalysisLogger.forRun(runId) : null;
 
     onProgress?.("NAVIGATING");
@@ -73,25 +83,19 @@ export class ArtifactIntakeAdapter {
       ]);
 
       if (!cleanedHtml) {
-        onProgress?.("COMPLETE");
         return { screenshotBase64, url };
       }
 
       onProgress?.("PROCESSING");
 
-      log?.info("ArtifactIntakeAdapter", "Summarizing HTML", {
+      log?.info("ArtifactIntakeAdapter", "HTML captured for background summarization", {
         htmlLength: cleanedHtml.length,
       });
-
-      const summarizedHtml = await this.llmService.summarizeHtml(cleanedHtml);
-
-      onProgress?.("COMPLETE");
 
       return {
         screenshotBase64,
         pageHtml: cleanedHtml,
         url,
-        summary: summarizedHtml,
       };
     } finally {
       try {
@@ -110,3 +114,4 @@ function stripDataUrlPrefix(dataUrl: string): string {
   if (commaIndex === -1) return dataUrl;
   return dataUrl.slice(commaIndex + 1);
 }
+

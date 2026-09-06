@@ -6,15 +6,13 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { NextRequest } from "next/server";
-import { ChatWithPersonaUseCase } from "@/application/usecases/ChatWithPersonaUseCase";
 import { LlmServiceImpl } from "@/infrastructure/adapters/LlmServiceImpl";
 
 export async function POST(req: NextRequest) {
   const { persona, analysis, message, history } = await req.json();
 
   const llmService = LlmServiceImpl.createFromEnv("openrouter");
-  const useCase = new ChatWithPersonaUseCase(llmService);
-  const responseStream = useCase.executeStream(
+  const responseStream = llmService.chatWithPersonaStream(
     persona,
     analysis || null,
     message,

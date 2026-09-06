@@ -1,9 +1,8 @@
 import { Persona } from "../entities/Persona";
 import { PricingAnalysis } from "../entities/PricingAnalysis";
 import { PersonaResponse } from "../entities/PersonaResponse";
-import { ArtifactSynthesis } from "../entities/ArtifactSynthesis";
+import { ArtifactSynthesis, CohortSynthesisContent } from "../entities/ArtifactSynthesis";
 import { ArtifactIntake } from "../entities/ArtifactIntake";
-import { StreamOfConsciousness } from "../entities/StreamOfConsciousness";
 import { ExtractedInterviewSignals } from "@/application/interviewPipeline/types";
 import type { ResearchPersonaConfig, StrategyPersonaConfig, ClusterPersonaConfig } from "../dtos/PersonaGenerationConfig";
 
@@ -105,29 +104,6 @@ export interface LlmServicePort {
         actionHistory: string[],
     ): Promise<AgentAction>;
 
-    /** @deprecated Use analyzeArtifactStream instead. */
-    analyzeStaticPage(
-        persona: Persona,
-        screenshotBase64: string,
-    ): Promise<PricingAnalysis>;
-
-    /** @deprecated Use analyzeArtifactStream instead. */
-    analyzeStaticPageStream(
-        persona: Persona,
-        screenshots: string[],
-    ): AsyncIterable<string>;
-
-    /** @deprecated Use formatStreamOfConsciousness → PersonaResponse instead. */
-    extractInsights(
-        persona: Persona,
-        rawThoughts: string,
-    ): Promise<Partial<PricingAnalysis>>;
-
-    /** @deprecated Pricing-specific scouting — use generic ArtifactIntakeAdapter instead. */
-    isPricingVisible(screenshotBase64: string): Promise<boolean>;
-
-    /** @deprecated Pricing-specific scouting — use generic ArtifactIntakeAdapter instead. */
-    isPricingVisibleInHtml(html: string): Promise<PricingLocation>;
 
     /**
      * Chat with a persona about their analysis.
@@ -185,157 +161,51 @@ export interface LlmServicePort {
         history: { role: "user" | "assistant"; content: string }[],
     ): AsyncIterable<string>;
 
-    /** @deprecated Use analyzeArtifactStream instead. */
-    analyzePricingPageStream(
-        persona: Persona,
-        screenshotBase64: string,
-        pageHtml?: string,
-        options?: { tokenLimit?: number; runId?: string }
-    ): Promise<any>;
 
-    /** @deprecated Use analyzeArtifactCompletion instead. */
-    analyzePricingPageCompletion(
-        persona: Persona,
-        screenshotBase64: string,
-        pageHtml?: string,
-        options?: { tokenLimit?: number; runId?: string }
-    ): Promise<any>;
+
 
     /**
-     * Stage 1: Generate stream of consciousness (natural first-person thinking).
-     * No JSON constraints — just free-form text.
-     * The persona reasons through all five cognitive stages.
+     * System 1 — the Actor. Generates a visceral, first-person stream-of-
+     * consciousness monologue of the persona experiencing the artifact,
+     * grounded in the screenshot ONLY (visual salience over DOM structure).
      */
-    generateStreamOfConsciousness(
-        persona: Persona,
-        screenshotBase64: string,
-        pageHtml?: string,
-        options?: { tokenLimit?: number; runId?: string }
-    ): Promise<StreamOfConsciousness>;
-
-    /** @deprecated Use the new formatStreamOfConsciousness (PersonaResponse output) instead. */
-    formatStreamOfConsciousness(
-        persona: Persona,
-        stream: StreamOfConsciousness,
-        options?: { tokenLimit?: number; runId?: string }
-    ): Promise<PricingAnalysis>;
-
-    /** @deprecated Use the new summarizeStreamOfConsciousness instead. */
-    summarizeStreamOfConsciousness(
-        persona: Persona,
-        stream: StreamOfConsciousness,
-        options?: { runId?: string }
-    ): Promise<string[]>;
-
-    // --- New artifact-agnostic analysis pipeline ---
-
-    /**
-     * One-pass artifact analysis returning a structured PersonaResponse.
-     * The persona reasons through all five cognitive stages.
-     */
-    analyzeArtifactStream(
+    generateVisceralMonologue(
         persona: Persona,
         context: ArtifactIntake,
-        businessGoal: string,
         researchQuestion: string,
-        options?: { tokenLimit?: number; runId?: string }
-    ): Promise<any>;
+        options?: { tokenLimit?: number; runId?: string; artifactName?: string }
+    ): Promise<{ text: string }>;
 
     /**
-     * Non-streaming variant — awaits the full PersonaResponse result.
+     * System 2 — the Anthropologist. Maps the raw monologue into a
+     * structured PersonaResponse, strictly third-person, grounded in the
+     * transcript alone (no image, no page summary).
      */
-    analyzeArtifactCompletion(
+    extractPersonaResponse(
         persona: Persona,
-        context: ArtifactIntake,
-        businessGoal: string,
+        monologueText: string,
         researchQuestion: string,
-        options?: { tokenLimit?: number; runId?: string }
-    ): Promise<any>;
-
-    /**
-     * Stage 1: Generate stream of consciousness using the 5-stage cognitive model.
-     * No pricing-specific framing. Persona thinks through:
-     * 1. Interpretation — What is this? Who is it for?
-     * 2. Understanding — Do I get it? What am I supposed to do?
-     * 3. Belief — Do I trust it? Does it feel credible?
-     * 4. Motivation — Do I care? Is it worth my time?
-     * 5. Action — What would I do next?
-     */
-    generateCognitiveStream(
-        persona: Persona,
-        context: ArtifactIntake,
-        businessGoal: string,
-        researchQuestion: string,
-        options?: { tokenLimit?: number; runId?: string }
-    ): Promise<StreamOfConsciousness>;
-
-    /**
-     * Stage 2a: Format cognitive stream into structured PersonaResponse.
-     */
-    formatPersonaResponse(
-        persona: Persona,
-        stream: StreamOfConsciousness,
-        businessGoal: string,
-        researchQuestion: string,
-        options?: { tokenLimit?: number; runId?: string }
+        options?: { tokenLimit?: number; runId?: string; artifactName?: string }
     ): Promise<PersonaResponse>;
 
-    /**
-     * Stage 2b: Derive summary signals from the cognitive stream.
-     * Returns highest stage reached, final action, and key signals.
-     */
-    deriveResponseSignals(
-        persona: Persona,
-        stream: StreamOfConsciousness,
-        options?: { runId?: string }
-    ): Promise<{
-        highestStageReached: string;
-        finalAction: string;
-        keySignals: string[];
-    }>;
 
-    // --- Cross-persona synthesis (focused calls, run in phases) ---
+    // --- Cross-persona cohort synthesis ---
 
     /**
-     * Phase 1a: Identify top 3-5 patterns across all personas.
-     * Must use group language — no individual persona names.
+     * One structured LLM call over the cohort's RAW monologue transcripts:
+     * overview, research-question answer, top findings (each carrying
+     * evidence locators for code-side citation grounding), disagreements and
+     * frictions. Evidence anchors ride on the findings in this same call — a
+     * separate locateEvidenceAnchors call would force findings and locators
+     * through two prompts that must agree with each other.
+     * Completion counts are deliberately absent: the caller knows them; the
+     * model must not fabricate them.
      */
-    generateTopFindings(
-        responses: PersonaResponse[],
-        businessGoal: string,
+    generateCohortSynthesis(
         researchQuestion: string,
+        transcripts: Array<{ personaId: string; personaName: string; transcript: string }>,
         options?: { runId?: string }
-    ): Promise<import("../entities/ArtifactSynthesis").SynthesizedFinding[]>;
-
-    /**
-     * Phase 1b: Identify where personas had opposing reactions.
-     */
-    generateDisagreements(
-        responses: PersonaResponse[],
-        options?: { runId?: string }
-    ): Promise<import("../entities/ArtifactSynthesis").Disagreement[]>;
-
-    /**
-     * Phase 1c: Identify 2-3 biggest friction points that multiple personas experienced.
-     */
-    generateFrictions(
-        responses: PersonaResponse[],
-        options?: { runId?: string }
-    ): Promise<string[]>;
-
-    /**
-     * Phase 2: Generate overview and research question answer, informed by
-     * the top findings, disagreements, and frictions from Phase 1.
-     */
-    generateSynthesisOverview(
-        responses: PersonaResponse[],
-        businessGoal: string,
-        researchQuestion: string,
-        topFindings: import("../entities/ArtifactSynthesis").SynthesizedFinding[],
-        disagreements: import("../entities/ArtifactSynthesis").Disagreement[],
-        frictions: string[],
-        options?: { runId?: string }
-    ): Promise<{ overview: string; researchQuestionAnswer: string }>;
+    ): Promise<CohortSynthesisContent>;
 
     /**
      * Validates if a user's prompt is within the persona's expected domain.
@@ -351,7 +221,7 @@ export interface LlmServicePort {
      */
     generateAbbreviatedBackstoriesBatch(personas: Persona[]): Promise<string[]>;
 
-    summarizeHtml(html: string): Promise<string>;
+    summarizeHtml(html: string, runId?: string): Promise<string>;
 
     /**
      * Extracts structured signals from an interview transcript.

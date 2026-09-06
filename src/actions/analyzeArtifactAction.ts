@@ -1,8 +1,5 @@
 "use server";
 import { createStreamableValue } from "@ai-sdk/rsc";
-import { headers } from 'next/headers';
-import { RateLimiterMemory } from 'rate-limiter-flexible';
-
 import { AnalyzeArtifactUseCase } from "@/application/usecases/AnalyzeArtifactUseCase";
 import { ArtifactIntakeAdapter, type ArtifactInput } from "@/infrastructure/adapters/ArtifactIntakeAdapter";
 import { RemotePlaywrightAdapter } from "@/infrastructure/adapters/RemotePlaywrightAdapter";
@@ -14,17 +11,12 @@ import { cancellationManager } from "@/infrastructure/RequestCancellationManager
 import { AnalysisLogger } from "@/infrastructure/AnalysisLogger";
 import { analysisResultStore } from "@/infrastructure/AnalysisResultStore";
 import { storeProgress, storeCompleted } from "./getProgress";
-import { shouldRunLocally, VPS_BACKEND_URL, getVpsAuthToken } from "@/infrastructure/config";
-import { computeSynthesis } from "@/ui/dashboard/utils/computeSynthesis";
+import { shouldRunLocally } from "@/infrastructure/config";
+import { vpsFetchRaw } from "./vpsClient";
+import { SynthesizeArtifactResultsUseCase } from "@/application/usecases/synthesizeArtifactResults";
+import { createRateLimiter, checkRateLimit } from "./rateLimiter";
 
-const AUDIT_RATE_LIMIT_MAX = parseInt(process.env.AUDIT_RATE_LIMIT_MAX || '5');
-const AUDIT_RATE_LIMIT_WINDOW_MS = parseInt(process.env.AUDIT_RATE_LIMIT_WINDOW_MS || '60000');
-
-const auditRateLimiter = new RateLimiterMemory({
-    keyPrefix: 'audit',
-    points: AUDIT_RATE_LIMIT_MAX,
-    duration: Math.floor(AUDIT_RATE_LIMIT_WINDOW_MS / 1000),
-});
+const auditRateLimiter = createRateLimiter('audit');
 
 const rawPersonaTokenLimit = parseInt(process.env.PERSONA_TOKEN_LIMIT || '2000', 10);
 const PERSONA_TOKEN_LIMIT = Number.isFinite(rawPersonaTokenLimit) && rawPersonaTokenLimit > 0
@@ -76,18 +68,10 @@ async function runLocally(
     });
 
     // Rate limiting
-    let clientIP = 'unknown';
-    try {
-        const headersList = await headers();
-        clientIP = headersList.get('x-forwarded-for')?.split(',')[0] || headersList.get('x-real-ip') || 'unknown';
-    } catch { /* non-critical */ }
-
-    try {
-        await auditRateLimiter.consume(clientIP);
-    } catch (rejRes: any) {
-        const retryAfter = Math.round((rejRes.msBeforeNext || 60000) / 1000);
-        log.warn("analyzeArtifactAction", "Rate limit exceeded", { clientIP, retryAfter });
-        stream.done({ step: "ERROR", error: `Rate limit exceeded. Try again in ${retryAfter} seconds.`, requestId: id });
+    const rateLimit = await checkRateLimit(auditRateLimiter);
+    if (!rateLimit.allowed) {
+        log.warn("analyzeArtifactAction", "Rate limit exceeded", { retryAfter: rateLimit.retryAfterSeconds });
+        stream.done({ step: "ERROR", error: `Rate limit exceeded. Try again in ${rateLimit.retryAfterSeconds} seconds.`, requestId: id });
         await log.close();
         AnalysisLogger.removeRun(id);
         return { streamData: stream.value, requestId: id };
@@ -147,9 +131,11 @@ async function runLocally(
                     if (completedResponses.length === 0) {
                         log.warn("analyzeArtifactAction", "No completed responses — skipping synthesis");
                     } else {
-                        synthesis = computeSynthesis(completedResponses);
-                        synthesis.failedCount = failedCount;
-                        synthesis.totalPersonaCount = responses.length;
+                        synthesis = await new SynthesizeArtifactResultsUseCase(llmService).execute(
+                            completedResponses,
+                            researchQuestion,
+                            { runId: id, failedCount, totalPersonaCount: responses.length },
+                        );
                     }
                 } catch (synthErr) {
                     log.warn("analyzeArtifactAction", "Synthesis generation failed, proceeding without", {
@@ -199,24 +185,20 @@ async function runRemote(
     requestId?: string,
 ) {
     const id = requestId || `analysis-${Date.now()}`;
-    const res = await fetch(`${VPS_BACKEND_URL}/api/vps/analyze`, {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${getVpsAuthToken()}`,
-        },
-        body: JSON.stringify({
-            input,
-            personas,
-            businessGoal,
-            researchQuestion,
-            runId: id,
-        }),
+    const data = await vpsFetchRaw("analyze", {
+        input,
+        personas,
+        businessGoal,
+        researchQuestion,
+        runId: id,
+    }).then(async (res) => {
+        if (!res.ok) {
+            const errBody = await res.text().catch(() => res.statusText);
+            throw new Error(`VPS analysis failed (${res.status}): ${errBody}`);
+        }
+        return res.json();
     });
-    if (!res.ok) {
-        const errBody = await res.text().catch(() => res.statusText);
-        throw new Error(`VPS analysis failed (${res.status}): ${errBody}`);
-    }
-    const data = await res.json();
+    // NOTE: the VPS stores the run under ITS OWN runId when the request omits
+    // one — we pass ours through so the client's polling key matches.
     return { streamData: undefined as unknown as ReturnType<typeof createStreamableValue>['value'], requestId: data.runId };
 }

@@ -12,7 +12,7 @@ describe('AnalyzeArtifactUseCase title generation', () => {
   const intake: ArtifactIntake = {
     screenshotBase64: 'base64img',
     url: 'https://example.com',
-    summary: 'A B2B pricing page.',
+    summaryPromise: Promise.resolve('A B2B pricing page.'),
     pageHtml: '<html><body>pricing</body></html>',
   }
 
