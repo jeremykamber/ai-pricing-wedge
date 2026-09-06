@@ -1,8 +1,8 @@
 "use server";
 
 import { cancellationManager } from "@/infrastructure/RequestCancellationManager";
-
-import { shouldRunLocally, VPS_BACKEND_URL, getVpsAuthToken } from "@/infrastructure/config";
+import { shouldRunLocally } from "@/infrastructure/config";
+import { vpsPost, vpsGet } from "./vpsClient";
 
 export async function cancelRequestAction(requestId: string): Promise<{ success: boolean; message: string }> {
   if (shouldRunLocally()) {
@@ -12,15 +12,7 @@ export async function cancelRequestAction(requestId: string): Promise<{ success:
       : { success: false, message: `No active request found with ID ${requestId}.` };
   }
 
-  const res = await fetch(`${VPS_BACKEND_URL}/api/vps/requests`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${getVpsAuthToken()}`,
-    },
-    body: JSON.stringify({ requestId }),
-  });
-  return res.json();
+  return vpsPost("requests", { requestId });
 }
 
 export async function getActiveRequestsAction(): Promise<{ requestIds: string[] }> {
@@ -28,8 +20,5 @@ export async function getActiveRequestsAction(): Promise<{ requestIds: string[] 
     return { requestIds: cancellationManager.getActiveRequestIds() };
   }
 
-  const res = await fetch(`${VPS_BACKEND_URL}/api/vps/requests`, {
-    headers: { Authorization: `Bearer ${getVpsAuthToken()}` },
-  });
-  return res.json();
+  return vpsGet("requests");
 }

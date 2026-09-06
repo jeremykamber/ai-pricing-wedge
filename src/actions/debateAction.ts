@@ -6,7 +6,8 @@ import { DebatePromptCompiler } from "@/infrastructure/adapters/DebatePromptComp
 import { LlmServiceImpl } from "@/infrastructure/adapters/LlmServiceImpl";
 import type { Persona } from "@/domain/entities/Persona";
 import type { DebateStreamEvent } from "@/domain/entities/DebateRoom";
-import { shouldRunLocally, VPS_BACKEND_URL, getVpsAuthToken } from "@/infrastructure/config";
+import { shouldRunLocally } from "@/infrastructure/config";
+import { vpsFetchRaw } from "./vpsClient";
 
 async function runLocally(
   proposal: string,
@@ -46,14 +47,7 @@ async function runRemote(
 
   (async () => {
     try {
-      const res = await fetch(`${VPS_BACKEND_URL}/api/vps/debate`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${getVpsAuthToken()}`,
-        },
-        body: JSON.stringify({ proposal, participants, totalRounds }),
-      });
+      const res = await vpsFetchRaw("debate", { proposal, participants, totalRounds });
 
       if (!res.ok) {
         const err = await res.json().catch(() => ({ error: `HTTP ${res.status}` }));

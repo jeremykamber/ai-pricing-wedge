@@ -16,8 +16,9 @@
 // transformed by the bundler and type imports can break at runtime.
 // ─────────────────────────────────────────────────────────────────────────────
 
-import { shouldRunLocally, VPS_BACKEND_URL, getVpsAuthToken } from "@/infrastructure/config";
+import { shouldRunLocally } from "@/infrastructure/config";
 import { progressMap } from "@/infrastructure/progressStore";
+import { vpsGet } from "./vpsClient";
 
 export interface ProgressState {
   step?: string;
@@ -61,12 +62,14 @@ export async function getProgressAction(runId: string): Promise<{
     return { found: true, progress: p };
   }
 
-  const res = await fetch(`${VPS_BACKEND_URL}/api/vps/analyze-progress?runId=${runId}`, {
-    headers: { Authorization: `Bearer ${getVpsAuthToken()}` },
-  });
-  if (!res.ok) {
-    console.error(`[PROGRESS_POLL] VPS returned ${res.status} for ${runId}`);
+  try {
+    const data = await vpsGet<{ found: boolean; progress?: ProgressState }>(
+      "analyze-progress",
+      { runId },
+    );
+    return data;
+  } catch {
+    console.error(`[PROGRESS_POLL] VPS returned error for ${runId}`);
     return { found: false };
   }
-  return res.json();
 }

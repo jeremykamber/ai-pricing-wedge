@@ -14,7 +14,8 @@ import { cancellationManager } from "@/infrastructure/RequestCancellationManager
 import { AnalysisLogger } from "@/infrastructure/AnalysisLogger";
 import { analysisResultStore } from "@/infrastructure/AnalysisResultStore";
 import { storeProgress, storeCompleted } from "./getProgress";
-import { shouldRunLocally, VPS_BACKEND_URL, getVpsAuthToken } from "@/infrastructure/config";
+import { shouldRunLocally } from "@/infrastructure/config";
+import { vpsFetchRaw } from "./vpsClient";
 import { SynthesizeArtifactResultsUseCase } from "@/application/usecases/synthesizeArtifactResults";
 
 const AUDIT_RATE_LIMIT_MAX = parseInt(process.env.AUDIT_RATE_LIMIT_MAX || '5');
@@ -201,26 +202,20 @@ async function runRemote(
     requestId?: string,
 ) {
     const id = requestId || `analysis-${Date.now()}`;
-    const res = await fetch(`${VPS_BACKEND_URL}/api/vps/analyze`, {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${getVpsAuthToken()}`,
-        },
-        body: JSON.stringify({
-            input,
-            personas,
-            businessGoal,
-            researchQuestion,
-            runId: id,
-        }),
+    const data = await vpsFetchRaw("analyze", {
+        input,
+        personas,
+        businessGoal,
+        researchQuestion,
+        runId: id,
+    }).then(async (res) => {
+        if (!res.ok) {
+            const errBody = await res.text().catch(() => res.statusText);
+            throw new Error(`VPS analysis failed (${res.status}): ${errBody}`);
+        }
+        return res.json();
     });
-    if (!res.ok) {
-        const errBody = await res.text().catch(() => res.statusText);
-        throw new Error(`VPS analysis failed (${res.status}): ${errBody}`);
-    }
     // NOTE: the VPS stores the run under ITS OWN runId when the request omits
     // one — we pass ours through so the client's polling key matches.
-    const data = await res.json();
     return { streamData: undefined as unknown as ReturnType<typeof createStreamableValue>['value'], requestId: data.runId };
 }
