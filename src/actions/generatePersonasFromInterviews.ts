@@ -14,12 +14,12 @@ import { createRateLimiter, checkRateLimit } from "./rateLimiter";
 
 const pipelineRateLimiter = createRateLimiter('pipeline');
 
-function generateRunId(): string {
-  return `pipeline-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
+function generateRunId(prefix: string): string {
+  return `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
 }
 
 async function runLocally(formData: FormData) {
-    const runId = generateRunId();
+    const runId = generateRunId('pipeline');
     console.log(`generatePersonasFromInterviewsAction called [runId=${runId}]...`);
     const stream = createStreamableValue<any>({ step: "UPLOADING" });
 

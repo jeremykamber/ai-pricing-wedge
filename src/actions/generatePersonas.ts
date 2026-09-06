@@ -14,12 +14,12 @@ import { vpsPost } from "./vpsClient";
 
 const personasRateLimiter = createRateLimiter('personas');
 
-function generateRunId(): string {
-  return `persona-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
+function generateRunId(prefix: string): string {
+  return `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
 }
 
 async function runLocally(personaDescription: string, count: number, mode?: PersonaGenerationMode) {
-    const runId = generateRunId();
+    const runId = generateRunId('persona');
     console.log(`generatePersonasAction called [runId=${runId}] mode=${mode ?? "default"}...`);
     const stream = createStreamableValue<any>({ step: "BRAINSTORMING_PERSONAS" });
 
