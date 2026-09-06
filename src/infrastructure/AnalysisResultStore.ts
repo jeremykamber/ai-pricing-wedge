@@ -1,5 +1,6 @@
 import type { PersonaResponse } from '@/domain/entities/PersonaResponse'
 import type { ArtifactSynthesis } from '@/domain/entities/ArtifactSynthesis'
+import { ExpiringStore } from './ExpiringStore'
 
 interface StoredAnalysis {
   analyses: PersonaResponse[]
@@ -16,62 +17,38 @@ interface StoredAnalysis {
  * the results so they can be fetched on reconnection.
  *
  * Results are kept for 30 minutes after completion, then cleaned up.
- *
- * NOTE: Maps are stored on globalThis to survive Next.js HMR (dev mode).
- * Without this, module re-evaluation during hot reload wipes the in-memory
- * data while the running IIFE writes to the old instance.
+ * Delegates to ExpiringStore for HMR-safe storage and TTL cleanup.
  */
-const GLOBAL_KEY = '__kynd_analysis_results';
-const GLOBAL_CLEANUP_KEY = '__kynd_analysis_cleanups';
-
-function getGlobalMap<K, V>(key: string): Map<K, V> {
-  return ((globalThis as any)[key] ?? ((globalThis as any)[key] = new Map()));
-}
-
 class AnalysisResultStore {
-  private get results() { return getGlobalMap<string, StoredAnalysis>(GLOBAL_KEY); }
-  private get cleanups() { return getGlobalMap<string, ReturnType<typeof setTimeout>>(GLOBAL_CLEANUP_KEY); }
+  private readonly store = new ExpiringStore<StoredAnalysis>(
+    '__kynd_analysis_results',
+    '__kynd_analysis_cleanups',
+  );
 
   save(runId: string, analyses: PersonaResponse[], synthesis?: ArtifactSynthesis): void {
     console.log(`[RESULT_STORE] Saving ${analyses.length} analyses for ${runId}`);
-    this.results.set(runId, {
+    this.store.set(runId, {
       analyses,
       completedAt: new Date().toISOString(),
       synthesis,
     })
-    this.scheduleCleanup(runId)
   }
 
   saveError(runId: string, error: string): void {
     console.log(`[RESULT_STORE] Saving error for ${runId}: ${error}`);
-    this.results.set(runId, {
+    this.store.set(runId, {
       analyses: [],
       completedAt: new Date().toISOString(),
       error,
     })
-    this.scheduleCleanup(runId)
   }
 
   get(runId: string): StoredAnalysis | undefined {
-    return this.results.get(runId)
+    return this.store.get(runId)
   }
 
   remove(runId: string): void {
-    this.results.delete(runId)
-    const timer = this.cleanups.get(runId)
-    if (timer) {
-      clearTimeout(timer)
-      this.cleanups.delete(runId)
-    }
-  }
-
-  private scheduleCleanup(runId: string): void {
-    const existing = this.cleanups.get(runId)
-    if (existing) clearTimeout(existing)
-    this.cleanups.set(
-      runId,
-      setTimeout(() => this.remove(runId), 30 * 60 * 1000),
-    )
+    this.store.delete(runId)
   }
 }
 
