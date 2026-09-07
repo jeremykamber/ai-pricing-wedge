@@ -101,7 +101,7 @@ export function PersonaProfilePanel({ persona, onChatClick, onCreateVariant, onD
           )}
         </div>
 
-        <div className="mt-auto flex flex-wrap gap-2">
+        <div className="mt-auto flex items-center gap-2">
           {onEdit && (
             <button
               type="button"
@@ -109,7 +109,7 @@ export function PersonaProfilePanel({ persona, onChatClick, onCreateVariant, onD
                 e.stopPropagation()
                 onEdit()
               }}
-              className="flex-1 inline-flex h-10 items-center justify-center gap-1.5 rounded-md border border-border/60 bg-card px-4 text-xs font-medium text-foreground transition-colors hover:bg-muted/30 focus-visible:outline-none"
+              className="inline-flex h-9 items-center justify-center gap-1.5 rounded-md border border-border/60 bg-card px-3 text-xs font-medium text-foreground transition-colors hover:bg-muted/30 focus-visible:outline-none"
             >
               <PenIcon className="w-3.5 h-3.5" />
               Edit
@@ -122,10 +122,10 @@ export function PersonaProfilePanel({ persona, onChatClick, onCreateVariant, onD
                 e.stopPropagation()
                 onCreateVariant()
               }}
-              className="flex-1 inline-flex h-10 items-center justify-center gap-1.5 rounded-md border border-border/60 bg-card px-4 text-xs font-medium text-foreground transition-colors hover:bg-muted/30 focus-visible:outline-none"
+              className="inline-flex h-9 items-center justify-center gap-1.5 rounded-md border border-border/60 bg-card px-3 text-xs font-medium text-foreground transition-colors hover:bg-muted/30 focus-visible:outline-none"
             >
               <CopyIcon className="w-3.5 h-3.5" />
-              Create Variant
+              Variant
             </button>
           )}
           {onChatClick && (
@@ -135,7 +135,7 @@ export function PersonaProfilePanel({ persona, onChatClick, onCreateVariant, onD
                 e.stopPropagation()
                 onChatClick()
               }}
-              className="flex-1 inline-flex h-10 items-center justify-center gap-1.5 rounded-md bg-primary px-4 text-xs font-semibold text-primary-foreground transition-all hover:bg-primary/90 ring-1 ring-primary/20 focus-visible:outline-none"
+              className="ml-auto inline-flex h-9 items-center justify-center gap-1.5 rounded-md bg-primary px-4 text-xs font-semibold text-primary-foreground whitespace-nowrap transition-all hover:bg-primary/90 ring-1 ring-primary/20 focus-visible:outline-none"
             >
               Chat with {persona.name.split(' ')[0]}
             </button>

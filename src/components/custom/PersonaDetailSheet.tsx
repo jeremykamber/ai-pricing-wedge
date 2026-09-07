@@ -333,7 +333,7 @@ export function PersonaDetailSheet({
 
                                 <div className="flex flex-col gap-3">
                                     <div className="flex items-center gap-3">
-                                        <h4 className="text-sm font-semibold text-foreground uppercase tracking-wide">BEHAVIOR PATTERNS</h4>
+                                        <h4 className="text-base font-bold text-foreground tracking-tight">Behavior Patterns</h4>
                                     </div>
                                     {persona.behavioralDimensions && persona.behavioralDimensions.length > 0 ? (
                                         <div className="flex flex-col">
@@ -362,21 +362,27 @@ export function PersonaDetailSheet({
 
                                 <div className="flex flex-col gap-5">
                                     <div className="flex items-center gap-3">
-                                        <h4 className="text-sm font-semibold text-foreground uppercase tracking-wide">DECISION MODEL</h4>
+                                        <h4 className="text-base font-bold text-foreground tracking-tight">Decision Model</h4>
                                     </div>
-                                    <div className="flex flex-col gap-6">
-                                        {persona.decisionStyle && <p className="text-sm text-foreground/80"><span className="text-muted-foreground">Style:</span> {persona.decisionStyle}</p>}
-                                        <div className="flex flex-wrap gap-x-6 gap-y-1.5 text-sm text-muted-foreground/80">
-                                            <span>Price sensitivity: {persona.pricingSensitivity}/100</span>
-                                            {persona.typicalBudget && <span className="text-muted-foreground/40">/</span>}
-                                            {persona.typicalBudget && <span className="text-foreground/80">{persona.typicalBudget}</span>}
+                                    <div className="flex flex-col gap-4">
+                                        {persona.decisionStyle && (
+                                            <div className="flex flex-col gap-1">
+                                                <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Style</span>
+                                                <p className="text-sm text-foreground leading-relaxed">{persona.decisionStyle}</p>
+                                            </div>
+                                        )}
+                                        <div className="flex flex-col gap-1">
+                                            <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Budget</span>
+                                            <p className="text-sm text-foreground leading-relaxed">
+                                                {persona.typicalBudget || `Price sensitivity: ${persona.pricingSensitivity}/100`}
+                                            </p>
                                         </div>
                                         {persona.goals.length > 0 && (
                                             <div className="flex flex-col gap-2">
-                                                <span className="text-xs font-medium text-muted-foreground">Likely to adopt if helps with</span>
-                                                <div className="flex flex-wrap gap-x-4 gap-y-1">
+                                                <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Adopts if helps with</span>
+                                                <div className="flex flex-wrap gap-2">
                                                     {persona.goals.slice(0, 4).map((g, i) => (
-                                                        <span key={i} className="text-sm text-foreground/80">{g}</span>
+                                                        <span key={i} className="text-sm text-foreground bg-secondary/50 px-2.5 py-1 rounded-md">{g}</span>
                                                     ))}
                                                 </div>
                                             </div>
@@ -388,7 +394,7 @@ export function PersonaDetailSheet({
                                 {(persona.bestFor?.length || persona.lessReliableFor?.length) ? (
                                     <div className="flex flex-col gap-4">
                                         <div className="flex flex-col gap-1">
-                                            <h4 className="text-sm font-semibold text-foreground uppercase tracking-wide">HOW TO USE THIS PERSONA</h4>
+                                            <h4 className="text-base font-bold text-foreground tracking-tight">How to Use This Persona</h4>
                                             <p className="text-xs text-muted-foreground/70 leading-relaxed">
                                                 This persona models a specific type of user. The lists below tell you what product decisions this persona can reliably inform, and where its perspective may be less trustworthy.
                                             </p>
@@ -422,7 +428,7 @@ export function PersonaDetailSheet({
                                     {persona.values && persona.values.length > 0 && (
                                         <div className="flex flex-col gap-4">
                                             <div className="flex items-center gap-3">
-                                                <h4 className="text-sm font-semibold text-foreground uppercase tracking-wide">MOTIVATIONS</h4>
+                                                <h4 className="text-base font-bold text-foreground tracking-tight">Motivations</h4>
                                             </div>
                                             <div className="flex flex-col gap-5">
                                                 {persona.values.map((v, i) => {
@@ -442,7 +448,7 @@ export function PersonaDetailSheet({
                                     {persona.fears && persona.fears.length > 0 && (
                                         <div className="flex flex-col gap-3">
                                             <div className="flex items-center gap-3">
-                                                <h4 className="text-sm font-semibold text-foreground uppercase tracking-wide">FRICTIONS</h4>
+                                                <h4 className="text-base font-bold text-foreground tracking-tight">Frictions</h4>
                                             </div>
                                             <ul className="space-y-5">
                                                 {persona.fears.map((f, i) => {
@@ -467,7 +473,7 @@ export function PersonaDetailSheet({
                                 <div className="flex flex-col gap-5 mt-6 border-t border-border/10 pt-6">
 
                                     <div className="flex flex-col gap-4">
-                                        <h4 className="text-sm font-semibold text-foreground uppercase tracking-wide">EVIDENCE &amp; CONFIDENCE</h4>
+                                        <h4 className="text-base font-bold text-foreground tracking-tight">Evidence &amp; Confidence</h4>
                                         {persona.provenance ? (
                                             <>
                                                 {persona.provenance.attributes.length > 0 && (
@@ -502,7 +508,7 @@ export function PersonaDetailSheet({
 
                                     {persona.evidenceLinks && persona.evidenceLinks.length > 0 && (
                                         <div className="flex flex-col gap-4">
-                                            <h4 className="text-sm font-semibold text-foreground uppercase tracking-wide">SOURCES</h4>
+                                            <h4 className="text-base font-bold text-foreground tracking-tight">Sources</h4>
                                             <div className="flex flex-col gap-5">
                                                 {persona.evidenceLinks.map((link, i) => {
                                                     const question = persona.evidenceQuestions?.[link.excerpt];
