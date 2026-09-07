@@ -2,7 +2,7 @@ import * as React from "react"
 import { cn } from "@/lib/utils"
 import { MinimalCard } from "./MinimalCard"
 import { PersonaAvatar } from "./PersonaAvatar"
-import { CopyIcon, GitForkIcon, XIcon, AlertTriangleIcon, PenIcon } from "lucide-react"
+import { CopyIcon, GitForkIcon, XIcon, AlertTriangleIcon } from "lucide-react"
 import {
   Dialog,
   DialogContent,
@@ -62,7 +62,7 @@ export function PersonaProfilePanel({ persona, onChatClick, onCreateVariant, onD
             <div className="flex items-center justify-between gap-4">
               <h3 className="font-semibold text-xl tracking-tight text-foreground leading-tight">{persona.name}</h3>
             </div>
-            <p className="text-sm font-medium text-muted-foreground uppercase tracking-widest leading-tight">{persona.occupation}</p>
+            <p className="text-sm text-muted-foreground leading-tight">{persona.occupation}</p>
             {persona.variantOf && (
               <div className="flex items-center gap-1.5 mt-1">
                 <GitForkIcon className="w-3 h-3 text-muted-foreground/80 shrink-0" />
@@ -84,11 +84,11 @@ export function PersonaProfilePanel({ persona, onChatClick, onCreateVariant, onD
             {persona.educationLevel && <span>{persona.educationLevel}</span>}
           </div>
 
-          {/* Values */}
+          {/* Values — DESIGN.md chip spec: mono, uppercase, 11px, 4px radius */}
           {persona.values && persona.values.length > 0 && (
             <div className="flex flex-wrap gap-1.5">
               {persona.values.slice(0, 3).map((v, i) => (
-                <span key={i} className="text-[11px] font-medium text-primary/80 bg-primary/10 px-2 py-0.5 rounded-sm">
+                <span key={i} className="font-mono text-[11px] font-medium uppercase tracking-wider text-primary bg-primary/10 px-2 py-0.5 rounded">
                   {v}
                 </span>
               ))}
@@ -97,24 +97,11 @@ export function PersonaProfilePanel({ persona, onChatClick, onCreateVariant, onD
 
           {/* Decision style */}
           {persona.decisionStyle && (
-            <p className="text-xs text-muted-foreground/80 leading-relaxed">{persona.decisionStyle}</p>
+            <p className="text-xs text-muted-foreground leading-relaxed">{persona.decisionStyle}</p>
           )}
         </div>
 
         <div className="mt-auto flex items-center gap-2">
-          {onEdit && (
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation()
-                onEdit()
-              }}
-              className="inline-flex h-9 items-center justify-center gap-1.5 rounded-md border border-border/60 bg-card px-3 text-xs font-medium text-foreground transition-colors hover:bg-muted/30 focus-visible:outline-none"
-            >
-              <PenIcon className="w-3.5 h-3.5" />
-              Edit
-            </button>
-          )}
           {onCreateVariant && (
             <button
               type="button"
