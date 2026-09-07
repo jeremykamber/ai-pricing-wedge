@@ -50,7 +50,7 @@ describe('PersonaDetailSheet edit mode', () => {
         onEdit={onEdit}
       />
     )
-    fireEvent.click(screen.getByLabelText('Edit persona'))
+    fireEvent.click(screen.getByText('Edit Profile'))
     expect(screen.getByDisplayValue('Sarah Miller')).toBeTruthy()
     expect(screen.getByDisplayValue('Founder & CEO')).toBeTruthy()
     expect(screen.getByDisplayValue('I grew up in a household that valued frugality.')).toBeTruthy()
@@ -65,7 +65,7 @@ describe('PersonaDetailSheet edit mode', () => {
         onEdit={vi.fn()}
       />
     )
-    fireEvent.click(screen.getByLabelText('Edit persona'))
+    fireEvent.click(screen.getByText('Edit Profile'))
     expect(screen.queryAllByText('Save Changes').length).toBeGreaterThanOrEqual(1)
     expect(screen.queryAllByText('Cancel').length).toBeGreaterThanOrEqual(1)
   })
@@ -80,7 +80,7 @@ describe('PersonaDetailSheet edit mode', () => {
         onEdit={onEdit}
       />
     )
-    fireEvent.click(screen.getByLabelText('Edit persona'))
+    fireEvent.click(screen.getByText('Edit Profile'))
     const nameInput = screen.getByDisplayValue('Sarah Miller')
     fireEvent.change(nameInput, { target: { value: 'Sarah Johnson' } })
     fireEvent.click(screen.getAllByText('Save Changes')[0])
@@ -99,7 +99,7 @@ describe('PersonaDetailSheet edit mode', () => {
         onEdit={onEdit}
       />
     )
-    fireEvent.click(screen.getByLabelText('Edit persona'))
+    fireEvent.click(screen.getByText('Edit Profile'))
     fireEvent.click(screen.getAllByText('Cancel')[0])
     expect(onEdit).not.toHaveBeenCalled()
   })
@@ -113,7 +113,7 @@ describe('PersonaDetailSheet edit mode', () => {
         onEdit={vi.fn()}
       />
     )
-    fireEvent.click(screen.getByLabelText('Edit persona'))
+    fireEvent.click(screen.getByText('Edit Profile'))
     expect(screen.queryAllByText('Conscientiousness').length).toBeGreaterThanOrEqual(1)
     expect(screen.getByText('Inferred from backstory')).toBeTruthy()
   })
@@ -128,7 +128,7 @@ describe('PersonaDetailSheet edit mode', () => {
         onEdit={onEdit}
       />
     )
-    fireEvent.click(screen.getByLabelText('Edit persona'))
+    fireEvent.click(screen.getByText('Edit Profile'))
     const backstoryInput = screen.getByDisplayValue('I grew up in a household that valued frugality.')
     fireEvent.change(backstoryInput, { target: { value: 'New backstory text here.' } })
     fireEvent.click(screen.getAllByText('Save Changes')[0])

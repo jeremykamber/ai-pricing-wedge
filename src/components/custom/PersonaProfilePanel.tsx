@@ -2,7 +2,6 @@ import * as React from "react"
 import { cn } from "@/lib/utils"
 import { MinimalCard } from "./MinimalCard"
 import { PersonaAvatar } from "./PersonaAvatar"
-import { StatusBadge } from "./StatusBadge"
 import { CopyIcon, GitForkIcon, XIcon, AlertTriangleIcon } from "lucide-react"
 import {
   Dialog,
@@ -21,9 +20,10 @@ export interface PersonaProfilePanelProps extends React.HTMLAttributes<HTMLDivEl
   onChatClick?: () => void
   onCreateVariant?: () => void
   onDelete?: (personaId: string) => void
+  onEdit?: () => void
 }
 
-export function PersonaProfilePanel({ persona, onChatClick, onCreateVariant, onDelete, className, ...props }: PersonaProfilePanelProps) {
+export function PersonaProfilePanel({ persona, onChatClick, onCreateVariant, onDelete, onEdit, className, ...props }: PersonaProfilePanelProps) {
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = React.useState(false)
 
   const analyses = useAnalysisStore((s) => s.analyses)
@@ -60,9 +60,9 @@ export function PersonaProfilePanel({ persona, onChatClick, onCreateVariant, onD
           />
           <div className="flex flex-col gap-1.5 flex-1 min-w-0">
             <div className="flex items-center justify-between gap-4">
-              <h3 className="font-semibold text-xl tracking-tight text-foreground truncate">{persona.name}</h3>
+              <h3 className="font-semibold text-xl tracking-tight text-foreground leading-tight">{persona.name}</h3>
             </div>
-            <p className="text-sm font-medium text-muted-foreground uppercase tracking-widest truncate">{persona.occupation}</p>
+            <p className="text-sm text-muted-foreground leading-tight">{persona.occupation}</p>
             {persona.variantOf && (
               <div className="flex items-center gap-1.5 mt-1">
                 <GitForkIcon className="w-3 h-3 text-muted-foreground/80 shrink-0" />
@@ -74,57 +74,34 @@ export function PersonaProfilePanel({ persona, onChatClick, onCreateVariant, onD
           </div>
         </div>
 
-        <div className="flex flex-col gap-4">
+        <div className="flex flex-col gap-3">
           <div className="h-px w-full bg-border/40" />
 
-          <div className="flex flex-col gap-3">
-            {/* Big Five: show the two most distinctive traits */}
-            <div className="flex flex-col gap-1.5">
-              <div className="flex justify-between items-end gap-3">
-                <span className="text-xs font-bold text-muted-foreground uppercase tracking-widest min-w-0 truncate">Conscientiousness</span>
-                <span className="text-xs font-bold font-variant-numeric tabular-nums shrink-0">{persona.conscientiousness}%</span>
-              </div>
-              <div className="h-1.5 w-full bg-muted rounded-sm overflow-hidden">
-                <div className="h-full bg-primary rounded-sm" style={{ width: `${persona.conscientiousness}%` }} />
-              </div>
-              <div className="flex justify-between text-[11px] text-muted-foreground/80 font-medium uppercase">
-                <span>Chaotic</span>
-                <span>Meticulous</span>
-              </div>
-            </div>
+          {/* Quick stats — age, education */}
+          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+            {persona.age && <span>{persona.age} yrs</span>}
+            {persona.age && persona.educationLevel && <span className="w-1 h-1 rounded-full bg-border" />}
+            {persona.educationLevel && <span>{persona.educationLevel}</span>}
+          </div>
 
-            <div className="flex flex-col gap-1.5">
-              <div className="flex justify-between items-end gap-3">
-                <span className="text-xs font-bold text-muted-foreground uppercase tracking-widest min-w-0 truncate">Neuroticism</span>
-                <span className="text-xs font-bold font-variant-numeric tabular-nums shrink-0">{persona.neuroticism}%</span>
-              </div>
-              <div className="h-1.5 w-full bg-muted rounded-sm overflow-hidden">
-                <div className="h-full bg-primary rounded-sm" style={{ width: `${persona.neuroticism}%` }} />
-              </div>
-              <div className="flex justify-between text-[11px] text-muted-foreground/80 font-medium uppercase">
-                <span>Stable</span>
-                <span>Anxious</span>
-              </div>
-            </div>
-
-            {/* Psychographic snapshot */}
-            <div className="flex flex-wrap gap-1.5 mt-2">
-              {persona.values?.slice(0, 2).map((v, i) => (
-                <span key={i} className="text-[11px] font-medium text-primary/80 bg-primary/10 px-2 py-0.5 rounded-sm truncate max-w-[100px]">
+          {/* Values — DESIGN.md chip spec: mono, uppercase, 11px, 4px radius */}
+          {persona.values && persona.values.length > 0 && (
+            <div className="flex flex-wrap gap-1.5">
+              {persona.values.slice(0, 3).map((v, i) => (
+                <span key={i} className="font-mono text-[11px] font-medium uppercase tracking-wider text-primary bg-primary/10 px-2 py-0.5 rounded">
                   {v}
                 </span>
               ))}
             </div>
-            {persona.decisionStyle && (
-              <div className="flex items-center gap-1.5">
-                <span className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">Decides:</span>
-                <span className="text-xs font-semibold text-foreground/80 truncate">{persona.decisionStyle}</span>
-              </div>
-            )}
-          </div>
+          )}
+
+          {/* Decision style */}
+          {persona.decisionStyle && (
+            <p className="text-xs text-muted-foreground leading-relaxed">{persona.decisionStyle}</p>
+          )}
         </div>
 
-        <div className="mt-auto flex flex-wrap gap-2">
+        <div className="mt-auto flex items-center gap-2">
           {onCreateVariant && (
             <button
               type="button"
@@ -132,10 +109,10 @@ export function PersonaProfilePanel({ persona, onChatClick, onCreateVariant, onD
                 e.stopPropagation()
                 onCreateVariant()
               }}
-              className="flex-1 inline-flex h-10 items-center justify-center gap-1.5 rounded-md border border-border/60 bg-card px-4 text-xs font-medium text-foreground transition-colors hover:bg-muted/30 focus-visible:outline-none"
+              className="inline-flex h-9 items-center justify-center gap-1.5 rounded-md border border-border/60 bg-card px-3 text-xs font-medium text-foreground transition-colors hover:bg-muted/30 focus-visible:outline-none"
             >
               <CopyIcon className="w-3.5 h-3.5" />
-              Create Variant
+              Variant
             </button>
           )}
           {onChatClick && (
@@ -145,7 +122,7 @@ export function PersonaProfilePanel({ persona, onChatClick, onCreateVariant, onD
                 e.stopPropagation()
                 onChatClick()
               }}
-              className="flex-1 inline-flex h-10 items-center justify-center gap-1.5 rounded-md bg-primary px-4 text-xs font-semibold text-primary-foreground transition-all hover:bg-primary/90 ring-1 ring-primary/20 focus-visible:outline-none"
+              className="ml-auto inline-flex h-9 items-center justify-center gap-1.5 rounded-md bg-primary px-4 text-xs font-semibold text-primary-foreground whitespace-nowrap transition-all hover:bg-primary/90 ring-1 ring-primary/20 focus-visible:outline-none"
             >
               Chat with {persona.name.split(' ')[0]}
             </button>
